@@ -2,64 +2,104 @@ Definition of [primitive objects (S,F,=)]: An implementation-defined
 pair (S,F,=), where S is a set, F is the [??? failure fixed-point],
 and = is an equivalence relation on S.
 
-Definition of [=]: The equivalence relation = the [primitive objects
-(S,F,=)].
+Definition of [=]: The equivalence relation = in the [primitive
+objects (S,F,=)].
 
 Definition of [set of primitive objects]: The set S in the [primitive
 objects (S,F,=)].
 
-Definition of [list of type T]: An ordered collection of objects of
-type T, finite in size, which may contain no objects at all.
-
 Definition of [primitive term]: An object T that is a member of the
 [set of primitive objects].
 
-Definition of [term]: An object T is a term if and only if exactly one
-of the following holds:
+Definition of [non-primitive term]: A directed graph T where all of
+the following conditions hold:
+
+  a. For every leaf L of T there exists a [primitive term] P such that
+     L is labeled P.
+
+  b. For every vertex V of T there exists a non-negative integer U
+     such that for all integers I less than or equal to U, there
+     exists an edge E emanating from T such that E is labeled I.
+
+Definition of [term]: An object T where exactly one of the following
+conditions hold:
 
   1. T is a [primitive term].
 
-  2. T is a directed graph where all of the following conditions hold:
+  2. T is a [non-primitive term].
 
-    a. For every leaf L of T there exists a [primitive term] P such
-       that L is labeled P.
+Definition of [identical non-leaf vertices V1 and V2]: Two non-leaf
+vertices V1 and V2 are identical if and only if V1 is the same vertex
+as V2.
 
-    b. For every vertex V of T there exists a non-negative integer U
-       such that for all integers I less than or equal to U, there
-       exists an edge E emanating from T such that E is labeled I.
+Definition of [identical non-leaf vertices]: [identical non-leaf
+vertices V1 and V2] for some V1 and V2.
 
-Definition of [Rule from T1 to T2]: a pair (T1,T2), where both T1 and
+Definition of [identical leaf vertices L1 and L2]: A leaf L1 is
+identical to a leaf L2 if and only if L1 [=] L2.
+
+Definition of [identical leaf vertices]: [identical leaf vertices L1
+and L2] for some L1 and L2.
+
+Definition of [identical edges E1 and E2]: An edge E1=(E1V1,E1V2) of
+is identical to the edge E2=(E2V1,E2V2) if and only if all of the
+following conditions hold:
+
+  1. E1V1 and E1V2 are [identical non-leaf vertices].
+
+  2. Either E1V2 and E2V2 are [identical non-leaf vertices], or E1V2
+     and E2V2 are [identical leaf vertices].
+
+  2. The vertex label on E1 is the same as the vertex label on E2.
+
+Definition of [identical edges]: [identical edges E1 and E2] for some
+E1 and E2.
+
+Definition of [identical edge sets]: A set of edges E1 is identical to
+a set of edges E2 if and only if all of the following conditions hold:
+
+  1. For every edge E1e of E1 there exists an edge E2e of E2 such that
+     E1e and E2e are [identical edges].
+
+  2. For every edge E2e of E2 there exists an edge E1e of E1 such that
+     E2e and E1e are [identical edges].
+
+Definition of [identical terms]: A [term] T1 is identical to a [term] T2 if
+and only if exactly one of the following conditions hold:
+
+  1. T1 and T2 are [primitive term]s and T1 [=] T2.
+
+  2. Otherwise, T1 and T2 are [non-primitive term]s. T1 and T2 are
+     identical if and only if the set of edges of T1 and the set of
+     edges of T2 are [identical edge sets].
+
+Definition of [rule from T1 to T2]: a pair (T1,T2), where both T1 and
 T2 are [term]s.
 
 Definition of [rule]: A [rule from T1 to T2] for some T1 and T2.
-
-Definition of [identical]: A [term] T1 is identical to a [term] T2 if
-and only if exactly one of the following conditions hold:
-
-  1. T1 [=] T2.
-
-  2. 
 
 Definition of [non-deterministic]: A [rule from T1a to T2a] is said to
 be non-deterministic with respect to a [rule from T1b to T2b] if and
 only if both of the following conditions hold:
 
-  1. T1a is [??? identical] to T1b.
+  1. T1a and T1b are [identical terms].
 
-  2. It is not the case that T2a is [??? identical] to T2b.
+  2. It is not the case that T2a and T2b are [identical terms].
 
 Definition of [deterministic]: A rule R1 is deterministic with respect
 to a rule R2 if and only if R1 is not [non-deterministic] with respect
 to R2.
 
-Definition of [fixed point F of Q]: A [term] F is a fixed point of a
-set of [rule]s Q if and only if there exists (F,F) in Q.
+Definition of [fixed point F in Q]: A [term] F is a fixed point in a
+set of [rule]s Q if and only if there exists a [rule from F to F] in
+Q.
 
-Definition of [environment]: A set of [rule]s E where the following
-conditions hold:
+Definition of [environment]: A set of [rule]s E where all of the
+following conditions hold:
 
   1. For all R1 in E, and for all R2 in E, R1 is [deterministic] with
      respect to R2.
 
-  2. There does not exist (_,N) in E such that for all (M,_) in E, N
-     is not [??? identical] to M.
+  2. There does not exist a [rule from _1 to N] in E such that N is
+     not a [fixed point] in E and there does not exist a [rule from N
+     to _2] in E.
