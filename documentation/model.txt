@@ -1,0 +1,55 @@
+Definition of [primitive objects (S,F,=)]: An implementation-defined
+pair (S,F,=), where S is a set, F is the [??? failure fixed-point],
+and = is an equivalence relation on S.
+
+Definition of [=]: The equivalence relation = the [primitive objects
+(S,F,=)].
+
+Definition of [set of primitive objects]: The set S in the [primitive
+objects (S,F,=)].
+
+Definition of [list of type T]: An ordered collection of objects of
+type T, finite in size, which may contain no objects at all.
+
+Definition of [term]: An object T is a term if and only if exactly one
+of the following holds:
+
+  1. T is a member of the [set of primitive objects].
+
+  2. T is a [list of type [term]].
+
+Definition of [Rule from T1 to T2]: a pair (T1,T2), where both T1 and
+T2 are [term]s.
+
+Definition of [rule]: A [rule from T1 to T2] for some T1 and T2.
+
+Definition of [identical]: A [term] T1 is identical to a [term] T2 if
+and only if exactly one of the following conditions hold:
+
+  1. T1 [=] T2.
+
+  2. 
+
+Definition of [non-deterministic]: A [rule from T1a to T2a] is said to
+be non-deterministic with respect to a [rule from T1b to T2b] if and
+only if both of the following conditions hold:
+
+  1. T1a is [??? identical] to T1b.
+
+  2. It is not the case that T2a is [??? identical] to T2b.
+
+Definition of [deterministic]: A rule R1 is deterministic with respect
+to a rule R2 if and only if R1 is not [non-deterministic] with respect
+to R2.
+
+Definition of [fixed point F of Q]: A [term] F is a fixed point of a
+set of [rule]s Q if and only if there exists (F,F) in Q.
+
+Definition of [environment]: A set of [rule]s E where the following
+conditions hold:
+
+  1. For all R1 in E, and for all R2 in E, R1 is [deterministic] with
+     respect to R2.
+
+  2. There does not exist (_,N) in E such that for all (M,_) in E, N
+     is not [??? identical] to M.
