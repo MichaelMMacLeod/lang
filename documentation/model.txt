@@ -11,12 +11,22 @@ objects (S,F,=)].
 Definition of [list of type T]: An ordered collection of objects of
 type T, finite in size, which may contain no objects at all.
 
+Definition of [primitive term]: An object T that is a member of the
+[set of primitive objects].
+
 Definition of [term]: An object T is a term if and only if exactly one
 of the following holds:
 
-  1. T is a member of the [set of primitive objects].
+  1. T is a [primitive term].
 
-  2. T is a [list of type [term]].
+  2. T is a directed graph where all of the following conditions hold:
+
+    a. For every leaf L of T there exists a [primitive term] P such
+       that L is labeled P.
+
+    b. For every vertex V of T there exists a non-negative integer U
+       such that for all integers I less than or equal to U, there
+       exists an edge E emanating from T such that E is labeled I.
 
 Definition of [Rule from T1 to T2]: a pair (T1,T2), where both T1 and
 T2 are [term]s.
