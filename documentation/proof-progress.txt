@@ -1,0 +1,46 @@
+;;; These proofs haven't yet been completed.
+
+Proof of [exists-non-deterministic-rule]:
+
+  1. Because [T is iterated-reducible to Q1 in E], we know there
+     exists some non-negative integer N1 such that [T is
+     iterated-reducible to Q1 in E with N1 steps].
+
+  2. Because [T is iterated-reducible to Q2 in E], we know there
+     exists some non-negative integer N2 such that [T is
+     iterated-reducible to Q2 in E with N2 steps].
+
+  3. Suppose that [T is reducible to Q1 in E].
+
+    a. Then, because [T is iterated-reducible to Q2 in E], we know
+       that there exists a [term] T2 such that [T is reducible to T2
+       in E] and [T2 is iterated-reducible to Q2 in E with (N2-1)
+       steps].
+
+    b. Because [T is reducible to Q1 in E] there exists a [rule from T
+       to Q1] in E.
+
+    c. Because [T is reducible to T2 in E]
+
+  3. If [T is iterated-reducible to Q1 in E with 1 step], then,
+     because of (2), we know that there exists a [term] T2 such that
+     [T is reducible to T2 in E] and [T2 is iterated-reducible to Q in
+     E with (N2-1) steps].
+
+Proof of [always-uniquely-reducible]:
+
+  1. Assume, for the purposes of finding a contradiction, that there
+     exists an [environment] E, [term] T, and [term] T2 such that [T
+     is iterated-reducible to T2 in E] but it is not the case that [T
+     is uniquely-iterated-reducible to T2 in E].
+
+  2. Then, from the definition of [T is uniquely-iterated-reducible to
+     T2 in E], we know that there exists some [term] Q such that Q and
+     T are not [identical terms] and [T is iterated-reducible to Q in
+     E].
+
+  3. From (2), we know that [T is iterated-reducible to T2 in E] and
+     that [T is iterated-reducible to Q in E].
+
+  3. Because E is an [environment], we know that for all rules R1 and
+     R2 in E, R1 is [deterministic] with respect to R2.

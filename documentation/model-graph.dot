@@ -1,0 +1,24 @@
+digraph definitions {
+    "program result" -> { "program", "fixed-point-term-in-set", "uniquely-iterated-reducible" };
+    "program" -> { "term", "environment", "reducible-from-to" };
+    "environment" -> { "rule", "deterministic", "rule", "fixed-point-term-in-set" };
+    "uniquely-iterated-reducible" ->  { "term", "rule", "identical-terms", "iterated-reducible-N-steps" };
+    "iterated-reducible-N-steps" -> { "term", "identical-terms", "reducible-from-to", "iterated-reducible-N-steps" };
+    "reducible-from-to" -> { "term", "rule", "rule" };
+    "fixed-point-term-in-set" -> { "term", "rule", "rule" };
+    "deterministic" -> { "rule", "non-deterministic" };
+    "non-deterministic" -> { "rule", "identical-terms" };
+    "identical-terms" -> { "primitive-identical-terms", "non-primitive-identical-terms" };
+    "primitive-identical-terms" -> { "primitive-term", "=" };
+    "non-primitive-identical-terms" -> { "non-primitive-term", "identical-edge-sets" };
+    "identical-edge-sets" -> { "identical-edges" };
+    "identical-edges" -> { "identical-non-leaf-vertices", "identical-leaf-vertices", "edge-label" };
+    "identical-non-leaf-vertices" -> { "non-leaf-vertex" };
+    "identical-leaf-vertices" -> { "=" };
+    "term" -> { "primitive-term", "non-primitive-term" };
+    "non-primitive-term" -> { "primitive-term", "edge-label" };
+    "primitive-term" -> { "set-of-primitive-objects" };
+    "set-of-primitive-objects" -> { "(S,=)" };
+    "=" -> { "(S,=)" };
+    "rule" -> { "term" };
+}

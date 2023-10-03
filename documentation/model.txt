@@ -1,18 +1,17 @@
-Definition of [primitive objects (S,F,=)]: An implementation-defined
-pair (S,F,=), where S is a set, F is the [??? failure fixed-point],
-and = is an equivalence relation on S.
+D1. Definition of [primitive objects (S,=)]: An implementation-defined
+pair (S,=) where S is a set and = is an equivalence relation on S.
 
-Definition of [=]: The equivalence relation = in the [primitive
-objects (S,F,=)].
+D2. Definition of [=]: The equivalence relation = in [primitive
+objects (S,=)].
 
-Definition of [set of primitive objects]: The set S in the [primitive
-objects (S,F,=)].
+D3. Definition of [set of primitive objects]: The set S in [primitive
+objects (S,=)].
 
-Definition of [primitive term]: An object T that is a member of the
-[set of primitive objects].
+D4. Definition of [primitive term]: An object T that is a member of
+the [set of primitive objects].
 
-Definition of [non-primitive term]: A directed graph T where all of
-the following conditions hold:
+D5. Definition of [non-primitive term]: A directed graph T where all
+of the following conditions hold:
 
   a. For every leaf L of T there exists a [primitive term] P such that
      L is labeled P.
@@ -21,28 +20,28 @@ the following conditions hold:
      such that for all integers I less than or equal to U, there
      exists an edge E emanating from T such that E is labeled I.
 
-Definition of [term]: An object T where exactly one of the following
-conditions hold:
+D6. Definition of [term]: An object T where exactly one of the
+following conditions hold:
 
   1. T is a [primitive term].
 
   2. T is a [non-primitive term].
 
-Definition of [identical non-leaf vertices V1 and V2]: Two non-leaf
-vertices V1 and V2 are identical if and only if V1 is the same vertex
-as V2.
+D7. Definition of [identical non-leaf vertices V1 and V2]: Two
+non-leaf vertices V1 and V2 are identical if and only if V1 is the
+same vertex as V2.
 
-Definition of [identical non-leaf vertices]: [identical non-leaf
+D8. Definition of [identical non-leaf vertices]: [identical non-leaf
 vertices V1 and V2] for some V1 and V2.
 
-Definition of [identical leaf vertices L1 and L2]: A leaf L1 is
+D9. Definition of [identical leaf vertices L1 and L2]: A leaf L1 is
 identical to a leaf L2 if and only if L1 [=] L2.
 
-Definition of [identical leaf vertices]: [identical leaf vertices L1
-and L2] for some L1 and L2.
+D10. Definition of [identical leaf vertices]: [identical leaf vertices
+L1 and L2] for some L1 and L2.
 
-Definition of [identical edges E1 and E2]: An edge E1=(E1V1,E1V2) of
-is identical to the edge E2=(E2V1,E2V2) if and only if all of the
+D11. Definition of [identical edges E1 and E2]: An edge E1=(E1V1,E1V2)
+of is identical to the edge E2=(E2V1,E2V2) if and only if all of the
 following conditions hold:
 
   1. E1V1 and E1V2 are [identical non-leaf vertices].
@@ -50,13 +49,14 @@ following conditions hold:
   2. Either E1V2 and E2V2 are [identical non-leaf vertices], or E1V2
      and E2V2 are [identical leaf vertices].
 
-  2. The vertex label on E1 is the same as the vertex label on E2.
+  2. The edge label on E1 is the same as the vertex label on E2.
 
-Definition of [identical edges]: [identical edges E1 and E2] for some
-E1 and E2.
+D12. Definition of [identical edges]: [identical edges E1 and E2] for
+some E1 and E2.
 
-Definition of [identical edge sets]: A set of edges E1 is identical to
-a set of edges E2 if and only if all of the following conditions hold:
+D13. Definition of [identical edge sets]: A set of edges E1 is
+identical to a set of edges E2 if and only if all of the following
+conditions hold:
 
   1. For every edge E1e of E1 there exists an edge E2e of E2 such that
      E1e and E2e are [identical edges].
@@ -64,42 +64,103 @@ a set of edges E2 if and only if all of the following conditions hold:
   2. For every edge E2e of E2 there exists an edge E1e of E1 such that
      E2e and E1e are [identical edges].
 
-Definition of [identical terms]: A [term] T1 is identical to a [term] T2 if
-and only if exactly one of the following conditions hold:
+Definition of [primitive-identical-terms]: A [primitive-term] T1 is
+identical to a [primitive-term] T2 if and only if T1 [=] T2.
 
-  1. T1 and T2 are [primitive term]s and T1 [=] T2.
+Definition of [non-primitive-identical-terms]: A [non-primitive-term]
+T1 is identical to a [non-primitive-term] T2 if and only if the set of
+edges of T1 and the set of edges of T2 are [identical edge sets].
 
-  2. Otherwise, T1 and T2 are [non-primitive term]s. T1 and T2 are
-     identical if and only if the set of edges of T1 and the set of
-     edges of T2 are [identical edge sets].
+Definition of [identical-terms]: A [term] T1 is identical to a [term]
+T2 if and only if any of the following conditions hold:
 
-Definition of [rule from T1 to T2]: a pair (T1,T2), where both T1 and
-T2 are [term]s.
+  1. T1 and T2 are [primitive-identical-terms].
 
-Definition of [rule]: A [rule from T1 to T2] for some T1 and T2.
+  2. T1 and T2 are [non-primitive-identical-terms].
 
-Definition of [non-deterministic]: A [rule from T1a to T2a] is said to
-be non-deterministic with respect to a [rule from T1b to T2b] if and
-only if both of the following conditions hold:
+D15. Definition of [rule from T1 to T2]: a pair (T1,T2), where both T1
+and T2 are [term]s.
+
+D16. Definition of [rule]: A [rule from T1 to T2] for some T1 and T2.
+
+D17. Definition of [non-deterministic]: A [rule from T1a to T2a] is
+non-deterministic with respect to a [rule from T1b to T2b] if and only
+if both of the following conditions hold:
 
   1. T1a and T1b are [identical terms].
 
   2. It is not the case that T2a and T2b are [identical terms].
 
-Definition of [deterministic]: A rule R1 is deterministic with respect
-to a rule R2 if and only if R1 is not [non-deterministic] with respect
-to R2.
+D18. Definition of [deterministic]: A [rule] R1 is deterministic with
+respect to a rule R2 if and only if R1 is not [non-deterministic] with
+respect to R2.
 
-Definition of [fixed point F in Q]: A [term] F is a fixed point in a
-set of [rule]s Q if and only if there exists a [rule from F to F] in
+D19. Definition of [fixed point F in Q]: A [term] F is a fixed point
+in a set of [rule]s Q if and only if there exists a [rule from F to F
+in Q].
+
+D20. Definition of [fixed point in Q]: [fixed point F in Q] for some
 Q.
 
-Definition of [environment]: A set of [rule]s E where all of the
+D23. Definition of [T is reducible in to T2 in E]: a [term] T is
+reducible to a [term] T2 in a set of [rule]s E if and only if there
+exists a [rule from T to T2] in E.
+
+D24. Definition of [T is reducible in E]: [T is reducible to T2 in E]
+for some T2.
+
+D25. Definition of [T is iterated-reducible to Q in E with N steps]:
+For a non-negative integer N, A [term] T is iterated-reducible to a
+[term] Q in a set of [term]s E with N steps if and only if any of the
+following conditions hold:
+
+  1. N=0 and T and Q are [identical terms],
+
+  2. All of the following conditions hold:
+
+    a. N>0
+
+    b. There exists a [term] T2 such that [T is reducible to T2 in E].
+
+    c. [T2 is iterated-reducible to Q in E with (N-1) steps].
+
+D26. Definition of [T is iterated-reducible to Q in E]: [T is
+iterated-reducible to Q in E with N steps] for some N.
+
+D27. Theorem [exists-non-deterministic-rules]: For every set of
+[rule]s E, [term] T, [term] Q1, and [term] Q2, if Q1 and Q2 are not
+[identical terms] and [T is iterated-reducible to Q1 in E] and [T is
+iterated-reducible to Q2 in E], then there exists some [rule] R1 in E
+and some [rule] R2 in E such that R1 is [non-deterministic] with
+respect to R2.
+
+D28. Definition of [T is uniquely-iterated-reducible to Q1 in E]: A
+[term] T is uniquely-iterated-reducible to Q1 in a set of [rule]s E if
+and only if there does not exist some [term] Q2 such that all of the
+following conditions hold:
+
+  1. Q1 and Q2 are not [identical terms].
+
+  2. [T is iterated-reducible to Q2 in E].
+
+D21. Definition of [environment]: A set of [rule]s E where all of the
 following conditions hold:
 
   1. For all R1 in E, and for all R2 in E, R1 is [deterministic] with
      respect to R2.
 
   2. There does not exist a [rule from _1 to N] in E such that N is
-     not a [fixed point] in E and there does not exist a [rule from N
+     not a [fixed point in E] and there does not exist a [rule from N
      to _2] in E.
+
+D29. Theorem [always-uniquely-reducible]: For every [environment] E
+and for every [term] T, if [T is iterated-reducible to T2 in E], then
+[T is uniquely-iterated-reducible to T2 in E].
+
+D30. Definition of [program]; A pair (T,E) where T is a [term], E is
+an [environment], and [T is reducible in E].
+
+D31. Definition of [program result]: For a [program] P=(T,E), if there
+exists a term Q such that [Q is a fixed point in E] and [T is
+uniquely-iterated-reducible to Q in E], then Q is the program result.
+
