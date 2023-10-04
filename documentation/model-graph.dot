@@ -1,9 +1,9 @@
 digraph definitions {
-    "program result" -> { "program", "fixed-point-term-in-set", "uniquely-iterated-reducible" };
+    "program result" -> { "program", "fixed-point", "uniquely-iterated-reducible" };
     "program" -> { "term", "environment", "reducible-from-to" };
     "environment" -> { "rule", "deterministic", "rule", "fixed-point-term-in-set" };
-    "uniquely-iterated-reducible" ->  { "term", "rule", "identical-terms", "iterated-reducible-N-steps" };
-    "iterated-reducible-N-steps" -> { "term", "identical-terms", "reducible-from-to", "iterated-reducible-N-steps" };
+    "uniquely-iterated-reducible" ->  { "term", "fixed-point", "rule", "identical-terms", "iterated-reducible-N-steps" };
+    "iterated-reducible-N-steps" -> { "term", "fixed-point", "identical-terms", "reducible-from-to", "iterated-reducible-N-steps" };
     "reducible-from-to" -> { "term", "rule", "rule" };
     "fixed-point-term-in-set" -> { "term", "rule", "rule" };
     "deterministic" -> { "rule", "non-deterministic" };

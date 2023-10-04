@@ -111,7 +111,7 @@ for some T2.
 
 D25. Definition of [T is iterated-reducible to Q in E with N steps]:
 For a non-negative integer N, A [term] T is iterated-reducible to a
-[term] Q in a set of [term]s E with N steps if and only if any of the
+[fixed point] Q in a set of [term]s E with N steps if and only if any of the
 following conditions hold:
 
   1. N=0 and T and Q are [identical terms],
@@ -128,16 +128,16 @@ D26. Definition of [T is iterated-reducible to Q in E]: [T is
 iterated-reducible to Q in E with N steps] for some N.
 
 D27. Theorem [exists-non-deterministic-rules]: For every set of
-[rule]s E, [term] T, [term] Q1, and [term] Q2, if Q1 and Q2 are not
-[identical terms] and [T is iterated-reducible to Q1 in E] and [T is
-iterated-reducible to Q2 in E], then there exists some [rule] R1 in E
-and some [rule] R2 in E such that R1 is [non-deterministic] with
-respect to R2.
+[rule]s E, [term] T, [fixed point] Q1, and [fixed point] Q2, if Q1 and
+Q2 are not [identical terms] and [T is iterated-reducible to Q1 in E]
+and [T is iterated-reducible to Q2 in E], then there exists some
+[rule] R1 in E and some [rule] R2 in E such that R1 is
+[non-deterministic] with respect to R2.
 
 D28. Definition of [T is uniquely-iterated-reducible to Q1 in E]: A
-[term] T is uniquely-iterated-reducible to Q1 in a set of [rule]s E if
-and only if there does not exist some [term] Q2 such that all of the
-following conditions hold:
+[term] T is uniquely-iterated-reducible to a [fixed point] Q1 in a set
+of [rule]s E if and only if there does not exist some [fixed point] Q2
+such that all of the following conditions hold:
 
   1. Q1 and Q2 are not [identical terms].
 
@@ -161,6 +161,6 @@ D30. Definition of [program]; A pair (T,E) where T is a [term], E is
 an [environment], and [T is reducible in E].
 
 D31. Definition of [program result]: For a [program] P=(T,E), if there
-exists a term Q such that [Q is a fixed point in E] and [T is
-uniquely-iterated-reducible to Q in E], then Q is the program result.
+exists a [fixed point] Q and [T is uniquely-iterated-reducible to Q in
+E], then Q is the program result.
 
