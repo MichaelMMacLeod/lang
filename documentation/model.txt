@@ -154,8 +154,9 @@ following conditions hold:
      to _2] in E.
 
 D29. Theorem [always-uniquely-reducible]: For every [environment] E
-and for every [term] T, if [T is iterated-reducible to T2 in E], then
-[T is uniquely-iterated-reducible to T2 in E].
+and for every [term] T, and [fixed point] Q, if [T is
+iterated-reducible to Q in E], then [T is uniquely-iterated-reducible
+to Q in E].
 
 D30. Definition of [program]; A pair (T,E) where T is a [term], E is
 an [environment], and [T is reducible in E].
@@ -163,4 +164,3 @@ an [environment], and [T is reducible in E].
 D31. Definition of [program result]: For a [program] P=(T,E), if there
 exists a [fixed point] Q and [T is uniquely-iterated-reducible to Q in
 E], then Q is the program result.
-
