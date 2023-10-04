@@ -95,9 +95,13 @@ D18. Definition of [deterministic]: A [rule] R1 is deterministic with
 respect to a rule R2 if and only if R1 is not [non-deterministic] with
 respect to R2.
 
-D19. Definition of [fixed point F in Q]: A [term] F is a fixed point
-in a set of [rule]s Q if and only if there exists a [rule from F to F
-in Q].
+D19. Definition of [fixed point Q in E]: A [term] Q is a fixed point
+in a set of [rule]s E if and only if exactly one of the following
+holds:
+
+  1. There exists a [rule from Q to Q in E].
+
+  2. Q is a [primitive-term].
 
 D20. Definition of [fixed point in Q]: [fixed point F in Q] for some
 Q.
