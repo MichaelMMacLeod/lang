@@ -1,0 +1,405 @@
+(def (data $object)
+  (def $object $object))
+
+(def (?.en-US.define $object
+                     (short-description $short-description)
+                     (see-also $see-also))
+  (data $object)
+  (def (?.en-US.short-description $object) $short-description)
+  (def (?.en-US.see-also $object) $see-also))
+
+(def (?.en-US.define $object (short-description $short-description))
+  (data $object)
+  (def (?.en-US.short-description $object) $short-description))
+
+(?.en-US.define Boolean
+  (short-description "the two boolean values: true and false")
+  (see-also (List True False)))
+(?.en-US.define True
+  (short-description "the boolean value true")
+  (see-also (List Boolean)))
+(?.en-US.define False
+  (short-description "the boolean value false")
+  (see-also (List Boolean)))
+
+(def (?.en-US.define $object
+                     (short-description $short-description)
+		     (implementation (~@ $from -> $to) ...))
+  (data $object)
+  (def (?.en-US.short-description $object) $short-description)
+  (def $from $to) ...)
+
+(?.en-US.define (not Boolean)
+  (short-description "the other boolean value")
+  (implementation
+    (not True) -> False
+    (not False) -> True))
+
+(?.en-US.define (and Boolean ...)
+  (short-description "True if and only if all sub-terms are True")
+  (implementation
+    (and) -> False
+    (and True) -> True
+    (and True $others ...+) -> (and $others ...)
+    (and False $others ...) -> False))
+
+(def (shadow-test $v)
+  (let ([SHADOW_{0,1} False_{0}])
+    $v))
+
+(def SHADOW_{0} True_{0})
+
+(shadow-test SHADOW_{0})
+--> (let ([SHADOW_{0,1} False_{0}])
+      SHADOW_{0})
+; SHADOW_{0,1} does not bind SHADOW_{0} because {0,1} is not a subset
+; of {0}.
+--> ((lambda (SHADOW_{0,1})
+       SHADOW_{0})
+     False_{0})
+--> SHADOW_{0}
+--> True_{0}
+
+(def (x_{0} $y)
+  ($y x_{0}))
+
+(x_{0} x_{0})
+--> (x_{0} x_{0})
+; evaluation stops there. this program doesn't diverge as it has hit a
+; fixed point. ??? is this right ???
+
+;;;;;;;
+
+(def_{0} (data_{0} $object)
+  (def_{0,1} $object $object))
+
+(data_{0} True_{0})
+--> (def_{0,1} True_{0} True_{0})
+
+(def_{0} True_{0} True_{0})
+(def_{0} False_{0} False_{0})
+(def_{0} (not_{0} True_{0}))
+
+
+((lambda_{0} (lambda_{0,1})
+   (lambda_{0,1} lambda_{0,1} lambda_{0,1}))
+ True_{0})))
+
+(def_{0} (?.en-US.define_{0} $object_{0,1}
+                             (short-description_{0,1}
+                              $short-description_{0,1}))
+  (data_{0,1} $object_{0,1})
+  (def_{0,1} (?.en-US.short-description_{0,1} $object_{0,1})
+    $short-description_{0,1}))
+
+(?.en-US.define_{0} Boolean_{0}
+  (short-description_{0} "the two boolean values: true and false"))
+-->
+(data_{0,1} Boolean_{0})
+(def_{0} (?.en-US.short-description_{0,1} Boolean_{0})
+  "the two boolean values: true and false")
+
+
+;;;;;
+
+(let_{} ([x_{0} 1])
+  (let-syntax_{0} ([m_{0,1} (syntax-rules_{0} ()
+                              [(m_{0,2}) x_{0,2}])])
+    (lambda (x_{0,1,3})
+       (m_{0,1,3}))))
+
+(let_{} ([x_{0} 1])
+  (lambda (x_{0,1,3})
+    x_{0}))
+
+(lambda (x_{0,1,3})
+  1)
+
+;;;;
+
+(let ([$x 1])
+  (let ([(m) $x])
+    (lambda ($x)
+      (m))))
+--> (annotate with scope sets)
+(let_{} ([$x_{1} 1])
+  (let_{1} ([(m_{1,2}) $x_{1}])
+    (lambda_{1,2} ($x_{1,2,3})
+      (m_{1,2,3}))))
+-->
+(let_{1} ([(m_{1,2}) 1])
+  (lambda_{1,2} ($x_{1,2,3})
+    (m_{1,2,3})))
+-->
+(lambda_{1,2} ($x_{1,2,3})
+  1)
+
+;;;;
+
+(def x 1) ; In scope {}, the re-write rule "x_{} --> 1" exists.
+x         ; Re-write "x_{}"
+
+;;;;
+
+(let (x 1) ; In scope {1}, the re-write rule "x_{1} --> 1" exists.
+  x)       ; Re-write "x_{1}".
+
+;;;;
+
+; What's the difference between:
+(let (x 1) x)
+; and
+(let ($x 1) $x)
+; ???
+
+(let [(x $x) -> 1]
+  (x 2))
+--> 1
+
+; So the answer is that (let ($x 1) $x) is an error, because $x is not
+; a fixed point
+
+(let ([$x 1])
+  (let ([(m) $x])
+    (lambda ($x)
+      (m))))
+
+(let ([x 1])
+  (let-syntax ([m (syntax-rules ()
+                    [(m) x])])
+    (lambda (x)
+       (m))))
+
+(let [x -> 1]
+  (let [(m) -> x]
+    (lambda ($x)
+      (m))))
+
+(let [x -> 1]
+  (let [x -> 2]
+    x))
+; annotate with scope sets
+(let:1{} [x{1} -> 1]
+  (let:2{1} [x{1,2} -> 2]
+    x{1,2}))
+; apply re-write rule 'x{1} -> 1'. it doesn't apply anywhere because
+; the re-write rule 'x{1,2} -> 2' applies *better* to 'x{1,2}' than
+; 'X{1} -> 1' does.
+(let:2{1} [x{1,2} -> 2]
+  x{1,2})
+; apply re-write rule 'x{1,2} -> 2'.
+2
+
+(let [x -> 1] body)
+((lambda x)
+   body
+ 1)
+
+(let [(my-value: x) -> x]
+  (my-value: 4))
+((lambda (my-value: x)
+   ())
+ 4)
+
+
+(let ([x 1])
+  x)
+((lambda (x)
+   x)
+ 1)
+
+(let [x -> 1]
+  x)
+((lambda ([x ->])
+   x)
+ 1)
+
+(let [(my-value= $x) -> $x]
+  (my-value= 4))
+-->
+((lambda (my-value= $x) $x)
+ (my-value= 4))
+-->
+4
+
+(let [(my-value= $x) -> $x]
+  (my-value= 4))
+-->
+((re-write (my-value= $x) $x)
+ (my-value= 4))
+-->
+4
+
+
+((Rule (my-value= $x) $x)
+ (my-value=??? 4))
+-->
+(my-value=??? 4)
+-->
+; error: '(my-value=??? 4)' is not a fixed-point, but there are no
+; rules for re-writing it.
+
+((Rule (my-value= $x) $x)
+ 123)
+-->
+123 ; ok, no errors
+
+((Rule (my-value= $x) $x)
+ (my-value= 123))
+-->
+123 ; ok, no errors
+
+((Rule (my-value= x) x)
+ (my-value= 123))
+-->
+(my-value= 123)
+-->
+; error: '(my-value= 123)' is not a fixed-point, but there are no
+; rules for re-writing it.
+
+((Rule (my-value= x) x)
+ (my-value x))
+-->
+x
+-->
+; error: 'x' is not a fixed-point, but there are no rules for
+; re-writing it.
+
+((Rule (my-value= x) x)
+ (my-value y))
+-->
+(my-value y)
+-->
+; error 'y' is not a fixed-point, but there are no rules for
+; re-writing it.
+
+;;;;;
+
+(let [(x-value = $x) -> $x]
+     [(y-value = $y) -> $y]
+  (x-value = 10))
+-->
+((Env [(x-value = $x) $x]
+      [(y-value = $y) $y])
+ (x-value = 10))
+-->
+10 ; ok, no errors
+
+;;;;;
+
+(rewrite (x-value = 10)
+  [(x-value = $x) (* 2 $x)]
+  [(y-value = $y) (* 3 $y)])
+-->
+(* 2 10)
+-->
+20 ; ok
+
+(rewrite (x-value = 10)
+  [(x-value = $x) (y-value = $x)]
+  [(y-value = $y) (* 3 $y)])
+-->
+(y-value = 10)
+-->
+(* 3 10) --> 30 ; ok, no errors
+
+(rewrite:1{} (x-value{} ={} 10)
+  [(x-value{1} ={1} $x{1}) (y-value{1} ={1} $x{1})]
+  [(y-value{1} ={1} $y{1}) (*{1} 3 $y{1})])
+-->
+(y-value{1} ={1} 10)
+-->
+(*{1} 3 10)
+-->
+30
+
+(rewrite (rewrite (x-value = 10)
+           [(x-value = $x) (y-value = $x)]
+           [(y-value = $y) (* 3 y)])
+  [(y-value = $y) (* 5 y)])
+-->
+(rewrite (x-value = 10)
+  [(x-value = $x) (y-value = $x)]
+  [(y-value = $y) (* 3 y)]
+-->
+(y-value = 10)
+-->
+(* 3 y)
+-->
+30
+
+(rewrite:1{} (rewrite:2{} (x-value{} ={} 10)
+               [(x-value{2} ={2} $x{2}) (y-value{2} ={2} $x{2})]
+               [(y-value{2} ={2} $y{2}) (*{2} 3 $y{2})])
+  [(y-value{1} ={1} $y{1}) (*{1} 5 y{1})])
+-->
+(rewrite:2{} (x-value{} ={} 10)
+  [(x-value{2} ={2} $x{2}) (y-value{2} ={2} $x{2})]
+  [(y-value{2} ={2} $y{2}) (*{2} 3 y{2})])
+-->
+(x-value{} ={} 10)
+-->
+(y-value{2} ={2} 10)
+-->
+(*{2} 3 10)
+-->
+30
+
+(rewrite (rewrite (x-value = 10)
+           [(x-value = $x) (y-value = $x)])
+  [(y-value = $y) (* 5 y)])
+-->
+(rewrite (x-value = 10)
+  [(x-value = $x) (y-value = $x)])
+-->
+(y-value = 10)
+-->
+; error: '(y-value = 10)' is not a fixed-point, but there are no rules
+; to rewrite it.
+
+(Env
+  [(unwrap (Some $x)) $x]
+  [(map $f (Some $x)) (Some ($f $x))])
+-->
+(Env
+  [(unwrap (Some $x)) $x]
+  [(map $f (Some $x)) (Some ($f $x))])
+; we have reached a fixed point because the term evaluated to
+; itself. all is good.
+
+(with-env (Env
+            [(unwrap (Some $x)) $x]
+            [(map $f (Some $x)) (Some ($f $x))])
+  (unwrap (map *2 (Some 10))))
+-->
+(unwrap (map *2 (Some 10)))
+-->
+(unwrap (Some (*2 10)))
+-->
+(unwrap (Some 20))
+-->
+20
+
+(Rule (unwrap (Some $x)) $x)
+; or...?
+(Lambda (unwrap (Some $x)) $x)
+; ... let's go with Rule, to avoid confusion.
+
+(Rule (+ (Env $rule) ...+)
+  (Env $rule ...))
+(Rule (+ (Rule $from $to) $others ...)
+  (+ $others ...
+     (Env (Rule $from $to))))
+(Rule (+ (Rule $from $to) (Ru)))
+; imagine that the above is in .lang.builtin.env, then...
+(+ .lang.builtin.env
+   (Env )))
+
+;;;;;
+
+> lang \
+    --environment .lang.builtin.env \
+    --define .personal.env \
+    --evaluate "(with-env .lang.stdenv
+                  (Env [()])
+> lang --environment my-env-1 --evaluate "

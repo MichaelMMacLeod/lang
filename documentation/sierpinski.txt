@@ -1,0 +1,39 @@
+(def size 64)
+
+(data L)
+(data R)
+(data D)
+(data E)
+
+(def (show L) "[")
+(def (show R) "]")
+(def (show D) ".")
+(def (show E) "=")
+
+(def (process (List $last $current))
+  (List (if (= $last $current) E R)))
+
+(def (process (List $last $current $next $others ...))
+  (def l=c (= $last $current))
+  (def c=n (= $current $next))
+  (def sym
+    (cond
+      [(and l=c       c=n)       E]
+      [(and l=c       (not c=n)) L]
+      [(and (not l=c) c=n)       R]
+      [(and (not l=c) (not c=n)) D]))
+  (cons sym (process $current $next $others ...)))
+
+(def sierpinski
+  (def start (replicate size E))
+  (def first-row
+    (concatenate start (List D) start))
+  (def (go (List $x $xs ...))
+    (def p (process $xs (List $x $xs ...)))
+    (cons p (go p)))
+  (cons first-row (partial-take size (go first-row))))
+
+(def sierpinski-string
+  (unlines (map concat (map (map show) sierpinski))))
+
+(println sierpinski-string)

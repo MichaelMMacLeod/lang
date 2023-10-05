@@ -1,0 +1,352 @@
+(def None None)
+(def (Some $success)
+  (Some $success))
+(def (Cons $first $rest)
+  (Cons $first $rest))
+(def inf (Cons 1 inf))
+(def (head (Cons $head $_))
+  (Some $head))
+(def (head Nil)
+  None)
+(head inf)
+-->
+(head (Cons 1 inf))
+-->
+(Some 1)
+
+(def (:union $value ...+)
+  )
+(def (List)
+  ((List) : List))
+(def (List $xs ...+)
+  ((List $xs ...) : (List (:union $xs ...))))
+
+(List True False 3 4 5)
+-->
+((List True 3) : (List (Union Boolean Integer)))
+
+lang --env lang.2023-10-04.env> (+ lang.2023-10-04.env
+                                   Env
+                                    (Rule (def $from $to)
+                                       (Rule $from $to)))
+; %1 = (Env ....)
+lang --env lang.2023-10-04.env> --env %1
+lang@%1> (def data $data
+           (def $data $data))
+; %2 = (Rule ....)
+lang --env %1> (+ (Env %2) %1)
+; %3 = (Env ....)
+lang --env %1> --env %3
+lang --env %3> (data (Some $s))
+; %4 = (Rule ....)
+lang --env %3> (data None)
+; %5 = (Rule ....)
+lang --env %3> (def (map $f (Some $x))
+                 (Some ($f $x)))
+; Error (nonsensical rule result):
+;
+;  The result of this rule is nonsensical, as there
+;  are no rules in the environment %3 to re-write it
+;  to a different term. Moreover, that term does not
+;  re-write to itself in environment %3, so it can't
+;  be the 'final result'.
+;
+; Derivation:
+;
+;  1  (def (map $f (Some $x))
+;       (Some ($f $x)))
+;
+;  Apply (rule# 0 in %3)
+;
+;  2! (Rule (map $f (Some $x)) 
+;       (Some ($f $x)))
+lang --env %3> (rule# 0 in %3)
+; (Rule (def $from $to)
+;   (Rule $from $to))
+lang --env %3> 
+
+(Rule (map $f (Some $x))
+  (Some ($f $x)))
+-->
+((lambda $term
+   (match [(map $f (Some $x)) $term]
+     (Some ($f $x))))
+ (Some *2 10))
+; this can't work because $term matches anything; it would conflict
+; with existing rules.
+
+(#%derive $term $env)
+--> (Some <$term's fixed-point>) ; if $term is iterated-reducible to a
+                                 ; fixed-point in $env.
+--> None                         ; otherwise.
+
+(Rule (map $f (Some $x))
+  (Some ($f $x)))
+-->
+(#%lambda ($term $next)
+  (#%match $term
+    [(map $f (Some $x)) (Some ($f $x))]
+    [$otherwise $next]))
+((Env r1 r2 r3 ....)
+ form)
+-->
+(r1 form
+    (r2 form
+        (r3 form
+            ....)))
+; But this doesn't simplify anything, as the argument to the lambda
+; still matches a pattern...
+
+(Rule (Env $rule0 $rule ...)
+  (Rule $real-term
+    ((Rule ($term $try-next)
+       ($rule0 $term))
+     ($real-term (Env $rule ...)))))
+; no
+
+(Rule (.lang.release.2023-10-04.customize.#%apply-env $term (Env $rule0 $rule ...))
+  (map (Rule $term (apply-env $term (Env $rule ...)))
+       ($rule0 $term)))
+; where it is assumed that Rule rewrites to (Some $s) or None, and
+; a rule for rewriting (map $f (Some $x)) and (map $f None) is in
+; scope, and that (Some $s) and None are fixed-points.
+
+(Rule ($>=0 where ($n >= 0))
+  (if ($n >= 0)
+      (Some ($>=0 ($n >= 0)))
+      None))
+(Rule (fib ($n >= 0))
+  (if ($n <= 1)
+      (Some $n)
+      (+ (fib where ((n - 1) >= 0))
+         (fib where ((n - 2) >= 0)))))
+
+(def N 5)
+(fib where (N >= 0))
+(if (N >= 0)
+    (Some (fib (N >= 0)))
+    None)
+(if (5 >= 0)
+    (Some (fib (N >= 0)))
+    (None (N < 0)))
+(if True
+    (Some (fib (N >= 0)))
+    (None (N < 0)))
+(Some (fib (N >= 0)))
+; computation would end there, but if we were to unwrap it...
+(unwrap (Some (fib (N >= 0))))
+(fib (N >= 0))
+
+; I think the following should not compile:
+(Env
+  (Rule Other Other)
+  (Rule True True)
+  (Rule False False)
+  (Rule (and True True) True)
+  (Rule (and True False) False)
+  (Rule (and False True) False)
+  (Rule (and False False) False)
+  (Rule (bad-and $a $b)
+    (and $a $b)))
+; The reason is that there is no guarantee that (bad-and ....) can be
+; rewritten successfully. For example,
+(bad-and Other Other)
+--> (and Other Other)
+--> ???
+; But how would we fix 'bad-and'?
+(Env
+  (Rule Other Other)
+  (Rule True True)
+  (Rule False False)
+  (Rule (and True True) True)
+  (Rule (and True False) False)
+  (Rule (and False True) False)
+  (Rule (and False False) False)
+  (Rule (Some $v) (Some $v))
+  (Rule None None)
+  (Rule ($f when ($v : boolean) ...+)
+    (if (and (or ($v = True)
+                 ($v = False))
+             ...)
+        (Some ($f ($v : boolean) ...))
+        None))
+  (Rule (checked-and ($a : boolean) ($b : boolean))
+    (and $a $b)))
+
+; I was dumb. We can't verify things like this in the general case at
+; compile time. A type system could help, but I'm not building that
+; into the base language. So we will have to deal with the possibility
+; that environments may contain rules which specify that terms are
+; re-written to un-fix-pointable values. That being said, this still
+; gives us some nice ways to check things at the point at which we
+; want error messages to be thrown. For example, applying checked-and
+; to the wrong arguments would send an error message that
+; the 'checked-and' term couldn't be rewritten, not the 'and' term.
+
+(checked-and when (Other : boolean) (Other : boolean))
+--> (if (and (or (Other = True)
+                 (Other = False))
+             (or (Other = True)
+                 (Other = False)))
+        (Some (checked-and Other Other))
+        None)
+....
+--> (if False
+        (Some (checked-and Other Other))
+        None)
+--> None
+--> (checked-and Other Other)
+--> ; Error: nonsensical term.
+    ;
+    ;   (checked-and Other Other)
+    ;
+    ; There are no rules in scope which reduce this term.
+    ;
+    ; The closest rule in scope requires:
+    ;
+    ;   (checked-and ($ : boolean) ($ : boolean) ....)
+    ;
+    ; But there are no rules in scope to reduce:
+    ;
+    ;   Other --> ($ : boolean)
+    ;
+    ; So the overall term is nonsensical.
+; But I really want to make it somehow happen that doing the following
+; is illegal:
+(checked-and Other Other)
+; e.g., I do not want that rule to be in scope. What I want in scope
+; is the 'when' term...
+
+(Rule (and when ($v : boolean) ...+)
+  (with-env (Env (Rule (unchecked-and True True) True)
+                 (Rule (unchecked-and True False) False)
+                 (Rule (unchecked-and False True) False)
+                 (Rule (unchecked-and False False) False))
+    (if (unchecked-and (or ($v = True) ($v = False)) ...)
+        (Some (unchecked-and $v ...))
+        None)))
+; I think this works...
+(and Other Other)
+; Error: nonsensical term
+;
+; closest is (and when ($ : boolean) ...+)
+(and when (Other : boolean))
+(with-env (Env (Rule (unchecked-and True True) True)
+               (Rule (unchecked-and True False) False)
+               (Rule (unchecked-and False True) False)
+               (Rule (unchecked-and False False) False))
+  ; NOTE: we need '=' builtin, which reduces ($ = $) to True
+  ; if the LHS and RHS reduce to the same fixed points, returns
+  ; False otherwise.
+  (if (unchecked-and (or (Other = True) (Other = False)) ...)
+      (Some (unchecked-and Other))
+      None))
+(if (unchecked-and (or (Other = True) (Other = False)) ...)
+    (Some (unchecked-and Other))
+    None)
+(if (unchecked-and (or False False))
+    (Some (unchecked-and Other))
+    None)
+(if (unchecked-and False)
+    (Some (unchecked-and Other))
+    None)
+(if False
+    (Some (unchecked-and Other))
+    None)
+None
+
+; it would be helpful though to return a Result, where the Err
+; describes what we proved about the input arguments. So, for example,
+; we might get:
+
+(and <= (10 : boolean) (50 : boolean))
+--> (Err (And (Not (10 : boolean))
+              (Not (50 : boolean))))
+(what-did-we-prove-about 10 in (Err ....))
+--> (Not (10 : boolean))
+
+; Although ..., it would probably be the case that we would design
+; 'and' so that if the first argument did not reduce to a boolean,
+; then we wouldn't even evaluate the next argument. This means that
+; our 'Err' result ideally wouldn't prove anything about 50.
+
+(False : boolean)
+--> (OK (False : boolean))
+(10 : boolean)
+--> (Err (Not (10 : boolean)))
+
+; We would need, then, (<builtin-value> : <builtin-type>) to be
+; defined by the implementation; otherwise we would need to write a
+; lot of rules.
+
+(Rule ($v : Integer>=0)
+  ($v : lang.2023-10-04.builtin.Integer>=0))
+; Reduces to ($v : lang.2023-10-04.builtin.Integer>=0) iff $v is an
+; integer that is greater than zero.
+
+(Rule (seq $try-reduce-to-fixed-point
+           $result-if-can-be-reduced)
+  (lang/2023-10-04/builtin/seq-nontotal $try-reduce-to-fixed-point
+                                        $result-if-can-be-reduced))
+(Rule (seq $try-reduce-to-fixed-point
+           $result-if-can-be-reduced
+           $result-if-cannot-be-reduced)
+  (lang/2023-10-04/builtin/seq-total $try-reduce-to-fixed-point
+                                     $result-if-can-be-reduced
+                                     $result-if-cannot-be-reduced))
+; where (seq $a $b) reduces to $b iff $a can be reduced to a fixed point.
+(Rule (factorial ($n : Integer>=0))
+  (with-env (Env (Rule (factorial $n)
+                   (factorial $n 1))
+                 (Rule (factorial $n $acc)
+                   (if (= $n 0)
+                       acc
+                       (factorial (sub1 n)
+                                  (* n acc)))))
+    (seq ($n : Integer>=0)
+         (factorial $n))))
+(factorial (5 : Integer>=0))
+(seq (5 : Integer>=0)
+     (factorial ))
+(seq )
+
+(def (match $term [$pattern0 $result0] [$pattern $result] ...)
+  (unwrap-or (apply (Rule $pattern0 $result0) $term)
+             (match $term [$pattern $result] ...)))
+
+(let [(A $m $n)
+      (match ($m $n)
+        [(0 $n) (+ $n 1)]
+        [($m 0) (A (- $m 1) 1)]
+        [($m $n) (A (- $m 1) (A $m (- $n 1)))])])
+
+(with-env (+ (current-env)
+             (Env (Rule (id $x) $x)))
+  (with-env (+ (current-env)
+               (Env (Rule (id $x) (* $x 2))))
+    (id 10)))
+--> 20
+
+; A term has attached to it a set of 'scopes' (non-negative
+; integers). '(with-env $form $body)'
+
+(with-env (Env (Rule (id $x) $x)){0}
+  (with-env (+ (current-env)
+               (Env (Rule (id $x) (* $x 2))))
+    (id 10)){0}){}
+; there is now an environment available with scopes {0}
+(with-env (Env (Rule (id $x) (* $x 2))){0,1}
+  (id 10){0,1}){0}
+; there is now an environment available with scopes {0,1}
+(id 10){0,1}
+; Based on pure textual matching, there are two potential rules to
+; choose from:
+;
+;   (Rule (id $x)    $x   ){0}
+;   (Rule (id $x) (* $x 2)){0,1}
+;
+; Our redex (id 10) has scopes {0,1}. Both rules are compatible with
+; our redex because both rule scopes---{0} and {0,1}---are
+; (non-strict) subsets of the redex scope {0,1}. The rule that is
+; chosen is the rule with the largest compatible subset.
+20{0,1}
