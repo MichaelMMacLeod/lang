@@ -41,9 +41,9 @@ identical if and only if all of the following conditions apply:
 
   1. G1 and G2 are isomorphic.
 
-  2. For every going edge E1 of vertex V1 with label E1L of G1 and for
-     every outgoing edge E2 of vertex V2 with label E2L of G2, if both
-     (V1 and V2) and (E1 and E2) are in the same position (in the
+  2. For every outgoing edge E1 of vertex V1 with label E1L of G1 and
+     for every outgoing edge E2 of vertex V2 with label E2L of G2, if
+     both (V1 and V2) and (E1 and E2) are in the same position (in the
      sense of the isomorphism) on their respective graphs, E1L = E2L.
 
   3. For every leaf vertex G1V with label G1L of G1 and every leaf
