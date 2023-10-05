@@ -34,8 +34,8 @@ Definition [term-graph]: A directed graph (V,E) where V is the set of
 vertices and E is the set of edges is a term graph if and only if all
 of the following conditions apply:
 
-  1. (V,E) either (consists of exactly one connected-component) or (V
-     and E are both empty sets).
+  1. (V,E) consists of exactly one connected-component that contains
+     at least one vertex.
 
   2. Every strongly-connected-component in (V,E) that is a single leaf
      vertex is labeled with a member of the [primitive-values].
@@ -49,14 +49,6 @@ Definition [identical-term-graphs]: Two [term-graph]s, G1 and G2, are
 identical if they are the same graphs---including checking for label
 equality---where equality on members of the [primitive-objects] is
 defined in the sense of [=].
-
-Definition [unit-graph]: The graph ({},{}).
-
-Theorem [unit-term-graph]: [unit-graph] is a [term-graph].
-
-Proof [unit-term-graph]: [term-graph][1] holds. [term-graph][2] and
-[term-graph][3] are vacuously true because [unit-graph] has no
-vertices.
 
 Definition [term]: A pair (TG,TS) where TG is a [term-graph] and TS is
 a [scope-set].
@@ -77,8 +69,6 @@ Definition [environment]: A set of objects E is an environment if and
 only if all of the following conditions hold:
 
   1. The members of E are pairwise [deterministic-rules].
-
-  2. E contains the [rule] (U,U,{}), where U is the [unit-term-graph].
 
 Definition [applicable-rules]: For a given [term] (TG,TS) and
 [environment] E, a set A is a set of applicable rules if and only if
