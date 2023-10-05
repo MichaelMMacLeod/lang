@@ -46,25 +46,9 @@ of the following conditions apply:
      respect to the other outgoing edges of C.
 
 Definition [identical-term-graphs]: Two [term-graph]s, G1 and G2, are
-identical if and only if all of the following conditions apply:
-
-  1. G1 and G2 are isomorphic.
-
-  2. For every strongly-connected-component C1 in G1 and C2 in G2 that
-     are not single leaf vertices and that are in the same position
-     (in the sense of the isomorphism), all of the following
-     conditions hold:
-
-     a. The [scope-set] on C1 is equal to the [scope-set] on C2.
-
-     b. For all outgoing edges E1 in C1 and E2 in C2, if E1 and E2 are
-        in the same position (in the sense of the isomorphism), then
-        E1 and E2 have the same integer label.
-
-  4. For every strongly-connected-component V1 in G1 and V2 in G2 that
-     are single leaf vertices, if V1 and V2 are in the same position
-     (in the sense of the isomorphism), then the label of V1 is equal
-     to the label of V2 in the sense of [=].
+identical if they are the same graphs---including checking for label
+equality---where equality on members of the [primitive-objects] is
+defined in the sense of [=].
 
 Definition [unit-graph]: The graph ({},{}).
 
