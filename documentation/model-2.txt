@@ -15,21 +15,24 @@ Definition [term-graph]: A directed graph (V,E) where V is the set of
 vertices and E is the set of edges is a term graph if and only if all
 of the following conditions apply:
 
-  1. If there is only one vertex in V then E is the empty set. Call
-     this graph (), or Unit.
+  1. (V,E) either (consists of exactly one connected component) or (V
+     and E are both empty sets).
 
-  3. If the graph is (), then the vertex has no label. If the graph is
-     not (), then for every vertex VX, if VX is not a leaf then VX has
-     no label.
+  2. For every vertex VX, if VX is not a leaf then VX has no
+     label. Otherwise, if VX is a leaf, VX is labeled with a
+     [primitive-value].
 
-  3. If the graph is not () and if a vertex is a leaf, then it is
-     labeled with a [primitive-value].
-
-  4. For every vertex VX in V, if VX has N outgoing edges, then each
+  3. For every vertex VX in V, if VX has N outgoing edges, then each
      of its edges has a non-negative integer label less than N and
      unique with respect to the other outgoing edges of VX.
 
-Definition [unit-graph]: Unit as defined in [term-graph][1].
+Definition [unit-graph]: The graph ({},{}).
+
+Theorem [unit-term-graph]: [unit-graph] is a [term-graph].
+
+Proof [unit-term-graph]: [term-graph][1] holds. [term-graph][2] and
+[term-graph][3] are vacuously true because [unit-graph] has no
+vertices.
 
 Definition [scope-set]: A finite set of non-negative integers. See
 citation [binding-as-sets-of-scopes] for why this is a useful
@@ -55,7 +58,7 @@ only if all of the following conditions hold:
 
   1. The members of E are pairwise [deterministic-rules].
 
-  2. E contains the [rule] (U,U,{}), where U is the [unit-graph].
+  2. E contains the [rule] (U,U,{}), where U is the [nit-term-graph].
 
 Definition [applicable-rules]: For a given [term] (TG,TS) and
 [environment] E, a set of objects A is a set of applicable rules if
