@@ -350,3 +350,110 @@ None
 ; (non-strict) subsets of the redex scope {0,1}. The rule that is
 ; chosen is the rule with the largest compatible subset.
 20{0,1}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(with-env (Env (Rule (Some "valuable message")
+                     (Some "trash message")))
+  (with-env (Env (Rule (Some $v) (Some $v))
+                 (Rule x "valuable message"))
+    (Some x)))
+-->
+(with-env (Env (Rule (Some $v) (Some $v))
+               (Rule x "valuable message"))
+  (Some x))
+-->
+(Some x) ; we're done; fixed point.
+
+;;;;;
+
+(with-env (Env (Rule (Some "valuable message")
+                     (Some "trash message")))
+  (with-env (Env (Rule (Some $v) (Some $v))
+                 (Rule (unwrap (Some $v)) $v)
+                 (Rule x "valuable message"))
+    (unwrap (Some x))))
+-->
+(with-env (Env (Rule (Some $v) (Some $v))
+               (Rule (unwrap (Some $v)) $v)
+               (Rule x "valuable message"))
+  (unwrap (Some x)))
+-->
+(unwrap (Some x))
+-->
+x
+-->
+"valuable message" ; fixed point.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def x 10)
+x --> 10
+(let [x 12]
+  x) --> 12
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+----- BUILTIN PRIMITIVE FORM IDEAS -----
+
+(let [$pattern $result] ... body)
+
+(let [x 10]
+  (* x 2))
+(let{} [x{1} 10{1}]{1}
+  (*{1} x{1} 2{1}){1}){}
+(*{1} x{1} 2{1}){1}
+(*{1} 10{1} 2{1}){1}
+20{1}
+
+(Rule{} x{} 10{}){}
+(let{} [x{1} 10{1}] body{1}){}
+
+; assume (Rule x{} [x{} 10{}]{}) is in scope
+(let{} x{} x{}){}
+(let{} [x{} 10{}]{} x{}){}
+(let{} [x{1} 10{1}]{1} x{1}){}
+x{1}
+10
+
+; assume (Rule x{} [y{} 10{}]{}) is in scope
+(let{} x{} y{}){}
+(let{} [y{} 10{}]{} y{}){}
+(let{} [y{1} 10{1}]{1} y{1}){}
+y{1}
+10
+
+(let [x (let [x y] x)]
+  x)
+(let{} [x{} (let{} [x{} y{}]{} x{}){}]{}
+  x{}){}
+(let{} [x{1} (let{1} [x{1} y{1}]{1} x{1}){1}]{1}
+  x{1}){}
+x{1}
+(let{1} [x{1} y{1}]{1} x{1}){1}
+(let{1} [x{1,2} y{1,2}]{1,2} x{1,2}){1}
+x{1,2}
+y{1,2}
+
+(let [x 10]
+  (let [y x]
+    x))
+
+Let:
+
+  1. E be an environment,
+
+  2. S be the union of all sets of scopes on every SCC in every rule
+     pattern and result in E,
+
+  3. U be a scope that is not in S, and
+
+  4. R be a set of rules 
+
+of E, and let S be the set of  Let R be a set of rules with
+scopes containing at least (S union {U}).
+
+Attempts to extend the current
+environment to contain the rules '(Rule $pattern $result) ...'. A
+scope unique to the environment is added to $pattern and $result.
