@@ -29,8 +29,8 @@ of the following conditions apply:
      and E are both empty sets).
 
   2. For every vertex VX, if VX is not a leaf then VX has no
-     label. Otherwise, if VX is a leaf, VX is labeled with a
-     [primitive-value].
+     label. Otherwise, if VX is a leaf, VX is labeled with a member of
+     the [primitive-values].
 
   3. For every vertex VX in V, if VX has N outgoing edges, then each
      of its edges has a non-negative integer label less than N and
