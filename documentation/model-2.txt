@@ -42,7 +42,7 @@ of the following conditions apply:
 
   3. For every strongly-connected-component C in (V,E) that is not a
      single leaf vertex and has N outgoing edges, each of its edges
-     has a non-negative integer label less than N and unique with
+     has a non-negative integer label less than N which is unique with
      respect to the other outgoing edges of C.
 
 Definition [identical-term-graphs]: Two [term-graph]s, G1 and G2, are
