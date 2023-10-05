@@ -69,7 +69,7 @@ a [scope-set].
 Definition [rule]: A pair (P,Q,PQS) where both P and Q are
 [term-graph]s and PQS is a [scope-set].
 
-Definition [deterministic-rules]: A pair of rules
+Definition [deterministic-rules]: A pair of [rule]s
 ((P1,Q1,PQS1),(P2,Q2,PQS2)) where exactly one of the following
 conditions hold:
 
@@ -86,16 +86,16 @@ only if all of the following conditions hold:
   2. E contains the [rule] (U,U,{}), where U is the [unit-term-graph].
 
 Definition [applicable-rules]: For a given [term] (TG,TS) and
-[environment] E, a set of objects A is a set of applicable rules if
-and only if all of the following conditions apply:
+[environment] E, a set A is a set of applicable rules if and only if
+all of the following conditions apply:
 
   1. Every member of A is a member of E.
 
   2. If (AG,_,_) is a member of A, then TG and AG are
      [identical-term-graphs].
 
-  3. If (_,_,PQS) is a member of A, then PQS is a non-strict subset of
-     TS.
+  3. If (_,_,PQS) is a member of A, then the [scope-set] PQS is a
+     non-strict subset of the [scope-set] TS.
 
 Definition [best-rule]: For a given set of [applicable-rules] A, if
 there exists an object B such that all of the following conditions
@@ -103,8 +103,8 @@ apply, then B is a best rule:
 
   1. B is a member of A. Let us also call B (_,_,PQS).
 
-  2. For all members (_,_,PQSM) of A, PQSM is a non-strict subset of
-     PQS.
+  2. For all members (_,_,PQSM) of A, the [scope-set] PQSM is a
+     non-strict subset of the [scope-set] PQS.
 
 Definition [identical-rules]: For any [rule]s R1=(P1,Q1,PQS1) and
 R2=(P2,Q2,PQS2), R1 and R2 are identical rules if and only if all of
@@ -114,7 +114,7 @@ the following conditions hold.
 
   2. Q1 and Q2 are [identical-term-graphs].
 
-  3. PQS1 = PQS2.
+  3. The [scope-set] PQS1 is equal to the [scope-set] PQS2.
 
 Theorem [unique-best-rule]: For a given set of [applicable-rules] A,
 if A is nonempty then there exists a [best-rule] R in A such that for

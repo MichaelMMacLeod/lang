@@ -1,24 +1,16 @@
 digraph definitions {
-    "program result" -> { "program", "fixed-point", "uniquely-iterated-reducible" };
-    "program" -> { "term", "environment", "reducible-from-to" };
-    "environment" -> { "rule", "deterministic", "rule", "fixed-point-term-in-set" };
-    "uniquely-iterated-reducible" ->  { "term", "fixed-point", "rule", "identical-terms", "iterated-reducible-N-steps" };
-    "iterated-reducible-N-steps" -> { "term", "fixed-point", "identical-terms", "reducible-from-to", "iterated-reducible-N-steps" };
-    "reducible-from-to" -> { "term", "rule", "rule" };
-    "fixed-point-term-in-set" -> { "term", "rule", "rule" };
-    "deterministic" -> { "rule", "non-deterministic" };
-    "non-deterministic" -> { "rule", "identical-terms" };
-    "identical-terms" -> { "primitive-identical-terms", "non-primitive-identical-terms" };
-    "primitive-identical-terms" -> { "primitive-term", "=" };
-    "non-primitive-identical-terms" -> { "non-primitive-term", "identical-edge-sets" };
-    "identical-edge-sets" -> { "identical-edges" };
-    "identical-edges" -> { "identical-non-leaf-vertices", "identical-leaf-vertices", "edge-label" };
-    "identical-non-leaf-vertices" -> { "non-leaf-vertex" };
-    "identical-leaf-vertices" -> { "=" };
-    "term" -> { "primitive-term", "non-primitive-term" };
-    "non-primitive-term" -> { "primitive-term", "edge-label" };
-    "primitive-term" -> { "set-of-primitive-objects" };
-    "set-of-primitive-objects" -> { "(S,=)" };
-    "=" -> { "(S,=)" };
-    "rule" -> { "term" };
+    "primitive-values" -> "primitive-values-implementation";
+    "=" -> "primitive-values-implementation";
+    "identical-primitive-values" -> { "primitive-values", "=" };
+    "term-graph" -> "primitive-values";
+    "unit-term-graph" -> { "unit-graph", "term-graph" };
+    "scope-set" -> "binding-as-sets-of-scopes";
+    "term" -> { "term-graph", "scope-set" };
+    "rule" -> { "term-graph", "scope-set" };
+    "deterministic-rules" -> { "rule", "identical-term-graph" };
+    "environment" -> { "deterministic-rules", "rule", "unit-term-graph" };
+    "applicable-rules" -> { "term", "environment", "identical-term-graphs", "scope-set" };
+    "best-rule" -> { "applicable-rules", "scope-set" };
+    "identical-rules" -> { "identical-term-graphs", "scope-set" };
+    "unique-best-rule" -> { "applicable-rules", "best-rule", "identical-rules" };
 }
