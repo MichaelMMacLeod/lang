@@ -83,7 +83,7 @@ only if all of the following conditions hold:
 
   1. The members of E are pairwise [deterministic-rules].
 
-  2. E contains the [rule] (U,U,{}), where U is the [nit-term-graph].
+  2. E contains the [rule] (U,U,{}), where U is the [unit-term-graph].
 
 Definition [applicable-rules]: For a given [term] (TG,TS) and
 [environment] E, a set of objects A is a set of applicable rules if
