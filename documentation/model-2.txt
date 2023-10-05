@@ -10,7 +10,7 @@ Clarifications:
 Model:
 
 Definition [primitive-values-implementation]: A pair (SPV,=), where
-SPV is a set and = is an equivalence relation on [SPV].
+SPV is a set and = is an equivalence relation on SPV.
 
 Definition [primitive-values]: The set 'SPV' in the
 [primitive-values-implementation].
