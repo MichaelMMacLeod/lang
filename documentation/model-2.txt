@@ -7,6 +7,11 @@ Clarifications:
      underscores are used in the same context they do not necessarily
      refer to the same object.
 
+  2. For our purposes here, every vertex in a graph that is not part
+     of a strongly-connected-component of N>1 vertices is trivially
+     considered strongly-connected to itself (i.e., it is a
+     strongly-connected-component of size 1).
+  
 Model:
 
 Definition [primitive-values-implementation]: A pair (SPV,=), where
@@ -21,35 +26,45 @@ Definition [=]: The equivalence relation '=' in the
 Definition [identical-primitive-values]: Two [primitive-values] PV1
 and PV2 are identical if and only if PV1 [=] PV2.
 
+Definition [scope-set]: A finite set of non-negative integers. See
+citation [binding-as-sets-of-scopes] for why this is a useful
+definition.
+
 Definition [term-graph]: A directed graph (V,E) where V is the set of
 vertices and E is the set of edges is a term graph if and only if all
 of the following conditions apply:
 
-  1. (V,E) either (consists of exactly one connected component) or (V
+  1. (V,E) either (consists of exactly one connected-component) or (V
      and E are both empty sets).
 
-  2. For every vertex VX, if VX is not a leaf then VX has no
-     label. Otherwise, if VX is a leaf, VX is labeled with a member of
-     the [primitive-values].
+  2. Every strongly-connected-component in (V,E) that is a single leaf
+     vertex is labeled with a member of the [primitive-values].
 
-  3. For every vertex VX in V, if VX has N outgoing edges, then each
-     of its edges has a non-negative integer label less than N and
-     unique with respect to the other outgoing edges of VX.
+  3. For every strongly-connected-component C in (V,E) that is not a
+     single leaf vertex and has N outgoing edges, each of its edges
+     has a non-negative integer label less than N and unique with
+     respect to the other outgoing edges of C.
 
 Definition [identical-term-graphs]: Two [term-graph]s, G1 and G2, are
 identical if and only if all of the following conditions apply:
 
   1. G1 and G2 are isomorphic.
 
-  2. For every outgoing edge E1 of vertex V1 with label E1L of G1 and
-     for every outgoing edge E2 of vertex V2 with label E2L of G2, if
-     both (V1 and V2) and (E1 and E2) are in the same position (in the
-     sense of the isomorphism) on their respective graphs, E1L = E2L.
+  2. For every strongly-connected-component C1 in G1 and C2 in G2 that
+     are not single leaf vertices and that are in the same position
+     (in the sense of the isomorphism), all of the following
+     conditions hold:
 
-  3. For every leaf vertex G1V with label G1L of G1 and every leaf
-     vertex G2V with label G2L of G2, if G1V and G2V are in the same
-     position (in the sense of the isomorphism) on their respective
-     graphs, then G1L [=] G2L.
+     a. The [scope-set] on C1 is equal to the [scope-set] on C2.
+
+     b. For all outgoing edges E1 in C1 and E2 in C2, if E1 and E2 are
+        in the same position (in the sense of the isomorphism), then
+        E1 and E2 have the same integer label.
+
+  4. For every strongly-connected-component V1 in G1 and V2 in G2 that
+     are single leaf vertices, if V1 and V2 are in the same position
+     (in the sense of the isomorphism), then the label of V1 is equal
+     to the label of V2 in the sense of [=].
 
 Definition [unit-graph]: The graph ({},{}).
 
@@ -58,10 +73,6 @@ Theorem [unit-term-graph]: [unit-graph] is a [term-graph].
 Proof [unit-term-graph]: [term-graph][1] holds. [term-graph][2] and
 [term-graph][3] are vacuously true because [unit-graph] has no
 vertices.
-
-Definition [scope-set]: A finite set of non-negative integers. See
-citation [binding-as-sets-of-scopes] for why this is a useful
-definition.
 
 Definition [term]: A pair (TG,TS) where TG is a [term-graph] and TS is
 a [scope-set].
