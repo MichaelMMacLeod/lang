@@ -1,0 +1,143 @@
+Used but not yet defined: primitive-value, identical-term-graphs.
+
+I still need to describe the program result, unique reduction, etc.
+
+Clarifications:
+
+  1. An underscore, '_', is used to specify that an object which is
+     not important in the current context is not given a name. If two
+     underscores are used in the same context they do not necessarily
+     refer to the same object.
+
+Model:
+
+Definition [term-graph]: A directed graph (V,E) where V is the set of
+vertices and E is the set of edges is a term graph if and only if all
+of the following conditions apply:
+
+  1. If there is only one vertex in V then E is the empty set. Call
+     this graph (), or Unit.
+
+  3. If the graph is (), then the vertex has no label. If the graph is
+     not (), then for every vertex VX, if VX is not a leaf then VX has
+     no label.
+
+  3. If the graph is not () and if a vertex is a leaf, then it is
+     labeled with a [primitive-value].
+
+  4. For every vertex VX in V, if VX has N outgoing edges, then each
+     of its edges has a non-negative integer label less than N and
+     unique with respect to the other outgoing edges of VX.
+
+Definition [unit-graph]: Unit as defined in [term-graph][1].
+
+Definition [scope-set]: A finite set of non-negative integers. See
+citation [binding-as-sets-of-scopes] for why this is a useful
+definition.
+
+Definition [term]: A pair (TG,TS) where TG is a [term-graph] and TS is
+a [scope-set].
+
+Definition [rule]: A pair (P,Q,PQS) where both P and Q are
+[term-graph]s and PQS is a [scope-set].
+
+Definition [deterministic-rules]: A pair of rules
+((P1,Q1,PQS1),(P2,Q2,PQS2)) where exactly one of the following
+conditions hold:
+
+  1. PQS1 != PQS2
+
+  2. (P1 and P2 are [identical-term-graphs]) implies (Q1 and Q2 are
+     [identical-term-graphs])
+
+Definition [environment]: A set of objects E is an environment if and
+only if all of the following conditions hold:
+
+  1. The members of E are pairwise [deterministic-rules].
+
+  2. E contains the [rule] (U,U,{}), where U is the [unit-graph].
+
+Definition [applicable-rules]: For a given [term] (TG,TS) and
+[environment] E, a set of objects A is a set of applicable rules if
+and only if all of the following conditions apply:
+
+  1. Every member of A is a member of E.
+
+  2. If (AG,_,_) is a member of A, then TG and AG are
+     [identical-term-graphs].
+
+  3. If (_,_,PQS) is a member of A, then PQS is a non-strict subset of
+     TS.
+
+Definition [best-rule]: For a given set of [applicable-rules] A, if
+there exists an object B such that all of the following conditions
+apply, then B is a best rule:
+
+  1. B is a member of A. Let us also call B (_,_,PQS).
+
+  2. For all members (_,_,PQSM) of A, PQSM is a non-strict subset of
+     PQS.
+
+Definition [identical-rules]: For any [rule]s R1=(P1,Q1,PQS1) and
+R2=(P2,Q2,PQS2), R1 and R2 are identical rules if and only if all of
+the following conditions hold.
+
+  1. P1 and P2 are [identical-term-graphs].
+
+  2. Q1 and Q2 are [identical-term-graphs].
+
+  3. PQS1 = PQS2.
+
+Theorem [unique-best-rule]: For a given set of [applicable-rules] A,
+if A is nonempty then there exists a [best-rule] R in A such that for
+all [best-rule]s RI in A, R and RI are [identical-rules].
+
+Proof [unique-best-rule]:
+
+  1. Let A be a nonempty set of [applicable-rules].
+
+  2. Suppose there exist two [rule]s of A, R=(P1,Q1,PQS1) and
+     RI=(P2,Q2,PQS2), such that both R and RI are [best-rule]s.
+
+  3. Because A is a set of [applicable-rules], for all [rule]s
+     (XG,_,_) and (YG,_,_) in A, XG and YG are
+     [identical-term-graphs]. Because R and RI are members of A, P1
+     and P2 must be [identical-term-graphs].
+
+  4. Because A is a set of [applicable-rules], there exists an
+     [environment] E such that every member of A is a member of E.
+
+  5. Because of (4), members of A are pairwise
+     [deterministic-rules]. Because R and RI are members of A, R and
+     RI are [determinstic-rules].
+
+  6. Because of (5), either PQS1 != PQS2, or (P1 and P2 are
+     [identical-term-graphs]) implies (Q1 and Q2 are
+     [identical-term-graphs])
+
+  7. Because of (2), PQS1 is a non-strict subset of PQS2, and PQS2 is
+     a non-strict subset of PQS1. In other words, PQS1 = PQS2.
+
+  8. Because of (6) and (7), we know that (P1 and P2 are
+     [identical-term-graphs]) implies (Q1 and Q2 are
+     [identical-term-graphs]) is true. Moreover, we know from (3) that
+     P1 and P2 are [identical-term-graphs], so it must be the case
+     that Q1 and Q2 are [identical-term-graphs].
+
+  9. Because of (3), (8), and (7), the following conditions hold:
+
+       a. P1 and P2 are [identical-term-graphs], ; from (3)
+
+       b. Q1 and Q2 are [identical-term-graphs], ; from (8)
+
+       c. and PQS1 = PQS2.                       ; from (7)
+
+     So R and RI are [identical-rules], thus [unique-best-rule] is
+     true, and we are done with the proof.
+
+Citations:
+
+  - [binding-as-sets-of-scopes]: "Binding as Sets of Scopes: Notes on
+    a new model of macro expansion for Racket" by Matthew Flatt
+    (https://users.cs.utah.edu/plt/scope-sets/index.html). Archived
+    version: (https://web.archive.org/web/20231005035007/https://users.cs.utah.edu/plt/scope-sets/index.html).
