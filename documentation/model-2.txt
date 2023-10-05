@@ -46,9 +46,9 @@ of the following conditions apply:
      respect to the other outgoing edges of C.
 
 Definition [identical-term-graphs]: Two [term-graph]s, G1 and G2, are
-identical if they are the same graphs---including checking for label
-equality---where equality on members of the [primitive-objects] is
-defined in the sense of [=].
+identical if and only if they are the same graphs---including checking
+for label equality---where equality on members of the
+[primitive-objects] is defined in the sense of [=].
 
 Definition [term]: A pair (TG,TS) where TG is a [term-graph] and TS is
 a [scope-set].
