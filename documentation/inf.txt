@@ -395,7 +395,16 @@ x --> 10
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
------ BUILTIN PRIMITIVE FORM IDEAS -----
+Conceptually, the root '(Rule (Some $v) (Some $v))' defines an
+infinite set of rules, one rule for each root $v.
+
+The root '(let [(Some $v) (Some $v)] <body>)' also defines an infinite
+set of rules '(Rule (Some $v) (Some $v))' except that the pattern in
+that rule has an extra unique scope on it, so that it can't be applied
+in the scope outside the 'let' root. --- ACTUALLY, THIS IS WRONG ---
+technically, in the way I have defined 'let', the scope is not added
+to the RHS, which would mean that if (Some $) becomes a redex in
+<body> then it would not be reducible to a fixed point.
 
 (let [$pattern $result] ... body)
 
@@ -439,6 +448,48 @@ y{1,2}
 (let [x 10]
   (let [y x]
     x))
+
+(let [x 1]
+  (let [(m) x]
+    (Rule x (m))))
+(let [(m) x]
+  (Rule x (m)))
+(Rule x (m)) ; fixed point
+; now, let's assume the above rule was present in our new environment
+; below
+x
+(m)
+1
+;;;;
+(let [x x] x)
+x
+(m)
+1
+
+; OK, so we add scopes like so: '(let{} [x{1} x{}]{???} x{1}){}' ---
+; note the lack of scope '1' on the RHS 'x'.
+
+; old experiment:
+
+(let [x (let [x y] x)]
+  x)
+(let{} [x{} (let{} [x{} y{}]{} x{}){}]{}
+  x{}){}
+(let{} [x{1} (let{} [x{} y{}]{} x{}){?}]{?}
+  x{1}){}
+x{1}
+(let{} [x{} y{}]{} x{})
+(let{} [x{2} y{}]{} x{2})
+x{2}
+y{}
+
+; The mistake I made before is that I added the scope to the part of
+; the term that x was being bound to. Same result, though?
+
+; Ok, so (Rule <pattern> <result>) doesn't add a scope to <pattern> or
+; <result>. But (let [<pattern> <result>] <body>) adds a scope to
+; <pattern> and <body> and adds the rule (Rule <pattern>{1} <result>)
+; to the environment.
 
 Let:
 
