@@ -1,46 +1,79 @@
+FIXME:
+
+  1. get rid of x/y to mean WITH in some places when you said it means
+     HAS SCOPE SET!
+
+  2. Rule, Env defs?
+
 Notation:
 
-  1. Y/X means that the term Y has scope-set X.
+  1. Y/{Z} means that the scope-set of term Y is a set containing only
+     one scope, Z.
 
-  2. Y/X+{Z} means that term Y has scope-set (X union {Z}) for some
+  2. Y/X means that the term Y has scope-set X.
+
+  3. Y/X+{Z} means that term Y has scope-set (X union {Z}) for some
      scope Z.
 
-  2. 'next scope S' is a scope unique to an environment.
+  4. 'next scope S' is a never-before-seen scope, i.e., no term has
+     ever before had S in its scope-set.
+
+  5. If an identifier is used without a scope-set (like 'X' instead of
+     'X/S'), then the scope-set is meant to be inferred from the
+     context. If a definition requires that a rule be placed in the
+     environment then---unless stated otherwise---the enclosing
+     scope-set is the top-level empty one, {}.
+
+FIXME: remove the following?
+
+ ;;; Definition of [noreduce-scope]: A single, never-before-seen
+ ;;; scope. Because the only way to introduce scopes on terms is through
+ ;;; 'let' and 'letrec', and because the scopes introduced by those terms
+ ;;; are always never-before-seen-scopes, no term (outside of the ones
+ ;;; specified here) can ever have this noreduce-scope in their
+ ;;; scope-set. The purpose of the noreduce-scope is to make the term
+ ;;; (no-reduce/{noreduce-scope} $) irreducible. Because it is impossible
+ ;;; to apply the noreduce-scope to any term in user code, it's impossible
+ ;;; to write a rule whose pattern contains
+ ;;; no-reduce/{[no-reduce-scope]}. Because there is no rule specified here
+ ;;; (on purpose) that makes (noreduce/{noreduce-scope} $) a fixed-point,
+ ;;; or any rule that re-writes it to something reducible to one, it cannot
+ ;;; be reduced to a fixed-point. Thus, if that term ever becomes a redex
+ ;;; in real code, the program will crash. This is occasionally useful
+ ;;; (more will be said about this later).
 
 Definition [let]:
 
   ; In environment E with next scope S,
   (let [<pattern>/SP <result>/SR]
     <body>/SB)
-  --> 
-  ; in environment extended with (Rule <pattern>/SP+{S} <result>/SR)
-  <body>/SB+{S}
-  ; but only if the new environment is defined, i.e., only the new
-  ; rule is pairwise-deterministic with the rules of E.
+  --> <body>/SB+{S} ; In environment E extended with (Rule
+                    ; <pattern>/SP+{S} <result>/SR) but only if the
+                    ; new environment is defined, i.e., only the new
+                    ; rule is pairwise-deterministic with the rules
+                    ; of E.
 
   'let' and 'letrec' can be used to create 'containers' which can't be
   unwrapped, except by special privileged code. For example, consider
   the following term which defines '(new Secure <v>)', which 
 
-    secure-env
-
-    (def secure-env
-      (Env s:new s:bind))
+    (export s:new s:bind)
 
     (def s:new
       (Rule (new Secure $v)
       
         ; Notice that the 'Secure' in the pattern of this rule above
         ; is the SAME 'Secure' as the 'Secure' in the top-level
-        ; environment.
+        ; environment. This is not the case with
+        ; 'Secure:secret-scope', as we will learn below:
       
-        (Secure/secret-scope $v)))
+        (Secure:secret-scope $v)))
 
     (def s:bind
-      (Rule (bind (Secure/secret-scope $v) $f)
+      (Rule (bind (Secure:secret-scope $v) $f)
         ($f $v)))
 
-    (def Secure/secret-scope
+    (def Secure:secret-scope
 
       ; Create a fixed-point term, 'inner-scope', that has an extra,
       ; unique, scope on it (because it is defined inside of a
@@ -57,12 +90,15 @@ Definition [let]:
       ; pattern's scope-set is a non-strict subset of the term's
       ; scope-set. Since no rule exists that reduces to THIS
       ; 'inner-scope' in the environment that this library reduces to,
-      ; there is no way to get THIS 'Secure' in other code, or to
-      ; match on it in other code with a rule. Rules defined outside
-      ; of this library CAN, of course, match on a DIFFERENT 'Secure',
-      ; but it wouldn't be THIS 'Secure'. Again, to be clear, the
-      ; reason this works is because of lexical scope. There's nothing
-      ; fancy happening here---just a clever (?) use of scope-sets.
+      ; there is no way to get THIS 'Secure:secret-scope' in other
+      ; code. This means that there is no way to reference
+      ; 'inner-scope' with the special scope from the 'letrec' from
+      ; anywhere else other than in this library. Rules defined
+      ; outside of this library CAN, of course, match on a DIFFERENT
+      ; 'Secure:secret-scope', but it wouldn't be THIS
+      ; 'Secure:secret-scope'. Again, to be clear, the reason this
+      ; works is because of lexical scope. There's nothing fancy
+      ; happening here---just a clever (?) use of scope-sets.
 
       (letrec [inner-scope inner-scope]
         inner-scope))
@@ -106,36 +142,32 @@ reduction has <result>/RS+{S} instead of <result>/RS. This allows
   ... but we also want to be able to shadow rules, so 'let' is
   necessary.
 
-Definition of [begin]: 'begin' is defined as the first rule in the
-following series of rules which are  in the
-top-level scope (but only defined if the condition specified later
-applies):
+Definition of [cache-in-store]: (cache-in-store $) ... TODO!
 
-    (Rule (begin $main $rest ...)
-      (begin-aux $main () () $rest ...))
-    (Rule (begin-aux $main ($let-rules ...) $letrec-rules
-                     (def $pattern $result)
-                     $rest ...)
-          (begin-aux $main ([$pattern $result] $let-rules ...)
-                     $letrec-rules
-                     $rest ...))
-    (Rule (begin-aux $main $let-rules ($letrec-rules ...)
-                     (rec $pattern $result)
-                     $rest ...)
-      (begin-aux $main $let-rules
-                 ([$pattern $result] $letrec-rules ...)
-                 $rest ...))
-    (Rule (begin-aux $main ($let-rules ...) ($letrec-rules ...))
-      (let $let-rules ...
-        (letrec $letrec-rules ...
-          $main)))
-  
-  Condition: For the environment E into which this rule is being
-  introduced there does not exist a rule in E available at the
-  top-level scope that is nondeterministic with respect to the above
-  rule (i.e., if someone wants to implement their own rule for 'begin,
-  they can, and it won't conflict with this one, because this one
-  wouldn't be defined in E if they defined their own).
+Definition of [begin]: If there does not exist a rule in the
+environment whose pattern matches (begin/{} $ ...) (e.g., a rule that
+begins with the symbol 'begin' in the top-level scope and matches
+zero-or-more subterms (whatever they may be), then the following two
+rules are defined in the environment:
+
+
+    Definition of [begin:program]:
+
+      (Rule (begin main = $side-effects
+                   (def $pattern $result) ...)          
+            (sequence $side-effects
+                      (letrec [$pattern $result] ... 0)
+                      1))
+   
+    Definition of [begin:library]:
+    
+      (Rule (begin (export $rule ...)
+                   (def $pattern $result) ...)
+            (let [$pattern $result] ...
+                 [exports (Env $rule ...)]
+              (cache-in-store exports)))
+
+
   
   The language environment, when running code, wraps the entire file
   in (begin ....). This 'default' implementation of 'begin' just
@@ -280,263 +312,269 @@ as <if-fails>.
                    (builtins.stdlib.impure.delete-file "document.txt")
                    undefined)))
      undefined)
-Definitions of [fence-accept] [fence-release]: (fence-release <T>)
-reduces to <T> (it is the identity function). (fence-accept <T>)
-reduces to <T> if and only if (fence-release <T>) has already been
-reduced to a fixed-point. If (fence-release <T>) reduces to a term Q
-where there are no rules for rewriting Q, (fence-accept <T>) is
-defined as [undefined].
 
-   This is useful for ordering the reduction of terms that have side
-   effects. Here's an example of using fences to do the following in
-   this order: (1) read a file; (2) print its contents and delete
-   it. Note that the example does not specify the order of printing
-   and deleting, just that it will have read the file before it does
-   either of those things.
+FIXME! remove?
 
-   Also, for the purposes here, assume that '(builtins.stdlib.impure.*
-   ....)' forms reduce to fixed-points.
-
-   (letrec [doc (lang.stdlib.impure.read-file "document.txt")]
-           [perform-read (fence-accept doc)]
-           [doc-contents (fence-release doc)]
-     (seq perform-read
-          (let [print&delete
-                (seq (builtins.stdlib.impure.print doc-contents)
-                     (builtins.stdlib.impure.delete-file
-                      "document.txt")
-                     undefined)]
-            print&delete)
-          undefined))
-   -->
-   (seq perform-read
-        (let [print&delete
-              (seq (builtins.stdlib.impure.print doc-contents)
-                   (builtins.stdlib.impure.delete-file
-                    "document.txt")
-                   undefined)]
-          print&delete)
-        undefined)
-
-   From this point, there are many possible ways that reduction can
-   occur. I will only consider the 'evil demon' implementation of
-   'seq' which tries to reduce itself in a way as to attempt to cause
-   as many concurrency errors as possible. In this case, I'll make it
-   reduce its second argument as far as it can, and only then reduce
-   its first argument.
-
-   -->
-   (seq perform-read
-        print&delete
-        undefined)
-   -->
-   (seq perform-read
-        (seq (builtins.stdlib.impure.print doc-contents)
-             (builtins.stdlib.impure.delete-file
-              "document.txt")
-             undefined)
-        undefined)
-   -->
-
-Definition of [freeze-pattern-scopes]: (freeze-pattern-scopes <R>) is
-defined if <R> reduces to a rule and the following condition holds:
-the scope-set of the pattern of <R> is a non-strict superset of the
-scope-set of the result of <R>. In other words, (freeze-pattern-scopes
-<R>) is not available in more-nested scopes.
-
-  This is useful for implementing a Haskell-style IO Monad. Here we
-  want to write code that executes the IO Monad, but we only want this
-  to be done at the top-level (i.e., we don't want to allow reducing
-  the term (IO <X>) in a nested scope). For example, the following
-  code could be an implementation of 'begin' that would make a program
-  run in an environment containing the rule not able to use 'begin' in
-  a nested scope (to perform an IO action in a seemingly-pure
-  context):
-
-  (freeze-pattern-scopes
-   (Rule (begin $main (def $pattern $result) ...)
-         (letrec [$pattern $result] ...
-           ; pretend that there exists a rule to re-write the
-           ; unsafe-perform-IO form to a series of 'sequence' forms.
-           (unsafe-perform-IO $main))))
-
-  In an environment containing the previous rule, the following
-  reduction could occur:
-
-  (let [doc (lang.stdlib.pure.read-file "document.txt")]
-    ; it would make sense here that (lang.stdlib.pure.read-file ....)
-    ; reduces to a fixed-point (IO <X>).
-    (begin doc))
-  --> (begin doc)
-  --> ERROR! No rules for rewriting '(begin doc)'. The closest is
-      '(begin $result (def $pattern $result) ...)', but that rule is
-      FROZEN as to not be available in more-nested scopes.
-
-Definition of [noreduce]: The following rule exists in the top-level
-environment:
-
-    (Rule (noreduce $) undefined)
-
-  ... which is technically speaking an infinite series of rules---one
-  rule for each thing you could put in '$'---which ignores all of its
-  subterms and reduces to 'undefined'.
-
-  This is useful for implementing pure rules using impure rules. While
-  purely-functional data structures are great, they can't do
-  everything. Sometimes the need for speed and space requires that we
-  use impurity. But it IS possible to write a rule that (1) doesn't
-  mutate its arguments, (2) always returns the same result for the
-  given arguments, and (3) uses mutation internally to do some
-  computation in a way that would be too slow or too space intensive
-  using purely-functional data structures. I think it would be
-  reasonable to call this rule 'pure', as the impurity inside of it is
-  merely an implementation detail of the rule; no one would know
-  otherwise if it was implemented using purely-functional data
-  structures (except that they might notice it taking longer to reduce
-  or taking more memory to reduce).
-
-    ; For example, the implementation of a standard library could
-    ; contain the following rules which allow the creation of an
-    ; 'Internally-Mutable-Vector' that can't be reduced which is just
-    ; a wrapper around an (assuming) already-defined Mutable-Vector.
-
-      mutable-vector-env+sequence-many-env
-
-      (def mutable-vector-env+sequence-many-env
-        (Env m:new
-             m:mutable->immutable
-             m:set!
-             m:sequence-many1
-             m:sequence-many*))
-
-      (def m:new
-        (Rule (new Internally-Mutable-Vector $size)
-          (begin (helper Internally-Mutable-Vector)
-            (def (helper $term-with-outside-scope)
-              (let
-                (noreduce ($term-with-outside-scope (new lang.builtins.Mutable-Vector $size))))))))
-
-      (def m:mutable->immutable
-        (Rule (mutable->immutable
-               (noreduce (Internally-Mutable-Vector $v)))
-              (mutable->immutable $v)))
-      
-      (def m:set!
-        (Rule (Internally-Mutable-Vector (noreduce $v))
-              $index
-              $value)
-          (set! $v $index $value))
-
-      ; the following is useful for performing a lot of set!
-      ; operations:
-      (def m:sequence-many1
-        (Rule (sequence-many $term0) $term0))
-      (def m:sequence-many*
-        (Rule (sequence-many $term0 $terms ...+)
-          (sequence $term0
-                    (sequence-many $terms ...)
-                    undefined)))
-
-    ; If these rules were present in our environment and we attempted
-    ; to return this 'Internally-Mutable-Vector', it wouldn't work:
-
-      (let [v (new Internally-Mutable-Vector 2)]
-        (sequence-many (set! v 0 "a")
-                       (set! v 1 "b")
-                       v)) ; here we try to return 'v'
-      -->
-      (sequence-many (set! v 0 "a")
-                     (set! v 1 "b")
-                     v)
-      -->
-      (sequence (set! v 0 "a")
-                (sequence-many (set! v 1 "b") v)
-                undefined)
-      -->
-      (sequence (set! (new Internally-Mutable-Vector 2) 0 "a")
-                (sequence-many (set! v 1 "b") v)
-                undefined)
-      -->
-      (sequence (set! (noreduce (Internally-Mutable-Vector m)) 0 "a")
-                (sequence-many (set! v 1 "b") v)
-                undefined)
-      -->
-      (sequence (set! m 0 "a")
-                (sequence-many (set! v 1 "b") v)
-                undefined)
-      -->
-      (sequence (set! (new lang.builtins.Mutable-Vector 2) 0 "a")
-                (sequence-many (set! v 1 "b") v)
-                undefined)
-      --> ; assuming that 'new' rule on lang.builtins.Mutable-Vector
-          ; returns the fixed-point mutable vector representation
-          ; '<builtin-mut-vec>':
-      (sequence (set! <builtin-mut-vec> 0 "a")
-                (sequence-many (set! v 1 "b") v)
-                undefined)
-      --> ; assuming that the 'set!' rule on '<builtin-mut-vec>'
-          ; returns '<builtin-mut-vec>' itself after setting the value
-          ; at the index in the vector:
-      (sequence <builtin-mut-vec>
-                (sequence-many (set! v 1 "b") v)
-                undefined)
-      -->
-      (sequence-many (set! v 1 "b") v)
-      -->
-      (sequence (set! v 1 "b")
-                (sequence-many v)
-                undefined)
-      -- .... -->
-      (sequence (set! <builtin-mut-vec> 1 "b")
-                (sequence-many v)
-                undefined)
-      -->
-      (sequence-many v)
-      -->
-      v
-      --> ; at this point, due to sequencing, the mutable vector
-          ; inside of 'v' has already long been fully reduced to a
-          ; fixed-point, even though 'v' itself has not been. I'm
-          ; writing this to explain that even though 'v' reduces to
-          ; '(new Internally-Mutable-Vector 2)', it's not the case
-          ; that this creates a 'new' vector: it is the same one that
-          ; has been being mutated this whole time.
-      (new Internally-Mutable-Vector 2)
-      -->
-      (noreduce (Internally-Mutable-Vector m))
-      --> ; ERROR: attempt to REDUCE THE IRREDUCIBLE!
-
-    ; But can't we 'break the system' by doing this?
-
-      (def (impure-unwrap (Internally-Mutable-Vector (noreduce $v)))
-        $v)
-
-      (let [v (new Internally-Mutable-Vector 2)]
-        (sequence-many (set! v 0 "a")
-                       (set! v 1 "b")
-                       (impure-unwrap v)))
-      -- .... -->
-      <builtin-mut-vec>
-
-    ; Well, of course you can. But why would you?
-   
-    ; Here we will implement an algorithm that takes an integer N as
-    ; input and returns an immutable vector of size N, after filling
-    ; it with some data. Exactly what data goes in the vector is not
-    ; specified here, but filling the vector with data should involve
-    ; lots of expensive operations that would be hard to do in a
-    ; purely-functional way.
-    
-    (Rule (pure-algorithm $arg)
-          (pure-algorithm/internal-mutation $arg))
-
-    (def (sequence-many $term0 $term ...+)
-      (sequence $term0
-                (sequence-many $term ...)
-                undefined))
-
-    (def (pure-algorithm/internal-mutation $arg)
-      (let [v (new mutable-vector:internal $arg)]
-        (sequence v
-                  (begin (mutable-vector:internal->immutable-vector v)
-                    ....))))
+ ;;; Definitions of [fence-accept] [fence-release]: (fence-release <T>)
+ ;;; reduces to <T> (it is the identity function). (fence-accept <T>)
+ ;;; reduces to <T> if and only if (fence-release <T>) has already been
+ ;;; reduced to a fixed-point. If (fence-release <T>) reduces to a term Q
+ ;;; where there are no rules for rewriting Q, (fence-accept <T>) is
+ ;;; defined as [undefined].
+ ;;; 
+ ;;;    This is useful for ordering the reduction of terms that have side
+ ;;;    effects. Here's an example of using fences to do the following in
+ ;;;    this order: (1) read a file; (2) print its contents and delete
+ ;;;    it. Note that the example does not specify the order of printing
+ ;;;    and deleting, just that it will have read the file before it does
+ ;;;    either of those things.
+ ;;; 
+ ;;;    Also, for the purposes here, assume that '(builtins.stdlib.impure.*
+ ;;;    ....)' forms reduce to fixed-points.
+ ;;; 
+ ;;;    (letrec [doc (lang.stdlib.impure.read-file "document.txt")]
+ ;;;            [perform-read (fence-accept doc)]
+ ;;;            [doc-contents (fence-release doc)]
+ ;;;      (seq perform-read
+ ;;;           (let [print&delete
+ ;;;                 (seq (builtins.stdlib.impure.print doc-contents)
+ ;;;                      (builtins.stdlib.impure.delete-file
+ ;;;                       "document.txt")
+ ;;;                      undefined)]
+ ;;;             print&delete)
+ ;;;           undefined))
+ ;;;    -->
+ ;;;    (seq perform-read
+ ;;;         (let [print&delete
+ ;;;               (seq (builtins.stdlib.impure.print doc-contents)
+ ;;;                    (builtins.stdlib.impure.delete-file
+ ;;;                     "document.txt")
+ ;;;                    undefined)]
+ ;;;           print&delete)
+ ;;;         undefined)
+ ;;; 
+ ;;;    From this point, there are many possible ways that reduction can
+ ;;;    occur. I will only consider the 'evil demon' implementation of
+ ;;;    'seq' which tries to reduce itself in a way as to attempt to cause
+ ;;;    as many concurrency errors as possible. In this case, I'll make it
+ ;;;    reduce its second argument as far as it can, and only then reduce
+ ;;;    its first argument.
+ ;;; 
+ ;;;    -->
+ ;;;    (seq perform-read
+ ;;;         print&delete
+ ;;;         undefined)
+ ;;;    -->
+ ;;;    (seq perform-read
+ ;;;         (seq (builtins.stdlib.impure.print doc-contents)
+ ;;;              (builtins.stdlib.impure.delete-file
+ ;;;               "document.txt")
+ ;;;              undefined)
+ ;;;         undefined)
+ ;;;    -->
+ ;;; 
+ ;;; FIXME! move this after 'noreduce' and describe why it needs
+ ;;; 'noreduce'. Definition of [freeze-pattern-scopes]:
+ ;;; (freeze-pattern-scopes <R>) is defined if <R> reduces to a rule and
+ ;;; the following condition holds: the scope-set of the pattern of <R> is
+ ;;; a non-strict superset of the scope-set of the result of <R>. In other
+ ;;; words, (freeze-pattern-scopes <R>) is not available in more-nested
+ ;;; scopes.
+ ;;; 
+ ;;;   This is useful for implementing a Haskell-style IO Monad. Here we
+ ;;;   want to write code that executes the IO Monad, but we only want this
+ ;;;   to be done at the top-level (i.e., we don't want to allow reducing
+ ;;;   the term (IO <X>) in a nested scope). For example, the following
+ ;;;   code could be an implementation of 'begin' that would make a program
+ ;;;   run in an environment containing the rule not able to use 'begin' in
+ ;;;   a nested scope (to perform an IO action in a seemingly-pure
+ ;;;   context):
+ ;;; 
+ ;;;   (freeze-pattern-scopes
+ ;;;    (Rule (begin $main (def $pattern $result) ...)
+ ;;;          (letrec [$pattern $result] ...
+ ;;;            ; pretend that there exists a rule to re-write the
+ ;;;            ; unsafe-perform-IO form to a series of 'sequence' forms.
+ ;;;            (noreduce (unsafe-perform-IO $main)))))
+ ;;; 
+ ;;;   In an environment containing the previous rule, the following
+ ;;;   reduction could occur:
+ ;;; 
+ ;;;   (let [doc (lang.stdlib.pure.read-file "document.txt")]
+ ;;;     ; it would make sense here that (lang.stdlib.pure.read-file ....)
+ ;;;     ; reduces to a fixed-point (IO <X>).
+ ;;;     (begin doc))
+ ;;;   --> (begin doc)
+ ;;;   --> ERROR! No rules for rewriting '(begin doc)'. The closest is
+ ;;;       '(begin $result (def $pattern $result) ...)', but that rule is
+ ;;;       FROZEN as to not be available in more-nested scopes.
+ ;;; 
+ ;;; Definition of [noreduce]: The following rule exists in the top-level
+ ;;; environment:
+ ;;; 
+ ;;;     (Rule (noreduce $) undefined)
+ ;;; 
+ ;;;   ... which is technically speaking an infinite series of rules---one
+ ;;;   rule for each thing you could put in '$'---which ignores all of its
+ ;;;   subterms and reduces to 'undefined'.
+ ;;; 
+ ;;;   This is useful for implementing pure rules using impure rules. While
+ ;;;   purely-functional data structures are great, they can't do
+ ;;;   everything. Sometimes the need for speed and space requires that we
+ ;;;   use impurity. But it IS possible to write a rule that (1) doesn't
+ ;;;   mutate its arguments, (2) always returns the same result for the
+ ;;;   given arguments, and (3) uses mutation internally to do some
+ ;;;   computation in a way that would be too slow or too space intensive
+ ;;;   using purely-functional data structures. I think it would be
+ ;;;   reasonable to call this rule 'pure', as the impurity inside of it is
+ ;;;   merely an implementation detail of the rule; no one would know
+ ;;;   otherwise if it was implemented using purely-functional data
+ ;;;   structures (except that they might notice it taking longer to reduce
+ ;;;   or taking more memory to reduce).
+ ;;; 
+ ;;;     ; For example, the implementation of a standard library could
+ ;;;     ; contain the following rules which allow the creation of an
+ ;;;     ; 'Internally-Mutable-Vector' that can't be reduced which is just
+ ;;;     ; a wrapper around an (assuming) already-defined Mutable-Vector.
+ ;;; 
+ ;;;       mutable-vector-env+sequence-many-env
+ ;;; 
+ ;;;       (def mutable-vector-env+sequence-many-env
+ ;;;         (Env m:new
+ ;;;              m:mutable->immutable
+ ;;;              m:set!
+ ;;;              m:sequence-many1
+ ;;;              m:sequence-many*))
+ ;;; 
+ ;;;       (def m:new
+ ;;;         (Rule (new Internally-Mutable-Vector $size)
+ ;;;           (begin (helper Internally-Mutable-Vector)
+ ;;;             (def (helper $term-with-outside-scope)
+ ;;;               (let
+ ;;;                 (noreduce ($term-with-outside-scope (new lang.builtins.Mutable-Vector $size))))))))
+ ;;; 
+ ;;;       (def m:mutable->immutable
+ ;;;         (Rule (mutable->immutable
+ ;;;                (noreduce (Internally-Mutable-Vector $v)))
+ ;;;               (mutable->immutable $v)))
+ ;;;       
+ ;;;       (def m:set!
+ ;;;         (Rule (Internally-Mutable-Vector (noreduce $v))
+ ;;;               $index
+ ;;;               $value)
+ ;;;           (set! $v $index $value))
+ ;;; 
+ ;;;       ; the following is useful for performing a lot of set!
+ ;;;       ; operations:
+ ;;;       (def m:sequence-many1
+ ;;;         (Rule (sequence-many $term0) $term0))
+ ;;;       (def m:sequence-many*
+ ;;;         (Rule (sequence-many $term0 $terms ...+)
+ ;;;           (sequence $term0
+ ;;;                     (sequence-many $terms ...)
+ ;;;                     undefined)))
+ ;;; 
+ ;;;     ; If these rules were present in our environment and we attempted
+ ;;;     ; to return this 'Internally-Mutable-Vector', it wouldn't work:
+ ;;; 
+ ;;;       (let [v (new Internally-Mutable-Vector 2)]
+ ;;;         (sequence-many (set! v 0 "a")
+ ;;;                        (set! v 1 "b")
+ ;;;                        v)) ; here we try to return 'v'
+ ;;;       -->
+ ;;;       (sequence-many (set! v 0 "a")
+ ;;;                      (set! v 1 "b")
+ ;;;                      v)
+ ;;;       -->
+ ;;;       (sequence (set! v 0 "a")
+ ;;;                 (sequence-many (set! v 1 "b") v)
+ ;;;                 undefined)
+ ;;;       -->
+ ;;;       (sequence (set! (new Internally-Mutable-Vector 2) 0 "a")
+ ;;;                 (sequence-many (set! v 1 "b") v)
+ ;;;                 undefined)
+ ;;;       -->
+ ;;;       (sequence (set! (noreduce (Internally-Mutable-Vector m)) 0 "a")
+ ;;;                 (sequence-many (set! v 1 "b") v)
+ ;;;                 undefined)
+ ;;;       -->
+ ;;;       (sequence (set! m 0 "a")
+ ;;;                 (sequence-many (set! v 1 "b") v)
+ ;;;                 undefined)
+ ;;;       -->
+ ;;;       (sequence (set! (new lang.builtins.Mutable-Vector 2) 0 "a")
+ ;;;                 (sequence-many (set! v 1 "b") v)
+ ;;;                 undefined)
+ ;;;       --> ; assuming that 'new' rule on lang.builtins.Mutable-Vector
+ ;;;           ; returns the fixed-point mutable vector representation
+ ;;;           ; '<builtin-mut-vec>':
+ ;;;       (sequence (set! <builtin-mut-vec> 0 "a")
+ ;;;                 (sequence-many (set! v 1 "b") v)
+ ;;;                 undefined)
+ ;;;       --> ; assuming that the 'set!' rule on '<builtin-mut-vec>'
+ ;;;           ; returns '<builtin-mut-vec>' itself after setting the value
+ ;;;           ; at the index in the vector:
+ ;;;       (sequence <builtin-mut-vec>
+ ;;;                 (sequence-many (set! v 1 "b") v)
+ ;;;                 undefined)
+ ;;;       -->
+ ;;;       (sequence-many (set! v 1 "b") v)
+ ;;;       -->
+ ;;;       (sequence (set! v 1 "b")
+ ;;;                 (sequence-many v)
+ ;;;                 undefined)
+ ;;;       -- .... -->
+ ;;;       (sequence (set! <builtin-mut-vec> 1 "b")
+ ;;;                 (sequence-many v)
+ ;;;                 undefined)
+ ;;;       -->
+ ;;;       (sequence-many v)
+ ;;;       -->
+ ;;;       v
+ ;;;       --> ; at this point, due to sequencing, the mutable vector
+ ;;;           ; inside of 'v' has already long been fully reduced to a
+ ;;;           ; fixed-point, even though 'v' itself has not been. I'm
+ ;;;           ; writing this to explain that even though 'v' reduces to
+ ;;;           ; '(new Internally-Mutable-Vector 2)', it's not the case
+ ;;;           ; that this creates a 'new' vector: it is the same one that
+ ;;;           ; has been being mutated this whole time.
+ ;;;       (new Internally-Mutable-Vector 2)
+ ;;;       -->
+ ;;;       (noreduce (Internally-Mutable-Vector m))
+ ;;;       --> ; ERROR: attempt to REDUCE THE IRREDUCIBLE!
+ ;;; 
+ ;;;     ; But can't we 'break the system' by doing this?
+ ;;; 
+ ;;;       (def (impure-unwrap (Internally-Mutable-Vector (noreduce $v)))
+ ;;;         $v)
+ ;;; 
+ ;;;       (let [v (new Internally-Mutable-Vector 2)]
+ ;;;         (sequence-many (set! v 0 "a")
+ ;;;                        (set! v 1 "b")
+ ;;;                        (impure-unwrap v)))
+ ;;;       -- .... -->
+ ;;;       <builtin-mut-vec>
+ ;;; 
+ ;;;     ; Well, of course you can. But why would you?
+ ;;;    
+ ;;;     ; Here we will implement an algorithm that takes an integer N as
+ ;;;     ; input and returns an immutable vector of size N, after filling
+ ;;;     ; it with some data. Exactly what data goes in the vector is not
+ ;;;     ; specified here, but filling the vector with data should involve
+ ;;;     ; lots of expensive operations that would be hard to do in a
+ ;;;     ; purely-functional way.
+ ;;;     
+ ;;;     (Rule (pure-algorithm $arg)
+ ;;;           (pure-algorithm/internal-mutation $arg))
+ ;;; 
+ ;;;     (def (sequence-many $term0 $term ...+)
+ ;;;       (sequence $term0
+ ;;;                 (sequence-many $term ...)
+ ;;;                 undefined))
+ ;;; 
+ ;;;     (def (pure-algorithm/internal-mutation $arg)
+ ;;;       (let [v (new mutable-vector:internal $arg)]
+ ;;;         (sequence v
+ ;;;                   (begin (mutable-vector:internal->immutable-vector v)
+ ;;;                     ....))))
+ ;;; 
