@@ -18,6 +18,62 @@ Definition [let]:
   ; but only if the new environment is defined, i.e., only the new
   ; rule is pairwise-deterministic with the rules of E.
 
+  'let' and 'letrec' can be used to create 'containers' which can't be
+  unwrapped, except by special privileged code. For example, consider
+  the following term which defines '(new Secure <v>)', which 
+
+    secure-env
+
+    (def secure-env
+      (Env s:new s:bind))
+
+    (def s:new
+      (Rule (new Secure $v)
+      
+        ; Notice that the 'Secure' in the pattern of this rule above
+        ; is the SAME 'Secure' as the 'Secure' in the top-level
+        ; environment.
+      
+        (Secure/secret-scope $v)))
+
+    (def s:bind
+      (Rule (bind (Secure/secret-scope $v) $f)
+        ($f $v)))
+
+    (def Secure/secret-scope
+
+      ; Create a fixed-point term, 'inner-scope', that has an extra,
+      ; unique, scope on it (because it is defined inside of a
+      ; 'letrec'). We could have tried to define 'inner-scope' inside
+      ; of a 'let', and this would indeed put a new, unique, scope on
+      ; 'inner-scope', but because that new unique scope wouldn't be
+      ; applied to the RHS of '[inner-scope inner-scope]', the body of
+      ; the 'let' would reduce to the RHS 'inner-scope' (e.g., the
+      ; 'inner-scope' in the top-level environment. But if that were
+      ; the case we would be able to pattern match on it in code that
+      ; was run in the environment that this library reduces to, hence
+      ; the need for 'letrec'). Why can't we match on the 'letrec'
+      ; version? Because a rule's pattern only matches if the
+      ; pattern's scope-set is a non-strict subset of the term's
+      ; scope-set. Since no rule exists that reduces to THIS
+      ; 'inner-scope' in the environment that this library reduces to,
+      ; there is no way to get THIS 'Secure' in other code, or to
+      ; match on it in other code with a rule. Rules defined outside
+      ; of this library CAN, of course, match on a DIFFERENT 'Secure',
+      ; but it wouldn't be THIS 'Secure'. Again, to be clear, the
+      ; reason this works is because of lexical scope. There's nothing
+      ; fancy happening here---just a clever (?) use of scope-sets.
+
+      (letrec [inner-scope inner-scope]
+        inner-scope))
+
+  The reduction of the above term (see the definition of 'begin' for
+  more information about how 'def' works) would be the following:
+
+    (letrec [Secure (let [Secure-impl unique-scope]
+                      Secure-impl)]
+      (attempt-to-leak secret))
+
 Definition of [letrec]: Exactly the same as [let] except that the
 reduction has <result>/RS+{S} instead of <result>/RS. This allows
 <result> to refer to terms in <pattern>.
@@ -50,23 +106,40 @@ reduction has <result>/RS+{S} instead of <result>/RS. This allows
   ... but we also want to be able to shadow rules, so 'let' is
   necessary.
 
-Definition of [begin]: 'begin' is defined as the following rule in the
+Definition of [begin]: 'begin' is defined as the first rule in the
+following series of rules which are  in the
 top-level scope (but only defined if the condition specified later
 applies):
 
-    (Rule (begin $main (def $pattern $result) ...)
-      (letrec [$pattern $result] ...
-        $main))
+    (Rule (begin $main $rest ...)
+      (begin-aux $main () () $rest ...))
+    (Rule (begin-aux $main ($let-rules ...) $letrec-rules
+                     (def $pattern $result)
+                     $rest ...)
+          (begin-aux $main ([$pattern $result] $let-rules ...)
+                     $letrec-rules
+                     $rest ...))
+    (Rule (begin-aux $main $let-rules ($letrec-rules ...)
+                     (rec $pattern $result)
+                     $rest ...)
+      (begin-aux $main $let-rules
+                 ([$pattern $result] $letrec-rules ...)
+                 $rest ...))
+    (Rule (begin-aux $main ($let-rules ...) ($letrec-rules ...))
+      (let $let-rules ...
+        (letrec $letrec-rules ...
+          $main)))
   
   Condition: For the environment E into which this rule is being
-  introduced there does not exist a rule in E available at the top-level
-  scope that is nondeterministic with respect to the above rule (i.e.,
-  if someone wants to implement their own rule for 'define', they can,
-  and it won't conflict with this one, because this one wouldn't be
-  defined in E if they defined their own).
+  introduced there does not exist a rule in E available at the
+  top-level scope that is nondeterministic with respect to the above
+  rule (i.e., if someone wants to implement their own rule for 'begin,
+  they can, and it won't conflict with this one, because this one
+  wouldn't be defined in E if they defined their own).
   
-  The language environment should, when running code, wrap the code in
-  (begin ....). Then, you could write a program like this:
+  The language environment, when running code, wraps the entire file
+  in (begin ....). This 'default' implementation of 'begin' just
+  reduces boilerplate:
   
     ; my-file.lang
     
