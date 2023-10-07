@@ -1,0 +1,93 @@
+localhost> lang init --library --name option
+Created ./option.lang
+Created ./option.lang.lock
+localhost> cat option.lock
+(lang/2023-10-06T14:23:12/builtins/lockfile-begin
+ (import (location "git+https:github.com/michaelmmacleod/library?rev=<rev>")
+         (checksum None)))
+localhost> cat - > option.lang
+(export some none map-some map-none)
+(rule some (Some $x) (Some $x))
+(rule none None None)
+(rule map-some (map $f (Some $x)) (Some ($f $x)))
+(rule map-none (map $f None) None)
+localhost> lang reduce option.lang --verbose
+(lang/2023-10-06T14:23:12/builtins/lockfile-begin
+ (import (location "git+https:github.com/michaelmmacleod/library?rev=<rev>")
+         (checksum None)))
+-->
+(letrec (download+verify+update+run imports)
+ ....
+ [imports
+  ((import (location "git+https:github.com/michaelmmacleod/library?rev=<rev>")
+           (checksum None)))])
+-- .... -->
+(run (IO ....))
+Downloading git+https:github.com/michaelmmacleod/library?rev=<rev>
+Updating ./option.lang.lock
+-- .... -->
+(lang/2023-10-06T14:23:12/builtins/reduce-in-env <env> "./option.lang")
+Reducing in environment ./option.lang.lock
+
+│ (begin (export some none map-some map-none)
+│   (rule some (Some $x) (Some $x))
+│   (rule none None None)
+│   (rule map-some (map $f (Some $x)) (Some ($f $x)))
+│   (rule map-none (map $f None) None))
+
+┌╼ (begin (export $0 ...)
+│    (rule $1 $2 $3)
+│    ...)
+└╼ (let [$1 (Rule $2 $3)] ...
+     (Env $0 ...))
+
+│ (let [some (Rule (Some $x) (Some $x))]
+│      [none (Rule None None)]
+│      [map-some (Rule (map $f (Some $x)) (Some $x))]
+│      [map-none (Rule (map $f None) None)]
+│   (Env some none map-some map-none))
+
+┌╼ (let [$0 $1] ... $2)
+└╼ $2
+
+│ (Env some none map-some map-none)
+
+┌╼ some
+└╼ (Rule (Some $0) (Some $0))
+
+│ (Env (Rule (Some $x) (Some $x))
+│      none
+│      map-some
+│      map-none)
+
+┌╼ none
+└╼ (Rule None None)
+
+│ (Env (Rule (Some $x) (Some $x))
+│      (Rule None None)
+│      map-some
+│      map-none)
+
+┌╼ map-some
+└╼ (Rule (map $f (Some $x)) (Some ($f $x)))
+
+│ (Env (Rule (Some $x) (Some $x))
+│      (Rule None None)
+│      (Rule (map $f (Some $x)) (Some ($f $x)))
+│      map-none)
+
+┌╼ map-none
+└╼ (Rule (map $f None) None)
+
+│ (Env (Rule (Some $x) (Some $x))
+│      (Rule None None)
+│      (Rule (map $f (Some $x)) (Some ($f $x)))
+│      (Rule (map $f None) None))
+
+┌╼ (Env $0 ...)
+└╼ <env>
+
+│ <env>
+
+Reduction completed successfully.
+localhost>

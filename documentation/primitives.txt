@@ -24,6 +24,8 @@ Notation:
      environment then---unless stated otherwise---the enclosing
      scope-set is the top-level empty one, {}.
 
+  6. {unique-scope} is a unique scope.
+
 FIXME: remove the following?
 
  ;;; Definition of [noreduce-scope]: A single, never-before-seen
@@ -41,6 +43,267 @@ FIXME: remove the following?
  ;;; be reduced to a fixed-point. Thus, if that term ever becomes a redex
  ;;; in real code, the program will crash. This is occasionally useful
  ;;; (more will be said about this later).
+
+Definitions [env], [rule]:
+
+  For any two terms <pattern>/PS and <result>/RS, the following creates
+  a single rule ...
+
+    (Rule <pattern> <result>)
+
+  ... if and only if <pattern> and <result> do not contain any
+  identifiers beginning with '$', or '$' itself (with no characters
+  following it) ['$' may appear at the end or middle of an identifier
+  with >=1 characters, but not at the beginning]. This rule is
+  applicable to all terms <T>/PS+?, and, if applied, reduces to
+  <result>/RS.
+
+  For any two terms <$pattern>/PS and <$result>/RS the following
+  creates an infinite set of rules ...
+
+    (Rule <$pattern>/PS <$result>/RS+$)
+
+  ... if and only if (for every dollar-sign-identifier D in
+  <$result>/RS, D is in <$pattern>/PS).
+
+
+Definition [rule$]:
+
+    For an environment E, Let APP be a scope called the 'rule
+    application scope' unique to E. Then for all terms <$pattern>/PS
+    and <$result>/RS, and for every dollar-sign-identifier <D>/IDS in
+    <$result>/RS, ...
+
+      (Rule <$pattern>/PS <$result>/RS)
+
+    ... defines an infinite set of rules, Rules, where if a rule (Rule
+    <actual-pattern>/APS <actual-result>/ARS) is a member of Rules,
+    then 
+
+then if <D>/IDS is in <$pattern>/PS, then
+    for every term <U>/US, let <$result-non-dollar>/RS be <$result>/RS
+    except that all occurrences of <D>/IDS have been replaced with
+    <U>/US+{APP}, and let <$pattern-non-dollar>/PS be <$pattern>/PS
+    except that all occurrences of <D>/IDS have been replaced with
+    <U>/US, where APP is a unique scope called the 'rule application
+    scope'.
+
+Then for
+    every dollar-sign-identifier D/IDS+{A}, and every term <U>, let
+    <$result->/RS ...
+
+      (Rule <$pattern>/PS <$result>/RS)
+
+    ... creates an infinite set of rules
+
+  The following form creates an environment:
+
+    (Env <rule> ...)
+
+  if and only if (each <rule> reduces to a 'rule-series' AND every
+  rule in every 'rule-series' are pairwise-deterministic). For any
+  terms <pattern>/PS and <result>/RS, 
+
+    (Rule <pattern>/PS <result>/RS+$)
+
+  creates a rule-series, which is a fixed-point, which is to say that
+  it is a 'value', i.e., something that can be the result of a
+  program. Note that while <pattern> does not get any new scopes,
+  <result> does: a unique 'pattern application scope'.
+
+  If neither <pattern> nor <result> contain a dollar-sign-identifier,
+  (e.g., $foo, $blahblahblah, $etc), then the rule-series has only one
+  element: a single rule. For example,
+
+    (Rule (x y z) (y z x))
+    ; annotated with scopes below
+    (Rule (x/XS y/YS z/ZS)/PS (y/YS z/ZS x/XS)/RS)
+
+  is a single rule. It is applicable to an infinite set of terms:
+
+    (x y z)
+    ; annotated with scopes below
+    (x/XS+? y/YS+? z/ZS+?)/PS+?
+
+  ... where '<term>/<scope-set>+?' specifies any term identical to
+  <term> whose scope-set is a non-strict superset of <scope-set>. This
+  is to say that as long as the 'x', 'y', and 'z' (and the
+  parentheses) come from at least as nested a scope as XS, YS, ZS, and
+  PS respectively, the rule is applicable.
+
+  In a given environment, the rule that is applied to the term is the
+  one whose PS (the scope-set on the outer parentheses of the
+  <pattern>) is 'closest' to the scope-set on the outer parentheses on
+  the term (PS+?), where 'closest' involves a non-strict subset
+  ordering of rules, from the one with the least elements of PS to the
+  most elements. The one with the most is the rule that applies. Note:
+  the definition of Env requires that the rules are
+  pairwise-deterministic; this rules out the case that there are two
+  rules which have the same pattern but different result AND have the
+  same scope sets on 'pattern'.
+
+  If the rule-form contains at least one 'dollar-sign-identifier' then
+  it specifies an infinitely-sized rule-series. For example,
+
+    (Rule (unwrap (Some $x)) $x)
+
+  is an abbreviation for the following infinite series of rules:
+
+    (Rule (unwrap (Some 0)) 0)
+    (Rule (unwrap (Some 1)) 1)
+    ....
+    (Rule (unwrap (Some 99999999572)) 99999999572)
+    ....
+    (Rule (unwrap
+           (Some (((((((("Hello, world!"))))) "Goodbye, world!")))))
+          (((((((("Hello, world!"))))) "Goodbye, world!"))))
+    ....
+    (Rule (unwrap (Some undefined))
+    .... etc. .....
+
+  That rule matches any term that is placed in the position of $x, as
+  long as all parts of that term have scope-sets that are non-strict
+  supersets of
+
+Definition [only-in-this-order]:
+
+  For our purposes here, <rule>/PS/RS is a term that reduces to a rule
+  whose pattern scope is PS and whose result scope is RS. The
+  following term:
+
+    (only-in-this-order <rule> ...+)
+
+  reduces to an environment containing <rule>/
+
+    (let [y 10]
+      (let [(id y) y]
+        (id y))) --> 10
+
+    (let [y 10]
+      (let [(id x) y]
+        (id x))) --> 10
+
+    (let [y 10]
+      (let [(id x) y]
+        (id y))) --> ERROR, no reduction for (id y).
+
+    (let [y 10]
+      (let [(id $x) y])
+        (id z)) --> 10
+
+    (let [y 10]
+      (let [(id $x) (+ 1 x)]
+        (id y))) --> 11
+
+    (let [y 10]
+      (let [(id $x) (+ 1 x)]
+        (id z))) --> ERROR, no reduction for (+ 1 z).
+
+    (let [(x y) 10]
+      ((let x) (let y)))
+    --> ((let x) (let y))
+    --> (x (let y))
+    --> (x y)
+    --> 10
+
+    (let [(x y) 10]
+      ((let [z y] x) z))
+    --> ((let [z y] x) z)
+    --> (x z) --> ERROR, no reduction for (x z)
+
+
+      ; io.lang
+
+      (let [io:run
+            (Env
+             (freeze-pattern
+              [(run (IO $x)) $x])
+             (freeze-pattern
+              [(run (IO $first $others ...+))
+               (sequence $first
+                         (IO $others ...)
+                         undefined)]))]
+           [io:println
+            (Env
+             (freeze-result
+              [(println $x)
+               (IO (builtins.impure.println $x))]))]
+        (+ io:run io:println)
+
+      ; now, let's uses these:
+
+        main = (run (println "Hello, world!"))
+        -->
+        (let [side-effects (run (println "Hello, world!"))]
+          (sequence side-effects 0 1))
+        -->
+        (sequence side-effects 0 1)
+        -->
+        (sequence (run (println "Hello, world!")) 0 1)
+        --> ; Hello, world! is printed
+        0
+
+      ; but since the pattern of io:run is frozen, we can't use it in
+      ; a nested scope:
+
+        main = (let [y (run read-line)]
+                    [z (run read-line)]
+                 (+ y z))
+
+Definition [freeze-at-or-below]: (freeze-at-or-below <T>/TS (Rule
+$pattern/PS $result)), reduces to a rule whose pattern only matches
+terms whose scope-set is a non-strict superset of PS AND a non-strict
+subset of TS.
+
+  For example, assume we are in an environment with the following
+  rules:
+
+    (freeze-at-or-below IO (Rule (run IO $x)
+                                 (run:unsafe IO $x)))
+    (Rule (run:unsafe IO (IO $x)) $x)
+    (Rule (run:unsafe IO (IO $first $rest ...+))
+          (sequence $first (run:unsafe IO $rest ...)))
+
+  Then ...
+
+    main = (perform-IO (bind read-line print-line))
+    -->
+    (sequence (unsafe-perform-IO (bind read-line print-line))
+    -->
+    (sequence (unsafe-perform-IO (bind read-line print-line)) 0 1)
+    -->
+    (sequence (unsafe-perform-IO (bind read-line print-line)) 0 1)
+    --> ; "Hello, world!\n" added to stdin
+    (sequence
+     (unsafe-perform-IO (bind (IO "Hello, world!") print-line)) 0 1)
+    --> 
+    (sequence (unsafe-perform-IO (print-line "Hello, world!")) 0 1)
+    -->
+    (sequence (unsafe-perform-IO (IO ())) 0 1)
+    -->
+    (sequence () 0 1)
+
+  But ...
+
+    main = (perform-IO (println (sneaky-id "Hello, world!")))
+    (def (sneaky-id $x)
+      (sequence (perform-IO (print-line "Surprise!"))
+                $x
+                undefined))
+    -->
+    (letrec [(sneaky-id $x)
+             (sequence (perform-IO (print-line "Surprise!"))
+                       $x
+                       undefined)]
+      (sequence
+       (perform-IO (println (sneaky-id "Hello, world!")))
+       0
+       1))
+    (sequence
+     (perform-IO (println (sneaky-id "Hello, world!")))
+     (letrec [sneaky)         
+     )
+Definition [freeze-at-or-above]: (freeze-at-or-above <T>/)
 
 Definition [let]:
 
@@ -76,7 +339,7 @@ Definition [let]:
     (def Secure:secret-scope
 
       ; Create a fixed-point term, 'inner-scope', that has an extra,
-      ; unique, scope on it (because it is defined inside of a
+      ; unique scope on it (because it is defined inside of a
       ; 'letrec'). We could have tried to define 'inner-scope' inside
       ; of a 'let', and this would indeed put a new, unique, scope on
       ; 'inner-scope', but because that new unique scope wouldn't be
@@ -152,6 +415,57 @@ rules are defined in the environment:
 
 
     Definition of [begin:program]:
+
+      (Rule$ (begin main = $side-effects
+                    (def $pattern $result) ...)
+             (letrec [$pattern $result] ...
+                     [side-effects (run IO $side-effects)]
+               (sequence side-effects 0 1)))
+
+      (Rule (begin main = side-effects
+                   (def side-effects get-line))
+            (letrec [side-effects get-line]
+                    []))
+
+      main = side-effects
+      (def side-effects get-line)
+      -->
+      (begin main = side-effects
+             (def side-effects get-line))
+      -->
+      (letrec [side-effects get-line]
+              [side-effects (run IO side-effects)]
+        (sequence side-effects 0 1))
+      --> ERROR! NONDETERMINISTIC RULES TO REWRITE 'side-effects'!
+
+    This is why we need the 'rule-application-scope' (call it {b} for
+    'begin' here, and call the scope that letrec adds {lr}):
+    
+      main/{} =/{} side-effects/{}
+      (def/{} side-effects/{} get-line/{})/{}
+      --> ; this transformation isn't a rule, the 'begin' was always
+          ; 'implicitly' there, so there's no rule application scope
+          ; added in this step.
+      (begin/{} main/{} =/{} side-effects/{}
+                (def/{} side-effects/{} get-line/{})/{})/{}
+      -->
+      (letrec/{} [side-effects/{b,lr} get-line/{b,lr}]/{}
+                 [side-effects/{lr} (run/{lr} IO/{lr} side-effects/{b,lr})/{lr}]/{}
+        (sequence/{lr} side-effects/{lr} 0/{lr} 1/{lr})/{lr})/{}
+      -->
+      (sequence/{lr} side-effects/{lr} 0/{lr} 1/{lr})/{lr}
+      -->
+      (sequence/{lr} (run/{lr} IO/{lr} side-effects/{b,lr})/{lr}
+                     0 1)
+      -->
+      (sequence/{lr} (run/{lr} IO/{lr} get-line/{b,lr}) 0 1)
+      --> ; assume rule [get-line/{} (IO/{} builtins.get-line/{})/{}]/{} exists.
+          ; Call its rule-application-scope 'g'.
+      (sequence/{lr} (run/{lr} ))
+
+;;;;;
+
+      main = 
 
       (Rule (begin main = $side-effects
                    (def $pattern $result) ...)          
