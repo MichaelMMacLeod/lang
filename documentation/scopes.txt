@@ -1,0 +1,106 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+I don't know how to make (IO $) work safely yet. Consider an
+environment containing:
+
+  (Rule (print-line $0) (IO (builtins.print-line $0)))
+  (Rule get-line (IO builtins.get-line))
+  (Rule (bind (IO $a) $f) ($f $a))
+  (Rule (run (IO $a)) $a)
+
+so we could do
+
+  (run (bind get-line print-line))
+  -->
+  (run (bind (IO builtins.get-line) print-line))
+  -->
+  (run (print-line builtins.get-line))
+  -->
+  (run (IO (builtins.print-line builtins.get-line)))
+  -->
+  (builtins.print-line builtins.get-line)
+  --> ; stdin: "Hello, world!"
+  (builtins.print-line "Hello, world!")
+  --> ; stdout: "Hello, world!"
+
+But there's a couple problems:
+
+  1. It would be possible in user code to write the following
+     rule:
+  
+       (Rule (unsafe-perform-IO (IO $a)) $a)
+  
+     and thus be able to do something dangerous.
+  
+  2. But even if they couldn't do (1), they could still just use
+     the existing 'run' rule anywhere they wanted:
+  
+       (Rule (id $x)
+             (sequence (run (print-line "Surprise!"))
+                       $x
+                       undefined))
+  
+  3. But even if (1) and (2) didn't apply, there would still be
+     the problem of misusing the 'bind' rule:
+  
+       (letrec impure-str
+  	 [str (bind get-line extract))]
+  	 [(extract $a) $a])
+       -->
+       str
+       -->
+       (bind get-line extract)
+       -->
+       (bind (IO builtins.get-line) extract)
+       -->
+       (extract builtins.get-line)
+       -->
+       builtins.get-line
+
+So, we need to somehow make the following happen:
+
+  1. Find a way to disallow writing patterns in certain places
+     that are applicable to (IO $).
+  
+  2. Find a way to disallow applying the 'run' rule in certain
+     places. We should only really allow it as the most top-level
+     thing in the program, but exactly what that means is
+     unclear.
+  
+  3. Find a way to disallow misusing 'bind': ($f $a) in (bind (IO
+     $a) $f) must reduce to (IO $).
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+Let's start with the problem of using 'run' in places it shouldn't be
+used. Maybe we can make it so that 'run' can't be used in nested
+scopes. What would this look like?
+
+Well, we know that a rule's pattern only matches a term if (the
+pattern and term are isomorphic and for each SSC in the pattern, the
+corresponding SSC in the term has a scope-set that is a non-strict
+superset of the pattern SSC's scope-set).
+
+Why not make it so that a pattern only matches if the scope sets are
+the same? Because then this would happen:
+
+  (let (let x)
+    [x 10])
+  --> ; annotate with scope-sets
+  (let/{} (let/{l1} x/{l1,l2})/{l1}
+    [x/{l1} 10/{}]/{})/{}
+  -->
+  (let/{l1} x/{l1,l2})/{l1}
+  -->
+  x/{l1,l2}
+  --> ERROR! We can reduce x/{l1} --> 10, but not x/{l1,l2} --> 10.
+
+and we don't want that. The [x 10] rule should apply in nested let
+(except, of course, if that nested let shadowed the rule).
+
+Maybe what we want to do is write a rule [(run (IO $a)) $a] which only
+applies if it is between certain scopes. For example,
+
+  (Rule (begin main = (IO $a)
+               (def $pat $res) ...)
+        )

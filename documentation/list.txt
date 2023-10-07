@@ -1,0 +1,40 @@
+(rule (List $x ...) (List $x ...))
+
+(Rule (head (List)) None)
+(Rule (head (List $h $ ...))
+  (Some $h))
+
+(Rule (tail (List)) None)
+(Rule (tail (List $ ... $t))
+  (Some $t))
+
+(Rule (map $f (List $x ...))
+  (List ($f $x) ...))
+
+(Rule (fold $f $z (List)) $z)
+(Rule (fold $f $z (List $x $xs ...))
+  (let (sequence z (fold $f z (List $xs ...)) undefined)
+    [z ($f $z $x)]))
+
+; do we need to duplicate the r/l/l' situation? god help me
+
+; (fold + 0 (List 1 2 3))
+; (let (sequence z (fold + z (List 2 3)) undefined)
+;   [z (+ 0 1)])
+; (sequence z (fold + z (List 2 3)) undefined)
+; (sequence (+ 0 1) (fold + (+ 0 1) (List 2 3)) undefined)
+; (sequence 1 (fold + 1 (List 2 3)) undefined)
+; (fold + 1 (List 2 3))
+
+;;; iterators ?
+
+(Rule (iterate (List $x ...))
+  (List-Iterator $x ...))
+
+(Rule (next (List-Iterator))
+  None)
+(Rule (next (List-Iterator $x $xs ...))
+  (Some $x))
+
+(Rule (count (List-Iterator $x ...))
+  (fold + 0 (List $x ...)))
