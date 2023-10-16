@@ -101,6 +101,219 @@ and we don't want that. The [x 10] rule should apply in nested let
 Maybe what we want to do is write a rule [(run (IO $a)) $a] which only
 applies if it is between certain scopes. For example,
 
-  (Rule (begin main = (IO $a)
-               (def $pat $res) ...)
-        )
+  (let (with-env io:env
+         (letrec (extract get-line)
+           [(extract (IO (` a))) (, a)]))
+    [io:env ((Rule (` outside-get-line)
+               (Env (Rule (, outside-get-line) (IO builtins.get-line))))
+             get-line)])
+  (let (with-env io:env
+         (letrec (extract get-line)
+           [(extract (IO `a)) ,a]))
+    [io:env ((Rule `outside-get-line
+               (Env (Rule ,outside-get-line (IO builtins.get-line))))
+             get-line)])
+  (let (with-env io:env
+         (letrec (,extract get-line)
+           [(`extract (IO `a)) ,a]))
+    [io:env ((Rule `outside-get-line
+               (Env (Rule ,outside-get-line (IO builtins.get-line))))
+             get-line)])
+  (let (with-env io:env
+         (letrec (extract get-line)
+           [`(extract (IO ,a)) a]))
+    [io:env ((Rule outside-get-line
+               `(Env (Rule ,outside-get-line
+                            (IO builtins.get-line))))
+             get-line)])
+
+  ((reduce1 get-line/{1}
+     (Env (Rule (,/{1} get-line/{1}) (IO builtins.get-line))
+          ))
+   get-line/{})
+
+
+  Solution? The following rule's pattern, (, <sub-pattern>)
+
+    (Rule (, <sub-pattern>) <result>)
+
+  matches the result of reducing (<sub-pattern> ...) [once?].
+
+
+  (Rule `,get-line `(IO ,builtins.get-line))
+
+
+  (Rule (#Rust# ,rust-program ... #Rust#)
+        (IO ....))
+
+  (run (rust (version 1.73.0))
+   #[derive(Debug)]
+   enum Optional<T> {
+     Some(T)
+     None
+   }
+   fn main() {
+     println!("{:?}", Some(10))
+   })
+
+  (let/rec (Env io.get-line io.read-line io.bind io.run)
+    let [top.get-line get-line]
+        [top.read-line read-line]
+	[top.bind bind]
+	[top.run run]
+    rec [io.get-line (Rule top.get-line (IO builtins.get-line))]
+        [io.read-line (Rule top.read-line (IO builtins.read-line))]
+	[io.bind (Rule (top.bind (IO $a) $f) ($f $a))]
+	[io.run (Rule top.run (IO $a) $a)])
+
+  (lambda ($top.get-line
+           $top.read-line
+	   $top.bind
+	   $top.run)
+    (Env (add-pattern $top.get-line (Rule (IO builtins.get-line))
+         (add-pattern $top.read-line)))
+
+  (Rule (add-pattern `p (Rule `result))
+        (Rule ,p ,result))
+
+  (let1 (Env io.read-line io.print-line io.bind io.run)
+    [IO (letrec2 IO [IO IO])]
+    [io.run (Rule (run (IO $a ...))
+                  (letrec3 (sequence* $a ...)
+                    [(sequence* $a) $a]
+                    [(sequence* $a $b ...+)
+                     (sequence $a (sequence* $b ...) undefined)]))]
+    [io.read-line (Rule read-line (IO builtins.read-line))]
+    [io.print-line (Rule print-line (IO builtins.print-line))]
+    [io.bind (Rule ((IO $a) $f) ($f $a))])
+
+  ;;;
+
+  (letrec4 (extract read-line)
+    [(extract (IO $x)) $x])
+  -->
+  (extract read-line)
+  (extract (IO/{} builtins.read-line))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(let `(Rule ,g (??? ,g))
+  [g (foo bar baz)])
+-->
+`(Rule ,g ,g)
+-->
+(Rule (foo bar baz) (??? (foo bar baz)))
+.
+
+`(let `(Env (Rule ,io:read-line (,IO builtins.read-line))
+            (Rule (,io:print-line $a) (,IO $a))
+            (Rule (,io:bind (,IO $a) $f) ($f $a))
+            (Rule (,io:run (,IO $a)) $a))
+   [io:read-line read-line]
+   [io:print-line print-line]
+   [io:bind bind]
+   [io:run run]
+   [io:IO ,(let io-token)])
+
+(quasiquote <T>) reduces to <T>, except that all occurrences of
+(unquote <P>) inside of <T> are reduced to the one-step reduction of
+<P>.
+
+(quasiquote (unquote (+ 1 2)))
+-->
+3
+
+VS
+
+(quasiquote (+ 1 2))
+-->
+(+ 1 2)
+-->
+3
+
+`<T> --> (quasiquote <T>)
+,<P> --> (unquote <P>)
+,@<L> -> (unquote-splicing <L>)
+
+(let `(Env [,io:get-line (IO builtins.get-line)])
+  [io:get-line get-line])
+-->
+`(Env [,io:get-line (IO builtins.get-line)])
+-->
+(Env [get-line (IO builtins.get-line)])
+.
+
+  (let^a_ (quasiquote_a (Env_a [(unquote_a io:get-line_a)
+                                (IO_a builtins.get-line_a)_a]_a)_a)_a
+    [io:get-line_a get-line_]_)_
+  -->
+  (quasiquote_a (Env_a [(unquote_a io:get-line_a)
+                        (IO_a builtins.get-line_a)_a]_a)_a)_a
+  -->
+  (Env_a [get-line_ (IO_a builtins.get-line_a)_a]_a)_a
+
+Now, let's try to use this rule maliciously, to extract the
+computation from inside the IO:
+
+  (let (extract get-line)
+    [(extract (IO $a)) $a])
+  --> ; annotate with scope-sets
+  (let^b_ (extract_b get-line_b)_b
+    [(extract_b (IO_b $a_b)_b)_b $a_]_)_
+  -->
+  (extract_b get-line_b)_b
+  -->
+  (extract_b (IO_a builtins.get-line_a)_a)_b
+  . ERROR!
+
+  (let `(Env [,io:get-line (IO builtins.get-line)])
+    [io:get-line get-line])
+
+  (quasiscope (Env [(unscope io:get-line) (IO builtins.get-line)]))
+
+  (quasiscope
+    (with-environment (unscope greeting)
+      (Env [(unscope greeting) "Hello, world!"])))
+  -->
+  (with-environment_q greeting_
+    (Env_q [greeting_ "Hello, world!"_q]_q)_q)
+  -->
+  greeting_
+  -->
+  "Hello, world!"_q
+  . OK
+
+  (let x
+    [x 2])
+  -->
+  (quasiscope
+    (with-environment x
+      [x (unscope 2)]))
+  --> ; quasiscope introduces scope 'q'
+  (with-environment_q x_q
+    [x_q (unscope_q 2_q)_q]_q)_q
+  --> ; (with-environment_ ....)_
+  x_q
+  -->
+  (unscope_q 2_q)_q
+  -->
+  2_ ; OK.
+
+
+  (letrec x
+    [x 2])
+  -->
+  (quasiscope
+    (with-environment x
+      [x 2]))
+  -- .... -->
+  2_q ; OK.
+
+  (Rule (let $term [$pat $res])
+        (scope $let
+          (with-environment $term
+            (Env (Rule $pat (unscope $let $res)) ...))))
+  (Rule (letrec $term [$pat $res] ...)
+        (scope $
+          (with-environment $term
+            (Env (Rule $pat $res) ...))))
