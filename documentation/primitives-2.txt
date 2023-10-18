@@ -1,0 +1,405 @@
+Definition [Rule]:
+
+    (Rule <pattern> <result>)
+
+  Creates a rule which can reduce <pattern> to <result>. Any symbol in
+  the pattern beginning with '$', as in $var, matches any one term in
+  scope. A term <T> in <pattern> which is followed by either '...' or
+  '...+' matches zero or more of <T> or one or more of <T>
+  respectively. Using a $-identifier in <result> produces in <result>
+  the term which was matched by the $-identifier in <pattern>. If the
+  $-identifier in <pattern> was followed by 'n' levels of '...' or
+  '...+'---for example, (List (List $items ...) ...) has two
+  levels---then, if the same $-identifier appears in <result>, it must
+  be followed by exactly 'n' levels of '...'---for example,
+  (flattened-list-items $items ... ...).
+
+  A $-identifier may only occur once in <pattern>, unless it is $_ in
+  which case it can appear zero or more times. $_ may appear in
+  <result>, but no terms which match the $_ in the pattern will
+  replace the corresponding $_ in the <result>.
+
+  When a rule is applied, a unique-scope is added to the replacement
+  of any $-identifiers in the <result>.
+
+  Definition [disallow-in-result]:
+
+    The following term:
+  
+      (disallow-in-result <T>)
+  
+    reduces to a term <DRT>. (Rule <pattern> <result>) is not defined
+    if <DRT> occurs in <result>. It may still appear in the <result>
+    of 
+
+      (let (Env (Eager-Rule Optional
+                            (disallow-in-result unchecked-optional))
+                (Rule (Some $x) (: (Some $x) 
+        [unchecked-optional
+         (letrec Optional
+           [Optional Optional])])
+
+      (Env (Eager-Rule Unchecked-Optional
+                       (letrec Optional
+                         [Optional Optional]))
+           (Eager-Rule Optional
+                       (disallow-in-result Unchecked-Optional))
+           (Rule (Some $x) (: (Some $x) Unchecked-Optional))
+           (Rule None (: None Unchecked-Optional)))
+
+      ()
+
+Definition [environment]:
+
+  An environment is a set of pairwise-deterministic rules.
+
+  Definition [pairwise-deterministic]:
+
+    Two rules are said to be pairwise-deterministic if and only if they
+    are either the same rule or they have completely different
+    patterns. So, for example,
+    
+      (Rule x 10) and (Rule x 12)
+    
+    are not pairwise-deterministic (because they have the same pattern,
+    but have different results), but
+    
+      (Rule x 10) and (Rule y 12)
+    
+    are. The next two rules might look pairwise-deterministic, but they
+    aren't. This is because their patterns overlap a little bit:
+    
+      (Rule (+ (Some $x) ...) (Some (+ $x ...))
+      (Rule (+ (Ok $x)   ...) (Ok   (+ $x ...)))
+    
+    The reason why they are not pairwise-deterministic is because they
+    both map (+) to different terms: (Some (+)) and (Ok (+)). Fixing
+    this is easy, though. Just use '...+':
+    
+      (Rule (+ (Some $x) ...+) (Some (+ $x ...))
+      (Rule (+ (Ok $x)   ...+) (Ok   (+ $x ...)))
+    
+    Now these rules are indeed pairwise-deterministic. Neither of them
+    maps (+) to anything anymore, since they both require at least one
+    (Some $x) or (Ok $x) inside the (+ ....) term.
+
+  An environment is created through the following term:
+
+    (environment <rule> ...)
+
+  This reduces to an environment if and only if {<rule> ...} is a
+  pairwise-deterministic set of rules.
+
+Definition [builtin-types]:
+
+  The language provides the following types which are equivalent to
+  the Rust ones. They are all immutable.
+
+    Unsigned integers: u8, u16, u32, u64, u128, usize
+
+    Signed integers: i8, i16, i32, i64, i128, isize
+
+    Floating point: f32, f64
+
+    Strings: String (utf-8 encoded)
+
+Definition [literals-scope]:
+
+  A unique scope inaccessible outside this document. This scope is
+  placed on the ':' in (: <L> <T>) when rewriting a literal, and as
+  the result of builtin operations like '+'. The purpose is to ensure
+  that no rewrite rule can be created outside this document which
+  rewrites to (:/{literals-scope} <literal> <wrong-type>), where
+  <wrong-type> is a type different than that of the literal. For
+  example, the following is allowed:
+
+    (Rule imposter-i32 (: "Surprise!" i32))
+
+  but because the literals-scope is inaccessible, the ':' in the
+  <result> of that rule does not have the literals-scope in its scope
+  set. Because operations on literals, like '+', operate only on terms
+  like (:/{literals-scope} <literal> <type>), something like the
+  following could occur:
+
+    (+ imposter-i32 100)
+    --> (+ (: "Surprise!" i32) 100)
+    --> ERROR! No matching rule. The i32 version of '+' doesn't apply
+               because the ':' term in (: "Surprise!" i32) is a
+               different ':' from the one that literals and builtin
+               operations on them produce.
+
+Definition [literals]:
+
+  In what follows, consider ':' without an explicit scope set to be
+  ':/{literals-scope}'.
+
+  There exists the following rule in the default environment:
+
+    (Rule (:/{} $data $type)
+          (:/{} $data $type))
+
+  Literals can be suffixed with their types. For example, 0u32 is an
+  integer literal representing the unsigned 32-bit integer zero. The
+  suffixed integer literal <L><T> rewrites to (: <L><T> <T>):
+
+    0u32 --> (: 0u32 u32)
+    10u8 --> (: 10u8 u8)
+    1999i128 --> (: 1999i128 i128)
+    -10i8 --> (: -10i8 i8)
+
+  Integer literals need not be suffixed. In this case they are
+  interpreted as being of type i32:
+
+    0 --> (: 0i32 i32)
+    123 --> (: 123i32 i32)
+    -10 --> (: -10i32 i32)
+
+  Floating point literals work similarly, with the default type being
+  f32:
+
+    0.0 --> (: 0.0f32 f32)
+    -12f64 --> (: -12f64 f64)
+    2.3e10 --> (: 2.3e10f32 f32)
+
+  There are string literals:
+
+    "Hello, world!" --> (: "Hello, world!" String)
+
+  There are also raw string literals, which can contain an arbitrary
+  number of '#' signs to denote the end of the string:
+
+    r#"Hello,
+    world!"#
+    --> (: "Hello,\nworld!" String)
+
+Definition [unboxed-numbers]:
+
+  (unbox <number>), where <number> is (: <L> <T>), where <L> is a
+  numeric literal and <T> is its type, reduces to a term that is like
+  <L> except that it is a fixed-point and does not contain information
+  about its type.
+
+  Unboxed numbers are harder to deal with than boxed numbers because
+  once a number is unboxed there is no way to tell what type of number
+  it is. This means that there is no way to write a rule that matches
+  on specific types of already-unboxed numbers.
+
+  The reason that unboxed numbers are defined here is to enable the
+  definition of special mathematical operations which compute their
+  results quickly (i.e., without needing to de-reference their
+  arguments). These operations are unsafe because---for speed---they
+  do not check if their arguments are actually unboxed values of the
+  correct type. Do not use these operations unless you can prove that
+  the your use will not cause undefined behavior.
+
+Definition [unsafe-unboxed-operations]:
+
+  For <method> being either 'unchecked', 'checked', 'saturating', or
+  'overflowing', <type> being a numeric type (u8 through u128, i8
+  through i128), and <operation> being a numeric operation including
+  but not necessarily limited to '+', '-', '*', and '/',
+
+    (unsafe unboxed-<type>-<method><operation> $x ...)
+  
+  is a term which performs the numeric operation <operation> directly
+  on the unboxed numeric values ($x ...) of type <type>.
+
+  Safety:
+
+    - Each $x must reduce to an unboxed value.
+
+    - Each $x must come from a boxed value of type <type>. Any other
+      type is undefined behavior. This means that mixing unboxed
+      types, as in
+
+        (unsafe unboxed-i32-unchecked+ (unbox 10i32) (unbox 10i8))
+
+      is undefined behavior, because i8 is not the same type as i32.
+
+    - If <method> is 'unchecked', then it is undefined behavior if the
+      same <operation> but with the 'checked' method would return (Err
+      ....), i.e., it is undefined behavior to reduce an 'unchecked'
+      term if the 'checked' version would overflow or underflow.
+
+Definition [builtin-literals-operations]:
+
+  In what follows, consider ':' without an explicit scope set to be
+  ':/{literals-scope}'.
+
+  There exist the following informally defined rules in the default
+  environment:
+
+    (Option $x) --> (Option $x)
+    None -> None
+
+    (Ok $x) --> (Ok $x)
+    (Err $x) --> (Err $x)
+
+    For numeric types <N>,
+
+      (:/{} maximum <N>) --> (: <R> <N>)
+
+        where <R> is the maximum numeric value of type <N>.
+
+      (:/{} minimum <N>) --> (: <R> <N>)
+
+        where <R> is the minimum numeric value of type <N>.
+
+      (<method><operation>)
+
+        Results in 'additive-identity' if <operation> is one of '+' or
+        '-'. Results in 'multiplicative-identity' if <operation> is
+        one of '*' or '/'.
+   
+      (:/{} additive-identity <N>) --> (: <R> <N>)
+
+        where <R> is the '0' of <N>, so 0u8, 0i16, 0.0f32, etc.
+
+      (:/{} multiplicative-identity <N>) --> (: <R> <N>)
+
+        where <R> is the '1' of <N>, so 1u8, 1i16, 1.0f32, etc.
+
+      (<method><operation> (: $x <N>) ...+)
+
+        where <method> is one of 'saturating', 'overflowing',
+        'checked', and <operation> is one of '+', '-', '*', '/',
+        '-remainder'.
+
+        For methods 'saturating' and 'overflowing', if no overflow or
+        underflow occurred, results in (: <R> <N>), where <R> is the
+        result of the operation.
+
+        With method 'saturating', results in (: maximum <N>) if
+        overflow occurred and (: minimum <N>) if underflow
+        occurred.
+      
+        With method 'overflowing', results in (: <W> <N>) if overflow
+        or underflow occurred, where <W> is the two's complement
+        wrap-around.
+
+        With method 'checked', results in (Some (: <R> <N>)) where <R>
+        is the result of the operation, unless overflow or underflow
+        occurred, in which case it results in None.
+
+      (unsafe <N>-<method><operation> $x ...)
+
+        Like (<method><operation> (: $y <N>) ...+). Causes undefined
+        behavior if any $x is not of type <N>. In the case of no $x
+        present, returns (: (<method><operation>) <N>).
+
+      (unsafe <N>-unchecked<operation> $x ...+)
+
+        Like (unsafe <N>-checked<operation> $x ...+), except that it
+        returns (: <R> <N>) instead of (Some (: <R> <N>)) or None
+        (i.e., this term does not check for overflow or
+        underflow). Causes undefined behavior if overflow or underflow
+        occurs, or if any $x is not of type <N>.
+
+      (try-widen (: <L> <N1>) <N2>)
+ 
+         Attempts to widen <L> of type <N1> to a value <W> of type
+         <N2>. Defined as (Err (:subtype <N2> <N1>)) if <N2> is
+         smaller than <N1>. Defined as (Err (:disjoint <N1> <N2>)) if
+         <N1> and <N2> differ in signedness or one is a float type and
+         the other is an integer type. Otherwise defined as (Ok <W>)
+         where <W> is the widened value.
+
+           (try-from 10u8 u16)
+           --> (Ok 10u16)
+
+           (try-from 130u16 u8)
+           --> (Err (:subtype u8 u16))
+
+           (try-from -128i18 u8)
+           --> (Err (:disjoint i8 u8))
+
+           (try-from 1f32 i128)
+           --> (Err (:disjoint f32 i128))
+
+      (unsafe unchecked-try-widen (: <L> <N1>) <N2>) --> (: <L2> <N2>)
+
+         Like (try-widen (: <L> <N1>) <N2>), but causes undefined
+         behavior if <N1> is wider than <N2> instead of returning an
+         Err.
+
+      
+
+Definition [reduce]:
+
+    (reduce <T> <E>)
+
+  Makes the rules in the environment <E> available while reducing
+  <T>. Any rules in the current environment are made unavailable while
+  reducing <T>.
+
+Definition [undefined]:
+
+  There is no sequence of rules in the top-level-scope which reduce
+  the symbol 'undefined' to a fixed-point.
+
+Definition [sequence]:
+
+    (sequence <reduce-me> <success> <fail>)
+
+  Attempts to reduce <reduce-me> to a fixed-point. If successful,
+  reduces to <success>. If unsuccessful, reduces to <fail>.
+
+Definition [let]:
+
+    (let <body> [<pattern> <result>] ...)
+
+  Defined as (reduce <body> <E>), where <E> is the environment created
+  by adding the rules {(Rule <pattern> <result>) ...} to the current
+  environment. A unique-scope is added to <body> and <pattern> but not
+  to <result>.
+
+  Note: assuming that we had a sensible definition of adding
+  environments with '+', and ability to access the current environment
+  with 'current-environment', we might try to define 'let' in the
+  following way:
+
+    (Rule (let $body [$pattern $result] ...)
+          (reduce $body
+            (+ current-environment
+               (Env (Rule $pattern $result) ...))))
+
+  This would be wrong, as it would not add a unique-scope to $pattern
+  or $body. (it would also not add one to $result, but that's what we
+  want).
+
+  Let can be used like this:
+
+    (let (* x 2)
+      [x 10])
+    --> (* x 2)
+    --> (* 10 2)
+    --> 20
+
+Definition [letrec]: Like 'let', except that the unique-scope is also
+added to <result>.
+
+Definition [empty-environment]:
+
+  There exists a rule in the default environment which rewrites
+
+    Empty-Environment
+
+  to a value that represents an environment containing no rules.
+
+Definition [default-rules]:
+
+  The default environment, in addition to the other rules specified
+  here contains the following rules:
+
+    (Rule (+) zero)
+    (Rule (*) one)
+    (Rule (convert zero Environment) Empty-Environment)
+    
+
+Definition [environment-+]:
+
+  The term
+
+    (+ <environment> ...+)
+
+  concatenates one or more environments into a new environment. 

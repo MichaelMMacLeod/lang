@@ -1,3 +1,1033 @@
+(sequence $result) --> $result
+
+(sequence (: $r Rule)
+  $others ...
+  $result)
+-->
+(sequence $others ... $result)
+; except that the rule $r is applied to $others and $result.
+
+
+(Pair (: $x Signed-Integer) (: $y i8)) --> ....
+(Pair (: $x i8) (: $y Signed-Integer)) --> ....
+
+(Pair 0i8 0i8)
+-->
+(Pair (: 0i8 i8) 0i8)
+-->
+(Pair (: 0i8 i8) (: 0i8 0i8))
+-->
+()
+
+(Pair (widen 0i8 Signed-Integer) 0i8)
+
+(Pair 0i8 0i8)
+-->
+(Pair (: 0i8 i8) 0i8)
+.... -->
+(Pair (: 0i8 Term) 0i8)
+.... -->
+(Pair (: 0i8 Term) (: 0i8 Term))
+--> ERROR!
+
+(new Rule-Option-Set (: $option Rule-Option) ...)
+-->
+(Rule-Option-Set (new Set $option ...))
+
+
+(sequence
+  (Rule delimiter (new Continuation-Delimiter)
+    (Rule-Options
+      Eagerly-Reduce-Result))
+  (continuation-delimit delimiter
+    (+ 1 2
+       (continuation-capture delimiter
+         [C (C 7)]))))
+-->
+(sequence
+  (: (Rule delimiter (new Continuation-Delimiter))
+     Rule)
+  (continuation-delimit delimiter
+    (+ 1 2
+       (continuation-capture delimiter
+         [C (C 7)]))))
+-->
+(sequence
+  [delimiter <continuation-delimiter>]
+  (continuation-delimit delimiter
+    (+ 1 2
+       (continuation-capture delimiter
+         [C (C 7)]))))
+-->
+(sequence
+  (continuation-delimit #0=<continuation-delimiter>
+    (+ 1 2
+       (continuation-capture #0#
+         [C (C 7)]))))
+-->
+(continuation-delimit #0=<continuation-delimiter>
+  (+ 1 2
+     (continuation-capture #0#
+       [C (C 7)])))
+-->
+(+ 1 2
+   (continuation-capture #0#
+     [C (C 7)]))
+-->
+(+ 1 2 (C 7))
+-->
+(+ 1 2 (+ 1 2 7))
+-->
+(+ 1 2 10)
+-->
+12
+
+(anf-transform
+ (* (+ 1 2) (+ 3 4)))
+-->
+(sequence
+  [x0 (+ 1 2)]
+  [x1 (+ 3 4)]
+  (* x0 x1))
+
+
+
+(+-impl ($fixed ...) $intermediate
+        ((: $x0 Fixed-Point-Term) $x ...))
+-->
+(+-impl ($x0 $fixed ...) $intermediate ($x ...))
+
+(+-impl $fixed ($intermediate ...)
+        ((: $x0 Intermediate-Term) $x ...))
+-->
+(+-impl)
+
+(+)
+-->
+additive-identity
+
+
+
+
+(replace (continuation-delimit delimiter
+           (+ 1 2 (continuation-capture delimiter
+                    [$C ($C 7)])))
+  [delimiter (new Continuation-Delimiter)])
+-->
+(Sequence ([delimiter (new Continuation-Delimiter)])
+ (continuation-delimit delimiter
+   (+ 1 2 (continuation-capture delimiter
+            [$C ($C 7)]))))
+-->
+(Sequence ([delimiter <continuation-delimiter>])
+ (continuation-delimit delimiter
+   (+ 1 2 (continuation-capture delimiter
+            [$C ($C 7)]))))
+-->
+(Sequence ()
+ (continuation-delimit #0=<continuation-delimiter>
+   (+ 1 2 (continuation-capture #0#
+            [$C ($C 7)]))))
+-->
+(continuation-delimit #0=<continuation-delimiter>
+  (+ 1 2 (continuation-capture #0#
+           [$C ($C 7)])))
+-->
+(+ 1 2 (continuation-capture #0#
+         [$C ($C 7)]))
+-->
+(+ 1 2 (<continuation> 7))
+-->
+(+ 1 2 (+ 1 2 7))
+-->
+(+ 1 2 10)
+-->
+12
+
+-->
+(Continue [delimiter (new Continuation-Delimiter)]
+ (Return (continuation-delimit delimiter
+           (+ 1 2 (continuation-capture delimiter
+                    [$C ($C 7)])))))
+-->
+(let (sequence
+      delimiter
+      (continuation-delimit delimiter
+        (+ 1 2 (continuation-capture delimiter
+                [$C ($C 7)]))))
+  [delimiter (new Continuation-Delimiter)])
+-->
+(sequence
+ delimiter
+ (continuation-delimit delimiter
+   (+ 1 2 (continuation-capture delimiter
+           [$C ($C 7)]))))
+-->
+(sequence
+ #0=delimiter
+ (continuation-delimit #0#
+   (+ 1 2 (continuation-capture #0#
+           [$C ($C 7)]))))
+-->
+(sequence
+ #0=(new Continuation-Delimiter)
+ (continuation-delimit #0#
+   (+ 1 2 (continuation-capture #0#
+           [$C ($C 7)]))))
+-->
+(sequence
+ #0=<delimiter>
+ (continuation-delimit #0#
+   (+ 1 2 (continuation-capture #0#
+           [$C ($C 7)]))))
+-->
+(continuation-delimit #0=<delimiter>
+  (+ 1 2 (continuation-capture #0#
+           [$C ($C 7)])))
+-->
+(+ 1 2 (continuation-capture #0#
+         [$C ($C 7)]))
+-->
+
+
+
+
+
+(sequence delimiter)
+
+(sequence b1 (sequence delimiter b1))
+
+
+(let (let (let (sequence b1 b2 b2)
+            [b2 (sequence delimiter b1 b1)])
+       [delimiter (new Continuation-Delimiter)])
+  [b1
+   (continuation-delimit delimiter
+     (+ 1 2 (continuation-capture delimiter
+              [$C ($C 7)])))])
+-->
+(let (let (sequence b1 b2 b2)
+       [b2 delimiter])
+  [delimiter (new Continuation-Delimiter)])
+-->
+(let (sequence b1 b2 b2)
+  [b2 delimiter])
+-->
+(sequence b1 b2 b2)
+-->
+(sequence
+ (continuation-delimit delimiter
+   (+ 1 2 (continuation-capture delimiter
+            [$C ($C 7)])))
+ b2
+ b2)
+-->
+b2
+-->
+(sequence delimiter )
+
+
+
+-->
+(let (sequence b (sequence delimiter b b) (sequence delimiter b b))
+  [delimiter (new Continuation-Delimiter)])
+-->
+(sequence b (sequence delimiter b b))
+
+
+
+
+(let (sequence
+      delimiter
+      (continuation-delimit delimiter
+       (+ 1 2 (continuation-capture delimiter
+                [$C ($C 7)])))
+      (continuation-delimit delimiter
+       (+ 1 2 (continuation-capture delimiter
+                [$C ($C 7)]))))
+  [delimiter (new Continuation-Delimiter)])
+
+(continuation-delimit delimiter
+  (+ 1 2 (continuation-capture delimiter
+           [$C ($C 7)])))
+-->
+(continuation-delimit delimiter
+  (+ 1 2 (continuation-capture delimiter
+           [$C ($C 7)])))
+
+
+(let (+ 2 3 (continuation-delimit (apply + 2 3) id))
+  [(f $delimiter)
+   (continuation-capture $delimiter )])
+-->
+(continuation-delimit f id)
+-->
+(f <delimiter>)
+-->
+(continuation-capture <delimiter> id)
+-->
+(id <continuation>)
+-->
+<continuation>
+-->
+(: <continuation> Continuation)
+-->
+(: <continuation> Fixed-Point-Term)
+
+
+
+
+
+
+
+
+
+
+
+(let (continuation-delimit f id)
+  [(f $delimiter)
+   (continuation-capture $delimiter id)])
+-->
+(continuation-delimit f id)
+-->
+(f <delimiter>)
+-->
+(continuation-capture <delimiter> id)
+-->
+(id <continuation>)
+-->
+<continuation>
+-->
+(: <continuation> Continuation)
+-->
+(: <continuation> Fixed-Point-Term)
+
+Term {
+  Fixed-Point-Term {
+    Rule
+    Environment
+    Optional
+    Result
+    Mutable-Vector
+    Mutable-Box
+    Mutable-String
+    Continuation-Delimiter
+    Continuation
+    Number {
+      Integer {
+        Signed-Integer {
+          i8
+          i16
+          i32
+          i64
+          i128
+        }
+        Unsigned-Integer {
+          u8
+          u16
+          u32
+          u64
+          u128
+        }
+      }
+      Float {
+        f32
+        f64
+      }
+    }
+  }
+  Intermediate-Term {
+    Identifier
+    Compound-Term
+  }
+}
+
+(Some 10)
+-->
+(: (Some 10) Optional)
+-->
+(: (Some 10) Singular-Term)
+-->
+(: (Some 10) Term)
+; Done. (Some 10) is a Term.
+
+x
+-->
+(: x Identifier)
+-->
+(: x Atom-Term)
+-->
+(: x Any)
+--> ERROR! no rule to rewrite (: x Term)
+
+(x)
+-->
+(: (x) Compound-Term)
+-->
+(: (x) Any)
+--> ERROR! no rule to rewrite (: (x) Term)
+
+10
+-->
+(: 10i32 i32)
+-->
+(: 10i32 Signed-Integer)
+-->
+(: 10i32 Integer)
+-->
+(: 10i32 Atom-Term)
+-->
+(: 10i32 Term)
+--> ERROR! no rule to rewrite (: 10i32 Term)
+
+(sign -12)
+--> (sign (: -12i32 i32))
+--> Negative
+
+(sign 12u8)
+--> (sign (: 12u8 u8))
+--> Positive
+
+(sign -0i32)
+--> (sign (: -0i32 u8))
+--> Zero
+
+(sign -0.0)
+--> (sign (: -0.0f32 f32))
+--> Negative
+
+(Rule (with-unique-token (: $token Identifier) $result)
+  (let (sequence $result (sequence token undefined $result))
+    [token $token]))
+-->
+
+
+(with-unique-tokens (Optional-Impl)
+  (Env (Pattern-Rule Optional Optional-Impl)
+       (Rule (Some $x) (: (Some $x) Optional-Impl))))
+-->
+(let (sequence result (sequence Optional-Impl undefined result))
+  [result (Env (Pattern-Rule Optional Optional-Impl)
+               (Rule (Some $x) (: (Some $x) Optional-Impl)))]
+  [Optional-Impl (let Optional-Impl)])
+-->
+(sequence result (sequence Optional-Impl undefined result))
+-->
+(sequence #0=result (sequence Optional-Impl undefined #0#))
+-->
+(sequence
+ #0=(Env (Pattern-Rule Optional Optional-Impl)
+         (Rule (Some $x) (: (Some $x) Optional-Impl)))
+ (sequence Optional-Impl undefined #0#))
+-->
+(sequence
+ Optional-Impl
+ undefined
+ (Env (Pattern-Rule Optional Optional-Impl)
+      (Rule (Some $x) (: (Some $x) Optional-Impl))))
+-->
+(sequence
+ #0=Optional-Impl
+ undefined
+ (Env (Pattern-Rule Optional #0#)
+      (Rule (Some $x) (: (Some $x) #0#))))
+-->
+(sequence
+ #0=(let Optional-Impl)
+ undefined
+ (Env (Pattern-Rule Optional #0#)
+      (Rule (Some $x) (: (Some $x) #0#))))
+-->
+(sequence
+ #0=Optional-Impl/l
+ undefined
+ (Env (Pattern-Rule Optional #0#)
+      (Rule (Some $x) (: (Some $x) #0#))))
+-->
+(Env (Pattern-Rule Optional Optional-Impl/l)
+     (Rule (Some $x) (: (Some $x) Optional-Impl/l)))
+; Done.
+
+
+
+(let (unsequence Optional-Impl result)
+ [result (Env (Pattern-Rule Optional Optional-Impl)
+                 (Rule (Some $x) (: (Some $x) Optional-Impl)))]
+ [Optional-Impl (scope Optional-Impl)])
+-->
+(unsequence Optional-Impl result)
+-->
+(unsequence Optional-Impl
+ (Env (Pattern-Rule Optional Optional-Impl)
+      (Rule (Some $x) (: (Some $x) Optional-Impl))))
+-->
+(unsequence #0=Optional-Impl
+ (Env (Pattern-Rule Optional #0#)
+      (Rule (Some $x) (: (Some $x) #0#))))
+-->
+
+
+
+(Rule (~protect Unchecked-Optional))
+(Rule fake-optional
+      (: (Some Hello world) Optional))
+
+
+(let (sequence x (* 2 x) (* 3 x))
+  [x (+ 3 4)])
+-->
+(sequence x (* 2 x) (* 3 x))
+-->
+(sequence-reduce #0=x (* 2 #0#) (* 3 #0#))
+-->
+(sequence-reduce #0=(+ 3 4) (* 2 #0#) (* 3 #0#))
+-->
+(sequence-reduce #0=5 (* 2 #0#) (* 3 #0#))
+-->
+(* 2 #0#)
+-->
+(* 2 5)
+-->
+10
+
+(reduce
+ (Graph (* 2 (ref 0))
+   [(ref 0) x])
+
+(let (sequence x x undefined)
+  [x (+ 2 3)])
+-->
+(sequence x x undefined)
+-->
+(sequence #0=(+ 2 3) #0# undefined)
+-->
+(sequence #0=5 #0# undefined)
+-->
+5
+
+(+ 1
+   2
+   (let (continuation-prompt calculate catch)
+     [(calculate $prompt)
+      (continuation-abort $prompt (+ 3 4))]
+     [(catch $term)
+      (+ $term 5 6)]))
+-->
+(+ 1
+   2
+   (continuation-prompt calculate catch))
+-->
+(+ 1
+   2
+   (delimited-by <prompt> (calculate <prompt>)))
+-->
+(+ 1
+   2
+   (delimited-by <prompt> (continuation-abort <prompt> (+ 3 4))))
+-->
+(+ 1
+   2
+   (delimited-by <prompt> (catch (+ 3 4))))
+-->
+(+ 1
+   2
+   (delimited-by <prompt> (+ (+ 3 4) 5 6)))
+-->
+(+ 1
+   2
+   (delimited-by <prompt> (+ 7 5 6)))
+-->
+(+ 1
+   2
+   (delimited-by <prompt> 18))
+-->
+(+ 1
+   2
+   18)
+-->
+21
+
+
+(dynamic-wind (print "enter")
+              (+ 2 3)
+              (print "exit"))
+--> ; "enter" printed
+(+ 2 3)
+-->
+5   ; "exit" printed
+
+(let (continuation-prompt f id)
+  [(f $prompt)
+   (dynamic-wind (print "enter")
+                 (continuation-abort $prompt (+ 2 3))
+                 (print "exit"))])
+-->
+(continuation-prompt f id)
+-->
+(f <prompt>)
+-->
+(dynamic-wind (print "enter")
+              (continuation-abort <prompt> (+ 2 3))
+              (print "exit"))
+--> "enter" printed
+(continuation-abort <prompt> (+ 2 3))
+--> "exit" printed
+(id (+ 2 3))
+-->
+(+ 2 3)
+-->
+5
+
+(let (continuation-prompt f id)
+  [(f $prompt)
+   (dynamic-wind (print "enter")
+                 (continuation-abort $prompt (+ 2 3))
+                 (print "exit"))])
+
+
+(let (with-handler printing-exception-handler
+       (+ 1 2 (raise 3)))
+  [(printing-exception-handler $exception)
+   (print $exception)])
+-->
+(with-handler printing-exception-handler
+  (+ 1
+     2
+     (raise 3)))
+-->
+(let (continuation-prompt body printing-exception-handler)
+  [(body $prompt)
+   (let (+ 1 2 (raise 3))
+     [current-exception-handler-prompt $prompt])])
+-->
+(continuation-prompt body printing-exception-handler)
+-->
+(body <prompt>)
+-->
+(let (+ 1 2 (raise 3))
+  [current-exception-handler-prompt <prompt>])
+-->
+(+ 1 2 (raise 3)
+-->
+(+ 1 2 (abort-current-continuation
+        current-exception-handler-prompt
+        3))
+-->
+(+ 1 2 (abort-current-continuation <prompt> 3))
+-->
+(printing-exception-handler 3)
+-->
+(print 3)
+--> 3 is printed
+() ; Done.
+
+(with-handler $H $body)
+-->
+(let (continuation-prompt body $H)
+  [(body $prompt)
+   (let $body
+     [current-exception-handler-prompt $prompt])])
+
+(raise $exception)
+-->
+(abort-current-continuation
+ current-exception-handler-prompt
+ $exception) 
+
+(: <D> Continuation-Delimiter)
+
+  A fixed-point term 
+
+(try-dynamic-wind <on-enter> <body> <on-exit>)
+
+  Like <body>, except that <on-enter> is reduced to a fixed-point for
+  its side effects each time control enters <body> and <on-exit> is
+  reduced to a fixed-point for its side effects each time control
+  exits <body>.
+
+  The result is (Ok <body>), unless <on-enter> or <on-exit> failed to
+  be reduced to a fixed-point, in which case the result is (Err
+  (Irreducible <on-enter>)) or (Err (Irreducible <on-exit>))
+  respectively.
+
+  Note that if control enters or exits <body> multiple times,
+  <on-enter> or <on-exit> are completely re-reduced each time, even if
+  they had been reduced successfully to a fixed-point when control
+  entered or exited previously. This ensures the side effects of
+  <on-enter> and <on-exit> are (re)performed.
+
+(continuation-capture <prompt> <term>)
+
+  If <prompt> is not a continuation prompt, or if the current
+  continuation is not delimited by <prompt>, reduces to
+  'undefined'. Otherwise, Reduces to (<term> <C>), where <C> is the
+  portion of the current continuation delimited at and above
+  <prompt>. Does not remove any part of the current continuation (use
+  continuation-abort for that).
+
+(continuation-abort
+ (:/{continuation-scope} <D> Continuation-Delimiter)
+ <term>)
+
+  Removes the portion of the current continuation delimited at and
+  above <prompt> and reduces to (<catch> <term>), where <catch> is
+  from the continuation-prompt term reduction which created
+  <prompt>. Note that <prompt> is not installed on the resulting
+  (<catch> <term>) term, so (<catch> <term>) itself cannot abort to
+  <prompt>.
+
+(continuation-delimit <body> <catch>)
+
+  The same as (<body-delimited> <D>), where <body-delimited> is like
+  <body> except that a continuation delimiter has been installed
+  around it, with <D> being a term that reduces to the fixed-point
+  term:
+
+    (:/{continuation-scope} <D> Continuation-Delimiter)
+
+  which is identical to <D> inside of itself but non-identical to all
+  other <D>s created by other reductions of 'continuation-delimit'.
+
+  If, during the reduction of (<body-delimited> <prompt>),
+  (continuation-abort <prompt> <term>) is reduced, the overall
+  continuation-prompt term means (<catch> <term>) instead.
+
+(:continuation-delimiter <$-identifier>)
+
+  (Rule (print (: $d Continuation-Delimiter))
+        (print "continuation delimiter"))
+
+  (Rule fake-delimiter
+        (: "Surprise!" Continuation-Delimiter))
+
+(open-file $name $h)
+-->
+(let (dynamic-wind open-handle ($h open-handle) close-handle)
+  [open-handle (leaky-open-file $name)]
+  [close-handle (leaky-close-file $name)])
+
+(let (open-file "out.txt" print-greeting)
+  [(print-greeting $handle)
+   (print-line "Hello, world!" $handle)])
+-->
+(open-file "out.txt" print-greeting)
+--> ; "out.txt" is opened
+(open-file "out.txt" (print-line "Hello, world!" <handle>))
+--> ; Hello, world! written to out.txt
+(open-file "out.txt" ())
+--> ; "out.txt" is closed
+()
+
+
+2u8 = (Ranges (2 3))
+0u8 = (Ranges (0 1))
+u8 = (Ranges (0 128))
+(* r1 0u8) = 0u8
+(* 0u8 r1) = 0u8
+(/ (Ranges (b e) ...) 2u8) = (Ranges ((/ b 2) (/ e 2)) ...)
+(+ (Ranges (b e) ...) (Ranges (b0 e0))) =
+
+(run (Fast-Math ((: ))))
+
+
+(define-type Range-Inclusive
+  (All (a t l u)
+    ((and (a : t)
+          (l : t)
+          (u : t))
+     implies
+     (and (l < a)
+          (a <= u)))))
+
+(u64 > 10)
+
+(Unsigned 128-bit Integer)
+(Unsigned 64-bit Integer)
+(Unsigned 32-bit Integer)
+(Unsigned 16-bit Integer)
+(Unsigned 8-bit Integer)
+
+(Signed 128-bit Integer)
+(Signed 64-bit Integer)
+(Signed 32-bit Integer)
+(Signed 16-bit Integer)
+(Signed 8-bit Integer)
+
+
+
+(begin
+  (def (: main u32)
+    factorial-10)
+  (def (: factorial (-> Number Number))
+    (fn x
+      (if (= x 0) 1 (* x (factorial (- x 1))))))
+  (def factorial-10 : u32
+    (factorial 10)))
+
+
+
+(Program (language = ghc-9.8.1)
+ begin-utf-8-string-ending-at END
+   main :: IO ()
+   main = putStrLn "Hello, world!"
+ END)
+
+(factorial $p)
+--> (factorial $p 1)
+
+(fn (factorial (x : u32) (acc : u32)) -> u32
+  (match x
+    0 => acc
+    (n @ [1..]) => (factorial (x - 1) (n * acc))))
+;;;
+
+(factorial 10 1)
+-->
+  move r1 <- 1
+  move r2 <- 10
+LOOP:
+  cmp r2 == 0 ? RET
+  move r1 <- r1 * r2
+  move r2 <- r2 - 1
+  jmp LOOP
+RET:
+  ret r1
+
+
+(factorial (Proof ($x is u32)) $acc)
+--> (match $x
+      0 => $acc
+      (n @ [1..]) => (factorial ()))
+
+(match (prove (input is u32))
+  (Ok $proof) => (Ok (factorial $proof))
+  $else => $else)
+
+((* 1 2) k)
+--> (k (* 1 2))
+
+(stack-transform (CPS-transform (* (+ 1 2) (+ 3 4))))
+-->
+(stack-transform
+ (Continue [k1 (+ 1 2)]
+  (Continue [k2 (+ 3 4)]
+   (Continue [k3 (* k1 k2)]
+    (Return k3)))))
+-->
+((push 1 2)
+ (call +)
+ (push 3 4)
+ (call +)
+ (call *))
+
+--> (Continue (Continue (Continue (Done k3)
+                          [k3 (* k1 k2)])
+                [k2 (+ 3 4)])
+      [k1 (+ 1 2)])
+
+
+--> (let (let (let (sequence-several k1 k2 k3)
+                [k3 (* k1 k2)])
+           [k2 (+ 3 4)])
+      [k1 (+ 1 2)])
+-->
+(sequence-several k1 k2 k3)
+-->
+(sequence-several (+ 1 2) k2 k3)
+-->
+(sequence-several 3 k2 k3)
+-->
+(sequence-several 3 (+ 3 4) k3)
+-->
+(sequence-several 3 7 k3)
+-->
+(sequence-several #0=3 #1=7 (* #0# #1#))
+-->
+(sequence-several 3 7 21)
+-->
+21
+
+
+--> (k
+     (let (let (sequence-several (k1 k2) (* k1 k2) undefined)
+            [k2 (+ 3 4)])
+       [k1 (+ 1 2)]))
+
+
+(let (let (sequence-several (k1 k2) (* k1 k2) undefined)
+       [k2 (+ 3 4)])
+  [k1 (+ 1 2)])
+-->
+(let (sequence-several (k1 k2) (* k1 k2) undefined)
+  [k2 (+ 3 4)])
+-->
+(sequence-several (k1 k2) (* k1 k2) undefined)
+-->
+(sequence-several (#0=(+ 1 2) k2) (* #0# k2) undefined)
+-->
+(sequence-several (#0=3 k2) (* #0# k2) undefined)
+-->
+(sequence-several (#0=3 #1=(+ 3 4)) (* #0# #1#) undefined)
+-->
+(sequence-several (#0=3 #1=7) (* #0# #1#) undefined)
+-->
+(* 3 7)
+-->
+21
+
+
+(+ (* x x) (* y y))
+--> (CC k
+     (* x x
+      (CC k2
+       (* y y
+        (CC k3
+         (+ k2 k3))))))
+(run (* $x ... (CC $k)))
+(run ((+ $x $y (CC $k1)) $k0))
+--> ($k0 ($x ))
+
+(run (CC $k (+ $x ... (CC $k2))))
+--> ($k ($k2 (+ $x ...)))
+
+(new (CPS Fast-Math) (Fast-Math (+ $x ...)) $k)
+--> ($k (with-k k (new (CPS Fast-Math) $x k)))
+
+(new (CPS Fast-Math) (Fast-Math {$x is u32}) $k)
+--> ($k $x)
+
+(new (CPS Fast-Math) $fm)
+--> (letrec (new (CPS Fast-Math) $fm $k)
+      [(k $x) $x])
+
+--> ($k (u32:unsafe:+ $x) ...)
+
+
+(try-new Fast-Math (+ 1 2 3))
+--> (Ok (Fast-Math (+ 1 2 3)))
+
+(try-new Fast-Math (let (* x y) [x 10] [y 20]))
+--> (Err (proof {(let (* x y) [x 10] [y 20]) is-not Fast-Math}))
+
+(run (Fast-Math {$x is u32}))
+--> $x
+
+(run (Fast-Math (+ $x ...)))
+--> (u32:unsafe+ $x ...)
+
+(prove {(+ $x ...) is fast-math})
+--> {{(+ $x ...) is fast-math}
+     if-and-only-if
+     (all {$x is fast-math} ...)}
+
+(prove {{$x is u32} is fast-math})
+--> (proof {{$x is u32} is fast-math})
+
+(prove {(+ 1 2 3) is fast-math})
+-->
+{{(+ 1 2 3) is fast-math}
+ if-and-only-if
+ (all {1 is fast-math} {2 is fast-math} {3 is fast-math})}
+-->
+{{(+ 1 2 3) is fast-math}
+ if-and-only-if
+ (all (proof {1 is fast-math})
+      (proof {2 is fast-math})
+      (proof {3 is fast-math}))}
+-->
+{{(+ 1 2 3) is fast-math}
+ if-and-only-if
+ (proof
+  (all {1 is fast-math}
+       {2 is fast-math}
+       {3 is fast-math}))}
+-->
+(proof {(+ 1 2 3) is fast-math})
+
+
+
+
+{(*) as (Optional (Matrix 2 2))}
+--> (Optional:*-impl (Matrix 2 2) () (one))
+--> (Some (* {one as (Matrix 2 2)}))
+--> (Some (* (Matrix ((1 0) (0 1)))))
+--> (Some (Matrix ((1 0) (0 1))))
+
+{(* $x ...) as (Optional $t)}
+--> (Optional:*-impl $t ($x ...) (one))
+
+(Optional:*-impl $t () ($acc ...))
+--> (Some (* {$acc as $t} ...))
+
+(Optional:*-impl $t ((Some $x) $others ...) ($acc ...))
+--> (Optional:*-impl $t ($others ...) ($x $acc ...))
+
+(Optional:*-impl $ (None $ ...) $)
+--> None
+
+(Choice keep)
+(Choice filter-out)
+
+(try (u32 from 10u64))
+-->
+(let (sequence n (Some n) None)
+  [n (u32 from 10u64)])
+-->
+(sequence n (Some n) None)
+-->
+(sequence #0=(u32 from 10u64) (Some #0#) None)
+-->
+(sequence #0=10u32 (Some #0#) None)
+-->
+(Some 10u32)
+
+{one as (Optional u32)}
+-->
+(Some u32)
+
+
+{(* $x ...) as (Optional $t)}
+-->
+(Optional:* {$x as (Optional $t)} ...)
+
+(Optional:* {None as (Optional $t)})
+
+(*)
+--> one
+
+{one as u32}
+{one as i32}
+{one as usize}
+{one as (list-of u32)} --> (List {one as u32}) --> (List 1u32)
+{one as 
+
+{(*) as (Matrix 2 2)}
+-->
+{one as (Matrix 2 2)}
+-->
+(Matrix ((1 0)
+         (0 1)))
+
+
+{(+) : List}
+-->
+{zero : List}
+-->
+(List)
+
+{(+) : Environment}
+-->
+{zero : Environment}
+-->
+<empty-environment>
+
+
+(+) --> zero
+
+{ zero : Environment }
+--> <empty-environment>
+
+
 ....
 -->
 (Cons 0 (Cons 1 (take 2 (zip-with + xs (tail xs)))))

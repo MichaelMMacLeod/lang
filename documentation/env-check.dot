@@ -1,5 +1,11 @@
 digraph env_check {
     ranksep=1.5
+    
+    "{}" -> { "Pair" "x=" "y=" "A" "B" "C" "D" "P" "(Pair x= C y= D)" "(Pair y= D x= C)" }
+
+    "{0}" -> { "Pair" "x=" "y=" "A" "B" "C" "D" "P" "(Pair x= D y= C)" }
+    
+    "P" -> "P"
 
     "Pair" -> "(Pair x= C y= D)" [label=0]
     "x=" -> "(Pair x= C y= D)" [label=1]
