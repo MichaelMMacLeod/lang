@@ -1,0 +1,29 @@
+digraph env_check {
+    ranksep=1.5
+
+    "Pair" -> "(Pair x= C y= D)" [label=0]
+    "x=" -> "(Pair x= C y= D)" [label=1]
+    "C" -> "(Pair x= C y= D)" [label=2]
+    "y=" -> "(Pair x= C y= D)" [label=3]
+    "D" -> "(Pair x= C y= D)" [label=4]
+    "(Pair x= C y= D)" -> "P"
+
+    "Pair" -> "(Pair y= D x= C)" [label=0]
+    "y=" -> "(Pair y= D x= C)" [label=1]
+    "D" -> "(Pair y= D x= C)" [label=2]
+    "x=" -> "(Pair y= D x= C)" [label=3]
+    "C" -> "(Pair y= D x= C)" [label=4]
+    "(Pair y= D x= C)" -> "P"
+    
+    "Pair" -> "(Pair x= D y= C)" [label=0]
+    "x=" -> "(Pair x= D y= C)" [label=1]
+    "D" -> "(Pair x= D y= C)" [label=2]
+    "y=" -> "(Pair x= D y= C)" [label=3]
+    "C" -> "(Pair x= D y= C)" [label=4]
+
+    "(Pair x= D y= C)" -> "P"
+    
+    "A" -> "B"
+    "B" -> "C"
+    "C" -> "D"
+}
