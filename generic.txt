@@ -1,0 +1,351 @@
+(prove (is (value-of u8)
+           (+ 10 20)))
+-->
+(Proof (is u8 30))
+
+(prove (is u8))
+
+
+(try prove (is (Range u8) (Range u16))
+-->
+(Err (Failed-Proof
+      (Proof (and (is Type (Range u16))
+                  (not (is (Range u8)))))
+      [source (try prove (is (Range u8) (Range u16)))])
+
+; Error:
+;
+;   In the term
+;
+;     (try prove (is (Range u8) (Range u16)))
+;
+;   the term
+;   
+;     (Range u16)
+;   
+;   is a type, not a value of type
+;   
+;     (Range u8)
+;
+; Suggestion:
+;
+;   Replace
+;
+;     (Range u16)
+;
+;   with any of the following:
+;
+;     (Range 50 80)
+;
+;     (Range 0 128)
+;
+;     (Range 10 10)
+;
+;   or any of the other 16384 values of type
+;
+;     (Range u8)
+;
+; For more information:
+;
+;   (get (Range u8) help)
+;
+;     Displays information about the type
+;
+;   (get (Range u8) examples)
+;
+;     Generates random values of the type
+;
+;   (get (Range u8) values)
+;
+;     Enumerates all values of the type
+
+
+
+
+(prove (is (recursive $id (Cons $t $id-2))))
+-->
+
+
+
+
+
+
+(prove (is (list-of $t) $v))
+-->
+(with-trace
+  (match (try prove (is Type $t))
+    []
+    [(Err $e)
+     ]))
+
+
+
+(let [context (is (list-of $t) $v)]
+  (with-handlers [$exception
+                  (raise (Err (At context $exception)))]
+    ()))
+
+(let [context (is (list-of $t) $v)]
+  (match (try prove (is Type $t))
+    [(Ok (Proof (is Type $t)))
+     ()]
+    [(Err $e)
+     (raise (Err (Type-Mismatch
+                     [at $t]
+                     [expected (is Type $t)]
+                     [received $e])))]))
+
+
+
+
+
+
+
+
+
+
+-->
+(prove (is (recursive T (Pair (Range u8) T))
+           (get (Range u8) examples random-seed)))
+-->
+(try prove (and (is )))
+
+(prove (is (recursive T (Pair (Range u8) T)))
+           (let [($random-seed $range) ....]
+             (Pair $range
+                   (get (Range u8) examples $random-seed))))
+
+
+
+
+
+(prove (is (recursive T (Cons (Range u8) T))
+           (let [($random-seed $range) ....]
+             (Proof (is (recursive T (Cons (Range u8) T))
+                        (Cons $range
+                              (get (Range u8) examples $random-seed)))))))
+
+
+
+
+
+
+
+
+
+
+
+(Proof (is (recursive T (Cons (Range u8) T))
+           (Cons (Range 12 90)
+                 (let (get (Range u8) examples)
+                   [random-seed (get Random-Number-Generator next random-seed)]))))
+(Cons (Range 12 90)
+          (let (get (Range u8) examples)
+            [random-seed (get Random next random-seed)]))
+
+(try prove (is (Range u8)
+               (+ (Range 10 20)
+                  (Range 100 108))))
+-->
+(Ok (Proof (is (Range u8)
+               (+ (Range 10 20)
+                  (Range 100 108)))))
+; Ok: (+ (Range 10 20) (+ 100 108)) is a (Range u8)
+
+
+
+(try prove (is Type Type))
+-->
+((instantiate try prove (is Type)) Type)
+-->
+(Err (Proof ()))
+
+((instantiate try prove (is (Range $t)))
+ (try + (is $r-t $r) ...))
+-->
+(try prove (and (is Type $t)
+                (= $t $r-t )
+                ))
+
+
+(prove (is (Range u8)
+           (try + (Range 0 1) (Range 2 3))))
+-->
+((instantiate prove (is (Range u8))) (try + (Range 0 1) (Range 2 3)))
+-->
+((instantiate try + (Range u8))
+ (prove (is (Range u8) (Range 0 1)))
+ (prove (is (Range u8) (Range 2 3))))
+-->
+((instantiate try + (Range u8))
+ (Proof (is (Range u8) (Range 0 1)))
+ (Proof (is (Range u8) (Range 2 3))))
+-->
+(match (try prove (is u8 (+ 0 1)))
+  [(Ok (Proof (is u8 $x1)))
+   (match (try prove (is u8 (+ 2 3)))
+     [(Ok (Proof (is u8 $x2)))
+      (Proof (is (Range u8)) (Range $x1 $x2))])])
+-->
+(match (Ok (Proof (is u8 3)))
+  [(Ok (Proof (is u8 $x1)))
+   (match (try prove (is u8 (+ 2 3)))
+     [(Ok (Proof (is u8 $x2)))
+      (Proof (is (Range u8)) (Range $x1 $x2))])])
+-->
+(match (try prove (is u8 (+ 2 3)))
+  [(Ok (Proof (is u8 $x2)))
+   (Proof (is (Range u8)) (Range (+ 0 1) $x2))])
+-->
+(match (Ok (Proof (is u8 (+ 2 3))))
+  [(Ok (Proof (is u8 $x2)))
+   (Proof (is (Range u8)) (Range (+ 0 1) $x2))])
+-->
+(Proof (is (Range u8)) (Range (+ 0 1) (+ 2 3)))
+; done.
+
+
+
+(prove (is (Range u8)
+           (Range (+ 0 2) (+ 2 3))))
+
+-->
+(try + $x0 $x ...)
+-->
+(let (try (instance + x0-t) $x0 $x ...)
+  [t (get Type $x0)])
+
+
+
+(try-prove (is (Range $t)
+               (+ (Proof (is (Range $t2)
+                             (Range $lower $upper)))
+                  ...)))
+-->
+(set (try prove (and (is i8 $x) ...))
+  [Ok (set (try + (new (Range i8) $x $x) ...)
+        [Ok (Proof (is i8
+                       (+ $x ...)))])])
+
+  10
+  -->
+  (is Number 10)
+
+  (try-prove (is i8 10))
+  -->
+  (Ok (Proof (is i8 10)))
+
+  (try-prove (is i8 128))
+  -->
+  (Err (Proof (overflows i8 128)))
+
+  (try-prove (is i8 -129))
+  -->
+  (Err (Proof (underflows i8 -129)))
+
+  (Range $t)
+  -->
+  (Proof (is Type (Range $t)))
+  -->
+  (Proof (is Type (Range $t)))
+
+  (try-new (Range $t) $lower $upper)
+  -->
+  ((instance try-new (Range $t)) $lower $upper)
+  -->)
+  (let (set (try-prove (and (= $t tl tu)
+                            (instantiates <= $t)
+                            (<= $lower $upper)))
+         [Ok (Proof (is (Range $t))
+                    (Range $lower $upper))])
+    [tl (get Type $lower)]
+    [tu (get Type $upper)])
+
+  (try-prove (instantiates $x (Proof (is Type $t))))
+  -->
+  ((instance try-prove $t) (instantiates $x))
+
+  (try-prove (instantiates $op (Range $t)))
+  -->
+  ((instance try-prove (Range $t)) (instantiates $op))
+  -->
+  (try-prove (instantiates $op $t))
+
+  (try-new-range $t (prove $lower Term) (prove $upper Term))
+
+  (try-new-range $t (Proof (is $tl $lower)) (Proof (is $tu $upper)))
+  -->
+  (set (try-prove (and (= $t $tl $tu)
+                       (instantiates <= $t)
+                       (<= $lower $upper)))
+    [Ok (Proof (is (Range $t)
+                   (Range $lower $upper)))])
+
+
+  (set (try prove (and (= $t $t2)
+                       (instantiates <= $t)
+                       (<= $lower $upper)))
+    [Ok (set (try prove (<= $lower $upper))
+          [Ok (Proof (is (Range $t) (Range $lower $upper)))])])
+
+  (instance-try-new-range (Proof (instantiates <= $t))
+                          (: $lower $tl)
+                          (: $upper $tu))
+  -->
+  (if (= $t $tl $tu)
+      (if (<= $tl $tu)
+          (Proof (is (Range $t) (Range $tl $tu)))
+          (Proof (> $tl $tu)))
+      (Proof (=/= $t $tl $tu)))
+
+  ((instance get (Range )) (Range u8) (Instance get))
+  -->
+  (instance get (Range u8))
+
+  ((instance get (Range u8)) (Range u8) (Instance new))
+  -->
+  (: new-range-u8 (instantiates new (Range u8)))
+
+  (new (: $t Type) $a ...)
+  -->
+  (new-dispatch
+   (get (try prove (instantiates new (: $t Type)))
+     
+  -->
+  (new-dispatch (Proof (instantiates )))
+
+  (new (Matrix u8) 3 3)
+  -->
+  (new-dispatch (prove (instantiates new (Matrix u8))) 3 3)
+  -->
+  (new-dispatch (: (instantiates new (Matrix u8))) 3 3)
+  -->
+  ((instance new (Matrix u8)) 3 3)
+
+  (new (: $t1 (< (instance new $t2))) $a ...)
+  -->
+  (: ((instance new $t) $a ...) $t)
+
+Generic operation machinery for '+'
+
+  (+ (: $v (instantiates + $t)) ...+)
+  -->
+  ((instance + $t) (: $v $t) ...)
+
+  (: (+) (instantiates additive-identity $t))
+  -->
+  (instance additive-identity $t)
+
+range +
+
+  (new (Proof (instantiates additive-identity))
+    (Range u8))
+  -->
+  (Proof (instantiates additive-identity (Range u8)))
+
+  (instance additive-identity (Range u8))
+  -->
+  (: (Range 0 0) (Range u8))
+
+
+

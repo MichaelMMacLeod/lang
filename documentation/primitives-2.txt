@@ -22,32 +22,32 @@ Definition [Rule]:
   When a rule is applied, a unique-scope is added to the replacement
   of any $-identifiers in the <result>.
 
-  Definition [disallow-in-result]:
-
-    The following term:
-  
-      (disallow-in-result <T>)
-  
-    reduces to a term <DRT>. (Rule <pattern> <result>) is not defined
-    if <DRT> occurs in <result>. It may still appear in the <result>
-    of 
-
-      (let (Env (Eager-Rule Optional
-                            (disallow-in-result unchecked-optional))
-                (Rule (Some $x) (: (Some $x) 
-        [unchecked-optional
-         (letrec Optional
-           [Optional Optional])])
-
-      (Env (Eager-Rule Unchecked-Optional
-                       (letrec Optional
-                         [Optional Optional]))
-           (Eager-Rule Optional
-                       (disallow-in-result Unchecked-Optional))
-           (Rule (Some $x) (: (Some $x) Unchecked-Optional))
-           (Rule None (: None Unchecked-Optional)))
-
-      ()
+  ; Definition [disallow-in-result]:
+  ; 
+  ;   The following term:
+  ; 
+  ;     (disallow-in-result <T>)
+  ; 
+  ;   reduces to a term <DRT>. (Rule <pattern> <result>) is not defined
+  ;   if <DRT> occurs in <result>. It may still appear in the <result>
+  ;   of 
+  ; 
+  ;     (let (Env (Eager-Rule Optional
+  ;                           (disallow-in-result unchecked-optional))
+  ;               (Rule (Some $x) (: (Some $x) 
+  ;       [unchecked-optional
+  ;        (letrec Optional
+  ;          [Optional Optional])])
+  ; 
+  ;     (Env (Eager-Rule Unchecked-Optional
+  ;                      (letrec Optional
+  ;                        [Optional Optional]))
+  ;          (Eager-Rule Optional
+  ;                      (disallow-in-result Unchecked-Optional))
+  ;          (Rule (Some $x) (: (Some $x) Unchecked-Optional))
+  ;          (Rule None (: None Unchecked-Optional)))
+  ; 
+  ;     ()
 
 Definition [environment]:
 

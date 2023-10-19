@@ -1,3 +1,6 @@
+2u8
+--> (: 2u8 u8)
+
 Examples
 
   (prove (+ (/ (prove x (Range 12 120)) 2)
@@ -8,17 +11,25 @@ Examples
     [x-p (prove x (: (Range 12 120) (Range i8)))]
     [y-p (prove y (: (Range 18 67) (Range i8)))])
 
-Range definition (inclusive on both ends)
-
-  (: (Range (: $low iInf) (: $high iInf))
-     (Range (: $type Number)))
-  -->
-  (: (Range (: $low iInf) (: $high iInf))
-     (Range (: $type Number)))
-
 Range constructor
 
-  (try new (Range (: $type Number)) (: $low iInf) (: $high iInf))
+  (get (Requirements-Of (Range T)) T)
+  -->
+  (: (has (new (Set Implementable) maximum minimum))
+     (Requirements-Of T))
+
+  (get (Instance maximum) u8)
+  -->
+  256u8
+
+  (get (Instance additive-identity) (Range i64))
+  -->
+  (Range 0i64 0i64)
+  
+
+  (try new (Range (: $type (get (Requirements-Of (Range T) T))))
+                  (: $low iInf)
+                  (: $high iInf))
   -->
   (if (< $low (: (: minimum $type) iInf))
       (Err (Underflow $type)
