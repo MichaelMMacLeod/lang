@@ -1,14 +1,12 @@
 Examples
 
-  (new (Verified-Math i8)
-    (+ (/ (: x (Range 12 120)) 2)
-       (: y (Range 18 67))
-       (: z (Range 0 5))))
+  (prove (+ (/ (prove x (Range 12 120)) 2)
+            (prove y (Range 18 67)))
+         i8)
   -->
-  (let (unbox (unchecked-i8+ (unchecked-i8/ x-p 2i8) y-p z-p))
+  (let (: (+ (/ x-p 2) y-p) i8))
     [x-p (prove x (: (Range 12 120) (Range i8)))]
-    [y-p (prove y (: (Range 18 67) (Range i8)))]
-    [z-p (try prove z (: (Range 0 5) (Range i8)))])
+    [y-p (prove y (: (Range 18 67) (Range i8)))])
 
 Range definition (inclusive on both ends)
 
