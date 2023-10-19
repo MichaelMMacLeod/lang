@@ -11,14 +11,22 @@ use std::io;
 
 fn main() {}
 
+enum UnscopedTerm {
+    Singular(SingularUnscopedTerm),
+    Compound,
+}
+
 enum SingularUnscopedTerm {
     Num(Box<BigInt>),
     Sym(Box<String>),
     Rule(Box<Rule>),
-    Env(Vec<Box<Rule>>),
+    Env(Box<Env>),
     Delimiter(Box<Delimiter>),
     DelimitedTerm(Box<DelimitedTerm>),
-    CompoundTerm,
+}
+
+struct Env {
+    rules: Vec<Box<Rule>>,
 }
 
 struct Rule {
@@ -36,7 +44,7 @@ struct DelimitedTerm {
 
 struct ScopedTerm {
     scope_set: HashSet<Scope>,
-    singular_unscoped_term: SingularUnscopedTerm,
+    singular_unscoped_term: UnscopedTerm,
 }
 
 struct Scope(usize);
