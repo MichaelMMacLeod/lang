@@ -1,0 +1,41 @@
+digraph env_check_2 {
+    compound=true
+    subgraph cluster_step_0 {
+        label="initial configuration"
+        "0 A" -> "0 B"
+        "0 B" -> "0 C"
+        subgraph cluster_p1bc_0 {
+            pb1c_0 [shape=point] [style=invis]
+            pb1c_0 -> r_0 [lhead=pb1c_0]
+            "0 (P1 B C)" -> "P1" [label=0]
+            "0 (P1 B C)" -> "B" [label=1]
+            "0 (P1 B C)" -> "C" [label=2]            
+        }
+        subgraph cluster_r_0 {
+            r_0 [shape=point] [style=invis]
+            "0 R"
+        }
+        "0 (P1 B C)" -> "0 R"
+        "0 (P2 C B)" -> "0 R"
+        "0 R" -> "0 R"
+    }
+    subgraph cluster_step_1 {
+        label="initial configuration"
+        "1 A" -> "1 B"
+        "1 B" -> "1 C"
+        "1 (P1 B C)" -> "1 R"
+        "1 (P2 C B)" -> "1 R"
+        "1 R" -> "1 R"
+    }
+    subgraph cluster_step_2 {
+        label="after sorting rules by pattern depth"
+        "2 A" -> "2 B" [label=0]
+        "2 B" -> "2 C" [label=0]
+        "2 R" -> "2 R" [label=0]
+        "2 (P1 B C)" -> "2 R" [label=1]
+        "2 (P2 C B)" -> "2 R" [label=1]
+    }
+    subgraph cluster_step_3 {
+        label="after sorting graphs by "
+    }
+}

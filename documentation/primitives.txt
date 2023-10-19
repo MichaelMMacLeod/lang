@@ -1,3 +1,95 @@
+(P1 B C) -> R
+(P2 C B) -> R
+A -> B
+B -> C
+R -> R
+P1 -> P1
+P2 -> P2
+
+1 A B
+2 B C
+3 R R
+4 P1 P1
+5 P2 P2
+6 (P1 B C) R
+7 (P2 C B) R
+
+0 0
+0 1
+2 1 C
+3 R R
+4 P1 P1
+5 P2 P2
+6 (P1 1 C) R
+
+
+
+(B C) -> R
+(C B) -> R
+A -> B
+B -> C
+R -> R
+
+1 A B
+2 B C
+3 R R
+4 (B C) R
+5 (C B) R
+
+1 B
+2 B C
+3 R R
+4 (B C) R
+5 (C B) R
+
+1 2
+2 C
+3 R R
+4 (2 C) R
+5 (C 2) R
+
+1 2
+2 C
+3 3
+4 (2 C) 3
+4 (C 2) 3
+
+
+
+
+
+
+(B C) -> R
+(C B) -> R
+A -> B
+B -> C
+R -> R
+-----
+1. A -> B
+2. B -> C
+3. R -> R
+4. (B C) -> R
+5. (C B) -> R
+-----
+1. A -> 1
+2. 1 -> C
+3. R -> R
+4. (1 C) -> R
+5. (C 1) -> R
+-----
+1. A -> 1
+2. 1 -> 2
+3. R -> R
+4. (1 2) -> R
+5. (2 1) -> R
+-----
+1. A -> 1
+2. 1 -> 2
+3. 3 -> 3
+4. (1 2) -> 3
+5. (2 1) -> 3
+
+
 (sequence $result) --> $result
 
 (sequence (: $r Rule)
@@ -302,43 +394,26 @@ b2
 -->
 (: <continuation> Fixed-Point-Term)
 
-Term {
-  Fixed-Point-Term {
-    Rule
-    Environment
-    Optional
-    Result
-    Mutable-Vector
-    Mutable-Box
-    Mutable-String
-    Continuation-Delimiter
-    Continuation
-    Number {
-      Integer {
-        Signed-Integer {
-          i8
-          i16
-          i32
-          i64
-          i128
-        }
-        Unsigned-Integer {
-          u8
-          u16
-          u32
-          u64
-          u128
-        }
+Number {
+  Integer {
+    Real-Integer {
+      Positive-Real-Integer {
+        Positive-{u,i}{8..128}
       }
-      Float {
-        f32
-        f64
+      Nonpositive-Real-Integer {
+        Zero-Integer {
+          Zero-{u,i}{8..128}
+        }
+        Negative-Integer {
+          Negative-{i}{8..128}
+        }
       }
     }
+    Complex-Integer {
+      Po            
+    }
   }
-  Intermediate-Term {
-    Identifier
-    Compound-Term
+  Float {
   }
 }
 

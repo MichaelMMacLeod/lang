@@ -1,0 +1,42 @@
+
+Term {
+  Fixed-Point-Term {
+    Rule
+    Environment
+    Optional
+    Result
+    Mutable-Vector
+    Mutable-Box
+    Mutable-String
+    Continuation-Delimiter
+    Continuation
+    Number {
+      Integer {
+        Signed-Integer {
+          i8
+          i16
+          i32
+          i64
+          i128
+          iInf
+        }
+        Unsigned-Integer {
+          u8
+          u16
+          u32
+          u64
+          u128
+          uInf
+        }
+      }
+      Float {
+        f32
+        f64
+      }
+    }
+  }
+  Intermediate-Term {
+    Identifier
+    Compound-Term
+  }
+}

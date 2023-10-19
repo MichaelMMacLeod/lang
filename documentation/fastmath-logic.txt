@@ -1,0 +1,153 @@
+Examples
+
+  (new (Verified-Math i8)
+    (+ (/ (: x (Range 12 120)) 2)
+       (: y (Range 18 67))
+       (: z (Range 0 5))))
+  -->
+  (let (unbox (unchecked-i8+ (unchecked-i8/ x-p 2i8) y-p z-p))
+    [x-p (prove x (: (Range 12 120) (Range i8)))]
+    [y-p (prove y (: (Range 18 67) (Range i8)))]
+    [z-p (try prove z (: (Range 0 5) (Range i8)))])
+
+Range definition (inclusive on both ends)
+
+  (: (Range (: $low iInf) (: $high iInf))
+     (Range (: $type Number)))
+  -->
+  (: (Range (: $low iInf) (: $high iInf))
+     (Range (: $type Number)))
+
+Range constructor
+
+  (try new (Range (: $type Number)) (: $low iInf) (: $high iInf))
+  -->
+  (if (< $low (: (: minimum $type) iInf))
+      (Err (Underflow $type)
+      (if (> $high (: (: maximum $type) iInf))
+          (Err (Overflow $type))
+          (Ok (: (Range (: $low iInf)
+                        (: $high iInf))
+                 (Range $type))))))
+
+Mathematical operations
+
+  + --> (: + Add) --> (: + Mathematical-Operation)
+  - --> (: - Subtract) --> (: - Mathematical-Operation)
+  * --> (: * Multiply) --> (: * Mathematical-Operation)
+  / --> (: / Divide) --> (: / Mathematical-Operation)
+
+  ; it is assumed that u8, i8, u16, iInf, uInf, etc. all have builtin
+  ; implementations of these operations.
+
+Mathematical identities
+
+  (+) --> additive-identity
+  (-) --> additive-identity
+  (*) --> multiplicative-identity
+  (/) --> multiplicative-identity
+
+  (: additive-identity u8) --> 0u8
+  (: additive-identity i8) --> 0i8
+  ....
+  (: additive-identity (Range $t))
+  -->
+  (let (try new (Range $t) t-id t-id)
+    [t-id (: additive-identity $t)])
+
+  (: multiplicative-identity u8) --> 1u8
+  (: multiplicative-identity i8) --> 1i8
+  ....
+  (: multiplicative-identity (Range $t))
+  -->
+  (let (try new (Range $t) t-id t-id)
+    [t-id (: multiplicative-identity $t)])
+
+Range operations
+
+  (try (: $op Mathematical-Operation)
+       (: (Range $l $h) (Range $t)) ...+)
+  -->
+  (try new (Range $t) ($op $l ...) ($op $h ...))
+
+  ; For example,
+
+    (+ (: (Range -100 100) (Range i8))
+       (: (Range 10 27)))
+    -->
+    (Ok (: (Range -90 127) (Range i8)))
+    
+    (+ (: (Range -100 100) (Range i8))
+       (: (Range 10 28)))
+    -->
+    (Err (Overflow i8))
+
+Types
+
+  (: additive-identity Type) --> Nothing --> (: Any Type)
+
+  (+ (: $t Type) ...+)
+  -->
+  (let (: (Union t-set) Type)
+    [t-set (new (Set Type) $t ...)])
+
+
+
+Proof of equality of types
+
+  (= (: $t Type) ...+)
+  -->
+  (if (= $t ...)
+      (: (= $t ...))
+      (: (not (= $t ...))))
+
+Proof of union of types
+
+  (+ (: $t Type) ...+)
+  -->
+  
+
+  (: (=))
+  -->
+  Any-Type
+
+  (: (= (: $t Type) ...+))
+  -->
+  (if (= $t ...)
+      )
+
+  (: (: $n $t) (Math $t))
+  -->
+  (: (p))
+
+  (try new (Math $m-t) (: $r (Range $r-t)))
+  -->
+  (set (try prove (= $m-t $r-t))
+    [Ok (: $r (Math $m-t))])
+
+  (: ((: $op Mathematical-Operation) (: $v $t) ...)
+     (Math $))
+
+
+(try new (Math i8) (+ 1 2 3))
+-->
+(Ok <unsafe unboxed-i8-unchecked+ 1 2 3>)
+
+(unwrap (try new (Math i8) (+ 127 1)))
+-->
+; Error: i8 overflow
+;
+;  The expression
+;
+;    (+ 127 1)
+;
+;  is impossible to represent with an i8 as it equals 128 which is
+;  larger than 127, the maximum value an i8 can represent.
+;
+; Suggestions:
+;
+;  - Use ((saturating +) 127 1) to specify the result should saturate
+;    to 127.
+;
+;  - Use ((wrapping +) 127 1) to specify the result should wrap around
+;    to 0.

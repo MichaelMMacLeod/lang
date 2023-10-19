@@ -1,0 +1,12 @@
+DIGEST fc9a29f9693d59ac439d19fa6e6a8c3c
+Ffastmath
+ind 10:12 <> Nat
+constr 19:26 <> nat_zero
+constr 30:37 <> nat_add1
+R43:45 fastmath <> Nat:1 ind
+binder 40:40 <> n:3
+ind 60:61 <> u8
+constr 68:71 <> zero
+constr 75:78 <> add1
+R84:85 fastmath <> u8:4 ind
+binder 81:81 <> x:6
