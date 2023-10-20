@@ -1,3 +1,99 @@
+============================================================
+
+; Step 1
+
+; Marks
+;
+;   .... a whole bunch of builtin rules: let, letrec,
+;   continuation-delimit, (new Continuation-Delimiter), etc.
+
+; Term
+
+  (let [delimiter (new Continuation-Delimiter)]
+    (continuation-delimit delimiter
+      (+ 1 2 (with (Current-Continuation delimiter) k
+               (apply k 3)))))
+
+; Step 1 -> 2 reduction
+;
+; Rule found on mark in Step 1
+;
+;   (let [<pattern> <result>] ... <body>) -> <body>
+;
+;   Introduce scope on <pattern>s and <body>
+;
+;   Mark next step with rule from <pattern>s to <result>s
+;
+; Apply rule
+
+============================================================
+
+; Step 2
+
+; Marks on Step 2
+;
+;   delimiter/l -> (new Continuation-Delimiter)
+
+; Term
+
+  (continuation-delimit/l delimiter/l
+    (+/l 1/l 2/l (with/l (Current-Continuation/l delimiter/l)/l k/l
+                   (apply/l k/l 3/l)/l)/l)/l)/l
+
+; No rule matches term
+;
+;   Do depth left-to-right depth-first search for non-fixed-point
+;   subterm matching any rule
+;
+;   If no such rule exists, crash
+;
+;   Otherwise, start new sub-step to reduce the term
+;
+; Rule found in mark on Step 2
+;
+;   delimiter/l -> (new Continuation-Delimiter)
+;
+; Apply rule in new sub-step
+
+------------------------------------------------------------
+
+  ; Step 3.1
+
+  ; Marks
+
+  ; Term
+  
+    (new Continuation-Delimiter)
+
+  ; Step 3.1 -> 3.2 reduction
+  ;
+  ; Rule found on mark in step 1
+  ;
+  ;   (new Continuation-Delimiter) -> <continuation-delimiter>
+  ;
+  ; Apply rule
+
+  -->
+
+  ; Step 3.2
+
+  ; Marks
+
+  ; Term
+
+    <continuation-delimiter>
+
+  ; Fixed-point term; sub-step completed
+
+============================================================
+
+; Step 4
+
+(continuation-delimit/l #0=<continuation-delimiter>
+  (+ 1 2 (with (Current-Continuation #0#) k
+           (apply k 3))))
+
+
 (let [x 10]
   (let [x 12]
     x))
