@@ -3,15 +3,17 @@ use sexp::Sexp;
 
 use std::fmt::Formatter;
 
+use crate::env::Env;
 use crate::scoped_term::ScopedTerm;
 use crate::singular_unscoped_term::SingularUnscopedTerm;
-use crate::subterm_index::SubtermIndex;
 use crate::term::Term;
 use crate::unscoped_term::UnscopedTerm;
 
+#[derive(Clone)]
 pub struct TermGraph {
-    graph: TermGraphImpl,
-    redex: Term,
+    pub graph: TermGraphImpl,
+    pub redex: Term,
+    pub env: Env,
 }
 
 impl std::fmt::Debug for TermGraph {
@@ -60,7 +62,7 @@ impl From<Sexp> for TermGraph {
 
         struct Parent {
             term: Term,
-            current_subterm: usize,
+            current_subterm: u32,
         }
 
         enum ParsedSubterm {
@@ -109,7 +111,7 @@ impl From<Sexp> for TermGraph {
                     subsequent_step.map(|s| s.push_on(&mut stack));
                 }
                 Step::SubsequentStep(SubsequentStep { sexp, parent }) => {
-                    if parent.current_subterm < sexp.len() {
+                    if parent.current_subterm < u32::try_from(sexp.len()).unwrap() {
                         stack.push(
                             Step::SubsequentStep(SubsequentStep {
                                 sexp: sexp.clone(),
@@ -119,9 +121,9 @@ impl From<Sexp> for TermGraph {
                                 },
                             })
                         );
-                        let sexp = sexp[parent.current_subterm].clone();
+                        let sexp = sexp[usize::try_from(parent.current_subterm).unwrap()].clone();
                         let (term, subsequent_step) = add_subterm(&mut graph, sexp);
-                        graph.add_edge(parent.term, term, SubtermIndex::from(parent.current_subterm));
+                        graph.add_edge(parent.term, term, parent.current_subterm);
                         subsequent_step.map(|s| s.push_on(&mut stack));
                     }
                 }
@@ -131,11 +133,12 @@ impl From<Sexp> for TermGraph {
         TermGraph {
             graph,
             redex: redex.unwrap(),
+            env: Env::empty(),
         }
     }
 }
 
-type TermGraphImpl = petgraph::stable_graph::StableGraph<ScopedTerm, SubtermIndex, Directed, NodeIndexType>;
+type TermGraphImpl = petgraph::stable_graph::StableGraph<ScopedTerm, u32, Directed, u32>;
 
 #[derive(Debug)]
 pub enum TermGraphParseError {
@@ -148,4 +151,16 @@ impl From<Box<sexp::Error>> for TermGraphParseError {
     }
 }
 
-pub type NodeIndexType = usize;
+impl TermGraph {
+    pub fn at<T: IntoIterator<Item=usize>>(&self, path: T) -> Option<ScopedTerm> {
+        let mut term = self.redex;
+        for i in path {
+            term = self.graph.neighbors(term).nth(i)?;
+        }
+        Some(self.graph[term].clone())
+    }
+
+    pub fn do_one_reduction(&self) -> Self {
+        todo!()
+    }
+}

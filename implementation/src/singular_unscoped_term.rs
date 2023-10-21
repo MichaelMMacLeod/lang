@@ -3,7 +3,7 @@ use sexp::Atom;
 
 use crate::continuation::Continuation;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SingularUnscopedTerm {
     Num(Box<BigInt>),
     Sym(Box<String>),

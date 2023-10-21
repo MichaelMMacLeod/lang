@@ -1,8 +1,6 @@
 use std::collections::HashSet;
 
-use crate::scope::Scope;
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ScopeSet(HashSet<Scope>);
 
 impl Default for ScopeSet {
@@ -10,3 +8,11 @@ impl Default for ScopeSet {
         Self(HashSet::default())
     }
 }
+
+impl ScopeSet {
+    pub fn binds(&self, other: &Self) -> bool {
+        self.0.is_subset(&other.0)
+    }
+}
+
+type Scope = usize;

@@ -6,9 +6,10 @@ use crate::scope_set::ScopeSet;
 use crate::singular_unscoped_term::SingularUnscopedTerm;
 use crate::unscoped_term::UnscopedTerm;
 
+#[derive(Clone)]
 pub struct ScopedTerm {
-    scope_set: ScopeSet,
-    unscoped_term: UnscopedTerm,
+    pub scope_set: ScopeSet,
+    pub unscoped_term: UnscopedTerm,
 }
 
 impl std::fmt::Debug for ScopedTerm {

@@ -2,7 +2,7 @@ use sexp::Sexp;
 
 use crate::singular_unscoped_term::SingularUnscopedTerm;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum UnscopedTerm {
     Singular(SingularUnscopedTerm),
     Compound,
