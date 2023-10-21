@@ -1,3 +1,30 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ; Read the following as: if we know that $t is a type, and that we are
 ; applying '+' to some arguments, then if those arguments are all of
 ; type $t, it is provable that the result of applying '+' to those

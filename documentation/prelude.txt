@@ -1,3 +1,73 @@
+
+
+
+(Some $x) --> (Some $t)
+
+(the u8
+     (apply (fn (x: u8) -> u8
+              (+ (/ x 2) 100))
+            x))
+
+(impl (Range u8) + (Is (Range $low $high)
+                       (Range u8))
+                   ...+)
+-->
+
+(+ $high ...) is u8 and (+ $low ...) is u8
+if so, return (Is args (Range u8))
+
+
+
+(the Boolean (not True))
+-->
+(impl Boolean the (not True))
+-->
+(impl Boolean not True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (is $v $t)
 -->
 (match (lang.builtin is (impl is $v $t) Reducible)
