@@ -9,12 +9,11 @@ use std::fmt::Formatter;
 use std::io;
 use term_graph::TermGraph;
 
+mod continuation;
 mod unscoped_term;
 mod singular_unscoped_term;
 mod env;
 mod rule;
-mod delimiter;
-mod delimited_term;
 mod scope_set;
 mod scoped_term;
 mod scope;

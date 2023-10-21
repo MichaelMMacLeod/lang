@@ -16,7 +16,18 @@ pub struct TermGraph {
 
 impl std::fmt::Debug for TermGraph {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(fmt, "{:?}", petgraph::dot::Dot::new(&self.graph))
+        #[allow(unused_imports)] // needed to stop intellij from removing it on reformat
+        use petgraph::visit::NodeRef; // needed for n.id() below
+        write!(fmt, "{:?}", petgraph::dot::Dot::with_attr_getters(
+            &self.graph,
+            &[],
+            &|_, _| String::new(),
+            &|_, n| if n.id() == self.redex {
+                String::from("style=filled color=black fontcolor=white")
+            } else {
+                String::new()
+            },
+        ))
     }
 }
 

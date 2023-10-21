@@ -1,6 +1,7 @@
-use crate::scope_set::ScopeSet;
+use crate::term_graph::TermGraph;
 
 #[derive(Debug)]
 pub struct Rule {
-    scope_set: ScopeSet,
+    pattern: TermGraph,
+    result: TermGraph,
 }

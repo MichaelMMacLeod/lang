@@ -1,5 +1,5 @@
 digraph {
-    0 [ label = "Compound" ]
+    0 [ label = "Compound" style=filled color=black fontcolor=white]
     1 [ label = "Singular(Sym(\"let\"))" ]
     2 [ label = "Compound" ]
     3 [ label = "Singular(Sym(\"x\"))" ]
