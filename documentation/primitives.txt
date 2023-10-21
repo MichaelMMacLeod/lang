@@ -1,3 +1,284 @@
+; Read the following as: if we know that $t is a type, and that we are
+; applying '+' to some arguments, then if those arguments are all of
+; type $t, it is provable that the result of applying '+' to those
+; arguments is of type $t.
+
+; e.g., (+ x y) is of type u8 if 1 and 2 are both u8s and (+ 1 2) is a
+; u8. This useful because we can check for overflow / underflow at
+; compile time and guarantee that the compiled code uses unsafe
+; operations (which don't check for overflow/underflow) safely.
+
+(prove-downwards (is (is Type $t)
+                     (+ $x ...)))
+-->
+(prove-downwards
+ (is (Result (Proof (is $t (+ $x ...)))
+             (Proof (or (not (is $t $x)) ...
+                        (not (is $t (+ $x ...))))))
+     (do (bind (and $x-is-t ...)
+               (prove-downwards (and (is $t $x) ...)))
+         (bind $sum-is-t (prove-upwards (is $t (+ $x-is-t ...))))
+         (pure $sum-is-t))))
+
+
+
+
+
+
+
+
+(bottom-up-prove (? (<= (? (+ (? (top-down-prove (is (is Type $t)
+                                                     $x)))
+                              ...))
+                        (is Type $t)))
+
+
+(bottom-up-prove (<= (+ (top-down-prove (is (is Type $t) $x)))
+                     (is Type $t)))
+
+
+"bottom up" vs "top down" type checking examples for '+'
+
+bottom up:
+
+  We know the types of the arguments and we need to prove that the
+  result of adding them is the same type. For example, for arguments
+  of type u8, the sum is only defined if the sum fits into a u8.
+
+top down:
+
+  We know the type of the result and we need to prove that the
+  arguments are of the right type. For example, if '+' is required to
+  result in a 'u8', we know that all of the arguments must be of type
+  u8.
+
+In general, programs should be written top-down, i.e., you write
+something like:
+
+  (prove (is (-> u8 u8)
+             (fn (x)
+               (+ (/ x 2) (/ x 4)))))
+
+  1. Apply top-down strategy for 'fn' by applying top-down strategy to
+     its body for type u8 (insert a runtime contract for its argument
+     which verifies it is in the range [0,256].
+
+  2. Apply top-down strategy for '+' by applying top-down strategy to
+     its arguments for type 'u8'.
+
+     2.1. Once the top-down completes successfully, take the results
+          and union them. Fail if the resulting type is not a
+          non-strict subset of u8.
+
+  3. etc.
+
+
+(List $x) vs (List $x)
+
+one is a type, the other is a value
+
+but they look the same? how???
+
+easy - because there are no variables, just rules that rewrite terms.
+
+(prove (is (List u8)
+           (List (+ 1 2)
+                 (+ 3 4))))
+-->
+(prove (and (is u8 (+ 1 2))
+            (is u8 (+ 3 4))))
+
+
+
+
+
+
+
+Typed language:
+
+  Types:
+
+    Sets of integers: Integer = {u8, i8, u16, i16, ... u128, i128}
+
+    Narrower sets of integers:
+
+      (Range l u) for Integers l and u of the same type, where l <= u
+
+    Fixed-sized lists of these types: (List N T), e.g., (List 100
+    (Range 10 20))
+
+    Ranges of list sizes, e.g., lists of length l where a <= b for
+    some integers a, b.
+
+      (Range (List a T) (List b T))
+
+  Builtin functions: +, -, *, /, scale, (wrapping +), etc., widen, round,
+  truncate, append, sort, etc.
+
+    Defined on all types, including lists, but only when the
+    operations don't overflow/underflow:
+
+      (scale (List 1 2 3) 10)
+      -->
+      (List 10 20 30)
+
+      
+
+    Operations take arguments of type t and return type t. No mixing
+    u8 with i8, for example.
+
+    (widen x) converts x into a larger integer type
+
+    (saturate x) rounds x down or up to the maximum / minimum of a
+    type. only defined if necessary.
+
+      (run (prove (is i8 (saturate (is u8 200)))))
+      -->
+      (is i8 127)
+
+      (prove (is i8 (saturate (is u8 0))))
+      -->
+      Error: superfluous call to 'saturate'. It is impossible for '0'
+      to be outside the bounds of an i8.
+
+    (wrap x) performs 2s complement wrapping. only defined when
+    necessary.
+
+  Binding: let, letrec (binds ids to values - no $-ids)
+
+  Custom functions: (fn ([<id> <type>] ...+) -> <type> <body>)
+
+(prove (is (-> u8 u8)
+           (fn (x)
+             (* (/ x 2) 100))))
+-->
+(Proof (is (-> u8 u8)
+         <scary-unsafe-compiled-fn>))
+
+(p 10)
+-->
+105 ; but computed very quickly
+
+(prove (is u8 (let [x (prove (is u8 user-input))]
+                (+ (/ x 2) 100))))
+-->
+(Proof (is u8 (+ (/ x 2) 100)))
+
+(run (Proof (is u8 (+ (/ x 2) 100))) 256)
+-->
+
+
+
+(prove (is $t (+ (Proof (is $t $x)) ...)))
+-->
+
+
+
+
+(new (Range $t) (Proof (and {(is $t $lower)
+                             (is $t $upper)
+                             (<= $lower $upper)})))
+-->
+
+
+
+(new (Range $t) (is $t $lower) (is $t $upper))
+-->
+(do
+  [let sum-lower (prove (is $t (+ $lower ...)))]
+  [let sum-upper (prove (is $t (+ $upper ...)))]
+  [pass (if (<= sum-lower sum-upper))]
+  
+
+
+(prove (is (Range u8)
+           (+ (Range 0 10)
+              (Range 10 20)
+              (Range 5 100))))
+-->
+(try (impl + (Range u8))
+  (Proof (is (Range u8) (Range 0 10)))
+  (Proof (is (Range u8) (Range 10 20)))
+  (Proof (is (Range u8) (Range 5 100))))
+-->
+(try (impl new (Range u8))
+  (Proof (is u8 15))
+  (Proof (is u8 130)))
+-->
+(Proof (is (Range u8) (Range 15 130)))
+  
+
+(try prove (is $t (try + $x ...)))
+-->
+(do
+  (bind (Proof (and $is-t-x ...))
+        (try prove (and (is $t $x) ...)))
+  (try (instance + $t) $is-t-x ...))
+
+(try (instance + (Range $t)) (is (Range $t) (Range $l $u)) ...+)
+-->
+(try new (Range $t)
+  (prove (is $t (+ $lower ...)))
+  (prove (is $t (+ $upper ...))))
+
+
+
+
+
+
+(try impl (Range $t) (is (Range $t2) (Range $l $u)) ...)
+-->
+(prove (= $t $t2 ...))
+
+
+(try + (is (Range $t) $r) ...+)
+-->
+(try new (Range $t) (get $r lower) ... (get $r upper) ...)
+
+(try prove (is (Range $t) (+ $x ...)))
+-->
+(do
+  (ignore (try prove (and (instantiates minimum $t)
+                          (instantiates maximum $t))))
+  (bind (Proof (is (Range $t)
+                   (Range $lower $upper) ...))
+        (try prove (and (is (Range $t) $x ...))))
+  
+  (bind proof (try prove (<= minimum ))))
+
+
+(do
+  (try prove (and (is (Range $t) $r) ...))
+  (try new (Range $t) (+ )))
+
+
+(impl (Range $t) try + $r ...+)
+-->
+(set (try prove (and (is (Range $t) $r) ...))
+  [Ok (new (Range )
+
+
+
+
+(try new (Range $t) $lower $upper)
+-->
+(set (try prove (and (instantiates <= $t)
+                     (is $t $lower)
+                     (is $t $upper)
+                     (is (instance <= $t) $lower $upper)))
+  [Ok (Proof (is (Range $t) (Range $lower $upper)))])
+
+(try new (Range u8) 5 10)
+-->
+(set (try prove (and (instantiates <= u8)
+                     (is u8 5)
+                     (is u8 10)
+                     ((instance (is <=) $t) 5 10)))
+  [Ok (Proof (is (Range u8) (Range 5 10)))])
+
+
+
+
 ============================================================
 
 ; Step 1

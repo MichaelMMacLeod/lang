@@ -1,0 +1,435 @@
+(is $v $t)
+-->
+(match (lang.builtin is (impl is $v $t) Reducible)
+  [(Is (impl is $v $t) Reducible)
+   (impl is $v $t)]
+  [(Not (Is (impl is $v $t) Reducible))
+   (Not (Is (impl is $v $t) Reducible))])
+
+(impl is Type Type)
+-->
+(Not (Is Type Type))
+
+(impl is True Boolean)
+-->
+(Is True Boolean)
+
+(impl is False Boolean)
+-->
+(Is False Boolean)
+
+(impl is Boolean Type)
+-->
+(Is Boolean Type)
+
+(the $t $v)
+-->
+(match (lang.builtin is (impl the $t $v) Reducible)
+  [(Is (impl the $t $v) Reducible)
+   (is (impl the $t $v)
+       (Or (Is $t)
+           (Not (Is $t))))]
+  [(Not (Is (impl the $t $v) Reducible))
+   (Not (Is (impl the $t $v) Reducible))])
+
+(impl is (Is $t) )
+
+
+; primitives required
+
+(match $v)
+-->
+(continuation-abort current-abort-delimiter
+  "pattern matching failure")
+
+(match $v [$pattern $result] $others ...)
+-->
+(let [rule-application ((Rule $pattern $result) $v)]
+  (if (is rule-application reducible)
+      rule-application
+      (match $v $others ...)))
+
+
+
+(impl is reducible $v) ; builtin rule
+
+
+
+
+
+
+
+
+x -> Y
+
+(impl is reducible X)
+-->
+(Reduces-To Y)
+
+(is $v $t)
+
+
+(is $t $v)
+-->
+(let [i (impl is $v $t)]
+  (sequence
+   i
+   (match i
+     [(Is $v $t) i])
+   (Not (Is $t) $v)))
+
+(the $t $v)
+-->
+(is (impl the $t $v) $t)
+
+(impl is True Boolean)
+-->
+(Is True Boolean)
+
+(impl is False Boolean)
+-->
+(Is False Boolean)
+
+(impl the Boolean (not $b))
+-->
+(match (the Boolean $b)
+  [(Is True Boolean) (Is False Boolean)]
+  [(Is False Boolean) (Is True Boolean)])
+
+
+
+(the Boolean (not True))
+-->
+(is (impl the Boolean (not True)) Boolean)
+-->
+(let [i (impl the Boolean (not True))]
+  (sequence i
+            (match i
+              [(Is #0# #1#) i])))
+
+(match (impl is #0=(impl the Boolean (not True)) #1=Boolean)
+  [(Is #0# #1#) (Is #0# #1#)]
+  [()])
+
+
+
+(is True Boolean)
+-->
+(match (impl is True Boolean)
+  [(Is True Boolean) (Is True Boolean)]
+  [(Is False Boolean) (Is False Boolean)])
+-->
+(match (Is True Boolean)
+  [(Is True Boolean) (Is True Boolean)]
+  [(Is False Boolean) (Is False Boolean)])
+-->
+(Is True Boolean)
+
+
+
+
+
+(Is $t $v)
+-->
+(Is $t $v)
+
+(Not $v)
+-->
+(Not $v)
+
+(is Type Type)
+-->
+(Not (Is Type Type))
+
+(is Boolean Type)
+-->
+(Is Boolean Type)
+
+(is True Boolean)
+-->
+(Is True Boolean)
+
+(is False Boolean)
+-->
+(Is False Boolean)
+
+(is (not $v) Boolean)
+-->
+(match (is $v Boolean)
+  [(Is $v Boolean)
+   (Is (not $v) Boolean)]
+  [(Not (Is $v Boolean))
+   (Not (Is (not $v) Boolean))])
+
+(the Boolean True)
+-->
+True
+
+(the Boolean False)
+-->
+False
+
+(the Boolean (Is (not $v) Boolean))
+-->
+(match (the $v Boolean)
+  [False True]
+  [True False])
+
+
+
+(the Boolean (is (not (not True)) Boolean))
+-->
+(the Boolean
+     (match (is (not True) Boolean)
+       [(Is (not True) Boolean)
+        (Is (not True) Boolean)]
+       [()]))
+-->
+(the Boolean
+     (match (match (is True Boolean)
+              [(Is True Boolean)
+               (Is )])
+       [(Is (not True) Boolean)
+        (Is (not True) Boolean)]))
+
+
+
+
+(prove (is $t $v))
+-->
+(the Proof (is $t $v))
+
+(the Proof (is $t $v))
+-->
+
+
+((impl $t) (prove (is $t $v)))
+
+
+(prove (is Boolean Type))
+-->
+(is Boolean Type)
+
+(prove (is False Boolean))
+-->
+(is False Boolean)
+
+(prove (is True Boolean))
+-->
+(is True Boolean)
+
+(prove (is (not $b) Boolean))
+-->
+(replace (prove (is $b Boolean))
+  [(is $b Boolean)
+   (is (not (is $b Boolean)) Boolean)])
+
+(the Boolean (is True Boolean))
+-->
+True
+
+(the Boolean (is False Boolean))
+-->
+False
+
+(the Boolean (is (not $b) Boolean))
+-->
+(match (the Boolean $b)
+  [True False]
+  [False True])
+
+
+
+(the Boolean (prove (is (not False) Boolean)))
+-->
+(the Boolean
+     (replace (prove (is False Boolean))
+       []))
+
+
+
+
+
+
+(prove (is (not True) Boolean))
+-->
+(replace (prove (is True Boolean))
+  [(is True Boolean)
+   (is (not True) Boolean)])
+-->
+(replace (is True Boolean)
+  [(is True Boolean)
+   (is (not True) Boolean)])
+-->
+(is (not True) Boolean)
+
+
+
+
+
+
+
+
+
+(prove-downwards (is True Boolean))
+-->
+(Proof (is True Boolean))
+
+(Proof $v)
+
+
+
+
+(value (Proof (is $t $v)))
+(value (Proof (and $v ...+)))
+(value (Proof (or $v ...+)))
+(value (Proof (if $t $then $else)))
+
+(Proof (Proof $p)) --> (Proof $p)
+
+
+
+; Fixed points
+
+Type --> Type
+Boolean --> Boolean
+True --> True
+False --> False
+(Ok $k) --> (Ok $k)
+(Err $e) --> (Err $e)
+
+(prove-upwards (the (Proof (is $t $v))))
+-->
+(Ok $v)
+
+(prove-downwards (the (is Type $t) $v))
+-->
+(match (prove-upwards (is $t $v))
+  [(Ok $v-is-t)
+   (prove-upwards (the $v-is-t))]
+  [$err $err])
+
+
+
+
+
+
+
+
+
+
+(the $t $v)
+-->
+(match (prove-downwards (is $t $v))
+  [(Ok $v-is-t)
+   (prove-upwards (the $v-is-t))]
+  [$err $err])
+
+(prove-downwards (is Type Boolean))
+-->
+(Ok (Proof (is Type Boolean)))
+
+(prove-downwards (is Boolean True))
+-->
+(Ok (Proof (is Boolean True)))
+
+(prove-downwards (is Boolean False))
+-->
+(Ok (Proof (is Boolean False)))
+
+
+
+
+
+
+(prove-upwards (the (Proof (is Boolean $b))))
+-->
+$b
+
+(prove-upwards (the (Proof (is Boolean (not True)))))
+-->
+(Ok False)
+
+
+
+(prove-downwards (is Boolean (not $b)))
+-->
+(prove-downwards (is Boolean $b))
+
+(prove-upwards (is False (not (Proof (is Boolean True)))))
+-->
+(Proof (is False (not (Proof (is Boolean True)))))
+
+(prove-upwards (is True (not (Proof (is Boolean False)))))
+-->
+(Proof (is True (not (Proof (is Boolean False)))))
+
+
+
+
+(the Boolean (not (not True)))
+-->
+(prove-downwards (is Boolean (not (not True))))
+-->
+()
+
+
+
+
+
+
+
+
+
+
+(Doable (Proof (and (implements (unwrap $t $to) $t)
+                    (implements (wrap $from $t) $t))))
+-->
+(Doable (Proof (and (implements (unwrap $t $to) $t)
+                    (implements (wrap $from $t) $t))))
+
+(prove-upwards (is $t (do (--> (is (is Type $from) $v)))))
+-->
+(prove-downwards (is $t (wrap (is (is Type $from) $v))))
+
+(and (implements (wrap $from $t) $t)
+                      (is $from $v)
+                      (is $t (wrap $v))))
+
+(match (prove-downwards (implements wrap $t))
+  [(Ok $_)])
+
+(prove-downwards (is (Doable $t)
+                     (do [$x <-- $v] $others ...+)))
+-->
+(match (prove-downwards (is $t $v))
+  [(Ok $v-is-t)
+   (match (the $t $v-is-t)
+     [(Ok $k)
+      (let [$x $k]
+        (prove-downwards (is (Doable $t)
+                             (do $others ...))))]
+     [(Err $e)
+      ])
+  [$e $e])
+
+(prove-downwards (is (is  $t) (do --> $v)))
+-->
+(prove-downwards (is (is Type $t) $v))
+
+(prove-downwards
+ (is (is Type $t)
+     (do [$var <-- $val])))
+
+(do [$x <-- (Proof (is (Result $k $e) (Ok $v)))] ...
+    [$y <-- (Proof (is (Result $k $e) (Err $e)))]
+    $others ...+)
+-->
+(let [$x ])
+(Proof (is (Result $k $e) (Err $e)))
+
+(prove-downwards (is (Proof (is Type $t)) (not $v)))
+-->
+(do [$v-is-t <-- (prove-downwards (is (Proof (is Type $t)) $v))]
+    -->
+    (prove-upwards (is $t (not $v-is-t))))
