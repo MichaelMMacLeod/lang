@@ -1,0 +1,65 @@
+Data definition of Worker (example of using type system)
+
+  Worker type definition
+  |  (new Type (Worker $input-type $output-type))
+  |  -->
+  |  (Implies
+  |    (And (: $input-type Type)
+  |         (: $output-type Type))
+  |    (: (Worker $input-type $output-type)
+  |       Type))
+
+  Worker constructor definition
+  |  (new (: (Worker $input-type $output-type)
+  |          Type)
+  |       $buffer $input $output)
+  |  -->
+  |  (Implies
+  |    (And (Exists (B)
+  |           (Implies
+  |             (Implements B Buffer)
+  |             (: $buffer B)))
+  |         (: $input $input-type)
+  |         (: $output $output-type))
+  |    (: (worker $buffer $input $output)
+  |       (Worker $input-type $output-type)))
+
+  Worker constructor type inference definition
+  |  (: (new Worker $buffer $input $output)
+  |     (Worker $input-type $output-type))
+  |  -->
+  |  (Implies
+  |    (Defined (new Type (Worker $input-type $output-type)))
+  |    (new (Worker $input-type $output-type)
+  |         $buffer $input $output))
+
+Example of constructing a Worker
+
+  |  (new (Worker Charstream Charstream)
+  |       (new String-Buffer)
+  |       stdin
+  |       (new Charstream))
+  |  --> .... -->
+  |  (: (worker (: #<string-buffer> String-Buffer)
+  |             (: #<charstream> #0=Charstream)
+  |             (: #<charstream> #1=Charstream))
+  |     (Worker #0# #1#))
+
+Example of constructing a Worker using type inference
+
+  |  (: (new Worker (new String-Buffer) stdin (new Charstream)
+  |     (Worker Charstream Charstream))
+  |  -->
+  |  (Implies
+  |    (Defined (new Type (Worker #0=Charstream #1=Charstream)))
+  |    (new (Worker #0# #1#)
+  |         (new String-Buffer) stdin (new Charstream)))
+  |  --> .... -->
+  |  (Implies
+  |    True
+  |    (new (Worker Charstream Charstream)
+  |         (new String-Buffer) stdin (new Charstream)))
+  |  -->
+  |  (new (Worker #0# #1#)
+  |       (new String-Buffer) stdin (new Charstream))
+  |  --> ....

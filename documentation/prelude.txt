@@ -1,3 +1,214 @@
+Data definition of Worker
+
+  |  (new Type (Worker $input-type $output-type))
+  |  -->
+  |  (Implies
+  |    (And (: $input-type Type)
+  |         (: $output-type Type))
+  |    (: (Worker $input-type $output-type)
+  |       Type))
+  |  
+  |  (new (: (Worker $input-type $output-type)
+  |          Type)
+  |       $buffer $input $output)
+  |  -->
+  |  (Implies
+  |    (And (Exists (B)
+  |           (Implies
+  |             (Implements B Buffer)
+  |             (: $buffer B)))
+  |         (: $input $input-type)
+  |         (: $output $output-type))
+  |    (: (worker $buffer $input $output)
+  |       (Worker $input-type $output-type)))
+
+Example of constructing a Worker
+
+  |  (new (Worker Charstream Charstream)
+  |       (new String-Buffer)
+  |       stdin
+  |       (new Charstream))
+  |  --> .... -->
+  |  (: (worker (: #<string-buffer> String-Buffer)
+  |             (: #<charstream> #0=Charstream)
+  |             (: #<charstream> #1=Charstream))
+  |     (Worker #0# #1#))
+
+
+
+
+
+
+
+
+
+(Implies (And (Exists (B)
+                (Implies
+                  (Implements B Buffer)
+                  (: #0=(new String-Buffer) B)))
+              (: #1=stdin #3=Charstream)
+              (: #2=(new Charstream) #4=Charstream))
+    (: (worker #0# #1# #2#)
+       (Worker #3# #4#)))
+-->
+(Or (Not (And (Exists (B)
+                (Implies
+                  (Implements B Buffer)
+                  (: #0=(new String-Buffer) B)))
+              (: #1=stdin #3=Charstream)
+              (: #2=(new Charstream) #4=Charstream)))
+    (: (worker #0# #1# #2#)
+       (Worker #3# #4#)))
+-->
+(Or (Not (And (: #0=(new String-Buffer) Buffer)
+              (: #1=stdin #3=Charstream)
+              (: #2=(new Charstream) #4=Charstream)))
+    (: (worker #0# #1# #2#)
+       (Worker #3# #4#)))
+-->
+(Or (Not (And (: #0=(: #<string-buffer> String-Buffer) Buffer)
+              (: #1=stdin #3=Charstream)
+              (: #2=(new Charstream) #4=Charstream)))
+    (: (worker #0# #1# #2#)
+       (Worker #3# #4#)))
+-->
+(Or (Not (And True
+              (: #1=stdin #3=Charstream)
+              (: #2=(new Charstream) #4=Charstream)))
+    (: (worker (: #<string-buffer> String-Buffer)
+               #1#
+               #2#)
+       (Worker #3# #4#)))
+-->
+(Or (Not (And (: #1=stdin #3=Charstream)
+              (: #2=(new Charstream) #4=Charstream)))
+    (: (worker (: #<string-buffer> String-Buffer)
+               #1#
+               #2#)
+       (Worker #3# #4#)))
+-->
+(Or (Not (And (: #1=(: #<charstream> #3#) #3=Charstream)
+              (: #2=(new Charstream) #4=Charstream)))
+    (: (worker (: #<string-buffer> String-Buffer)
+               #1#
+               #2#)
+       (Worker #3# #4#)))
+-->
+(Or (Not (And True
+              (: #2=(new Charstream) #4=Charstream)))
+    (: (worker (: #<string-buffer> String-Buffer)
+               (: #<charstream> #3#)
+               #2#)
+       (Worker #3=Charstream #4#)))
+-->
+(Or (Not (And (: #2=(new Charstream) #4=Charstream)))
+    (: (worker (: #<string-buffer> String-Buffer)
+               (: #<charstream> #3#)
+               #2#)
+       (Worker Charstream #4#)))
+-->
+(Or (Not (And (: #2=(: #<charstream> #4#) #4=Charstream)))
+    (: (worker (: #<string-buffer> String-Buffer)
+               (: #<charstream> #3#)
+               #2#)
+       (Worker Charstream #4#)))
+-->
+(Or (Not (And True))
+    (: (worker (: #<string-buffer> String-Buffer)
+               (: #<charstream> #3#)
+               (: #<charstream> Charstream))
+       (Worker Charstream Charstream)))
+-->
+(Or (Not True)
+    (: (worker (: #<string-buffer> String-Buffer)
+               (: #<charstream> #3#)
+               (: #<charstream> Charstream))
+       (Worker Charstream Charstream)))
+-->
+(Or False
+    (: (worker (: #<string-buffer> String-Buffer)
+               (: #<charstream> #3#)
+               (: #<charstream> Charstream))
+       (Worker Charstream Charstream)))
+-->
+(: (worker (: #<string-buffer> String-Buffer)
+           (: #<charstream> #0=Charstream)
+           (: #<charstream> #1=Charstream))
+   (Worker #0# #1#))
+
+
+
+
+
+
+
+
+
+
+(new Type (Worker $input $output))
+-->
+(all (In Out)
+  (exists (B)
+    (implies
+      (implements B Buffer)
+      (and (: $buffer B)
+           (: $input In)
+           (: $output Out)))))
+
+(new (all (input output)
+       (exists (buffer)
+         (implies
+           (implements buffer Buffer)
+           (Worker input output))))
+     (worker (new Binary-Buffer)
+             stdin
+             stdout))
+
+
+(new (exists (x)
+       (implies
+         ()
+         (implements x (+ a)))))
+
+
+(new (all (c a b)
+      (implies (: c (-> a (or b c)))
+               (fn (c a) (or b c))))
+     (fn (x y)
+       (x y)))
+-->
+(The ....)
+
+(new (Compiled (-> u8 u8))
+     (fn (x) (/ x 2)))
+-->
+(The (Compiled (-> u8 u8)) #<compiled>)
+
+(new (-> u8 u8)
+     (fn (x) (/ x 2)))
+-->
+(The (-> u8 u8)
+     (fn (x) (/ x 2)))
+
+
+(new u8 (+ 2 3))
+-->
+(The u8 5)
+
+
+
+
+Oh, 'the' = 'new.
+
+
+
+
+(the (-> (Range 0 16) (Range 0 16) u8)
+     (fn (x y)
+       (+ (* x x)
+          (* y y)))
+
+
 
 
 
@@ -23,9 +234,6 @@ if so, return (Is args (Range u8))
 (impl Boolean the (not True))
 -->
 (impl Boolean not True)
-
-
-
 
 
 

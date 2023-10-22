@@ -1,0 +1,342 @@
+; environment "boolean language 0"
+
+           (true                -> true)
+           (false               -> false)
+
+          ((not true)           -> false)
+          ((not false)          -> true)
+
+          ((and)                -> true)
+  (for b   (and false b ..)     -> false)
+  (for b   (and true b ..)      -> (and b ..))
+
+          ((or)                 -> false)
+  (for b   (or true b ..)       -> true)
+  (for b   (or false b ..)      -> (or b ..))
+
+  (for p c (implies p c)        -> (or (not p) c))
+
+; environment "boolean language 1"
+
+  (for v t (is v t) -> (is v t))
+  (for v t (is-not v t) -> (is-not v t))
+
+  (type -> type)
+
+  (For v t (def v t) -> ((the t v) -> (is v t)))
+
+  (def boolean type)
+  (def (not (is b boolean))
+    (the boolean (not b)))
+
+  ; ((the type boolean) -> (boolean is type))
+
+  (true := boolean)
+  (false := boolean)
+
+  (not (b is boolean) := ((not b) is boolean))
+  ; ((the boolean (not b)) -> (seq (the boolean b)
+  ;                                ) (implies (defined (the boolean b))
+  ;                                    (the boolean (not b))))
+  ; (the boolean (not true))
+  ; (implies (defined (the boolean true))
+  ;          (the boolean (not true)))
+  ; (implies (defined (true is boolean))
+  ;          ((not true) is boolean))
+  ; ((not true) is boolean)
+  ; (false is boolean)
+  
+  ; -->
+  ;  true -> boolean
+
+  For v (~@ the boolean v) -> (implies )
+
+  For v t (~@ v : t) -> (~@ v -> t)
+
+  boolean : type
+
+  true : boolean
+  false : boolean
+
+
+  (the boolean true)
+  true :2 boolean
+
+  (the boolean (not true))
+  false :2 boolean
+
+
+
+  (For b )
+
+
+
+  For t v (~@ new t v) -> (~@ v : t)
+
+  (not true) : boolean
+  
+
+
+  For f v r .
+
+  not boolean : boolean
+  not -> (For a r (implies (and (= r boolean)
+                                (= a boolean))
+                           (not a)))
+
+  and boolean .. : boolean
+  or boolean .. : boolean
+  implies boolean boolean : boolean
+
+; end
+
+
+  For f at rt
+  (f : at .. -> rt)
+  ->
+  (For rrt
+   (implies (and (= rt rrt)
+                 (a : t) ..)
+            (f )
+          
+
+  (not : boolean -> boolean)
+  (For rrt a
+   (not )
+
+  type -> type
+
+  boolean : type
+
+  true : boolean
+  false : boolean
+
+  not : boolean -> boolean
+  or : boolean .. -> boolean
+  and : boolean .. -> boolean
+  implies : boolean boolean -> boolean
+
+; scratch
+
+
+
+
+  (all (f a a-t r-t)
+    ((f (a : a-t) ..) : r-t)
+    ->
+    (all (requested-r-t)
+      ((f a ..) : requested-r-t)
+      ->
+      (implies (and (= requested-r-t r-t)
+                       (a : a-t) ...)
+               (f a ..))))
+
+  ((not (b : boolean) ..) : boolean)
+  ->
+  (all (requested-r-t)
+    ((not b ..) : requested-r-t)
+    ->
+    (implies (and (= requested-r-t boolean)
+                  (b : boolean))
+             (not b ..)))
+
+
+
+
+  boolean -> boolean
+
+  (true : boolean) -> true
+  (false : boolean) -> false
+
+
+
+
+
+
+
+  (apply (all (f a a-t requested-r-t)
+           ((f (a : a-t) ..) : requested-r-t)
+           ->
+           (implies (and (= requested-r-t r-t)
+                         (a : a-t) ..)
+                    (f a ..)))
+         (all (f a a-t r-t)
+           (fn (f (a : a-t) ..) -> r-t)))
+
+
+  (all (f a a-t r-t)
+    ((f (a : a-t)) : r-t)
+    ->
+    (all (requested-r-t)
+      ((f a ..) : requested-r-t)
+      ->
+      (implies (and (= requested-r-t r-t)
+                       (a : a-t) ...)
+               (f a ..))))
+
+
+
+
+  (all (l r o)
+    (begin l : r o ..)
+    ->
+    (#%begin (: l r) (begin o ..)))
+
+  (all (l r o)
+    (begin l r o ..)
+    ->
+    (#%begin (: l r) (begin o ..)))
+
+  (all (f a a-t r-t)
+    (fn (f (a : a-t) ..) : r-t)
+    ->
+    (all (requested-r-t)
+      ((f a ..) : requested-r-t)
+      ->
+      (implies (and (= requested-r-t r-t)
+                       (a : a-t) ..)
+               (f a ..))))
+
+  type -> type
+
+  boolean : type
+
+  true : boolean
+  false : boolean
+
+  (not (b : boolean)) : boolean
+
+
+  (fn (not (b : boolean)) -> boolean)
+  (fn (and (b : boolean) ..) -> boolean)
+  (fn (or (b : boolean) ..) -> boolean)
+  (fn (implies (b1 : boolean) (b2 : boolean)) -> boolean)
+
+
+
+  (fn (not (b : boolean)) -> boolean)
+  ->
+  (all (requested-return-type)
+    ((not b) : requested-return-type)
+    ->
+    (implies (and (= requested-return-type boolean)
+                  (b : boolean))
+             (not b)))
+
+  (all (f b t1 t2)
+    (fn (f (~@ b : t1) ..) -> t2)
+    ->
+    (all (b1 t3)
+      (: (f b1 ..) t3)
+      ->
+      (implies (and (= t3 t2)
+                    (: b1 b) ..)
+               (f b1 ..))))
+
+  (fn (not (b : boolean)) -> boolean)
+
+  (all (b t)
+    (: (not b) t)
+    ->
+    (implies (and (= t boolean)
+                  (: b boolean))
+             (not b)))
+
+  (all (b t)
+    (: (and b ..) t)
+    ->
+    (implies (and (= t boolean)
+                  (and (: b boolean) ..))
+             (and b ..)))
+
+
+(: $b boolean) -> (or (= $b true) (= $b false))
+
+
+(all (b t)
+  (: (not b) t))
+->
+(implies (and (= t boolean)
+              (: b boolean))
+         (not b))
+
+(: (not $b) $t) -> (implies (and (= $t boolean)
+                                 (: $b boolean))
+                            (not $b))
+
+
+(: (not 123) boolean)
+->
+(implies (and (= boolean boolean)
+              (: 123 boolean))
+
+
+
+
+
+
+
+
+
+
+
+(and) -> true
+(and false $b ..) -> false
+(and true $b ..) -> (and $b ..)
+(: (and $b ..) $t) -> (implies (= $t boolean) (and $b ..))
+
+(or) -> false
+(or true $b ..) -> true
+(or false $b ..) -> (or $b ..)
+(: (or $b ..) $t) -> (implies (= $t boolean) (or $b ..))
+
+(implies $x $y) -> (or (not $x) $y)
+(: (implies $x $y) $t) -> (implies (= $t boolean) (implies $x $y))
+
+(: (: $x $t1) $t2)
+->
+(implies (: $t1 $t2) (: $x $t2))
+
+
+
+(: (not true) true)
+->
+(implies (= true boolean)
+         (not true))
+->
+(or (not (= true boolean))
+    (not true))
+->
+
+
+
+
+(: (not true) boolean)
+->
+(implies (= boolean boolean) (not true))
+->
+(or (not (= boolean boolean))
+    (not true))
+->
+(or (not true)
+    (not true))
+->
+(or false (not true))
+->
+(or (not true))
+->
+(or false)
+->
+true
+
+; (: (: true boolean) type)
+; ->
+; (implies (: boolean type) (: true type))
+; ->
+; (or (not (: boolean type)) (: true type))
+; ->
+; (or (not true) (: true type))
+; ->
+; (or false (: true type))
+; ->
+; true
