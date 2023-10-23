@@ -39,27 +39,14 @@
   (for b (or true b ..)  -> true)
   (for b (or false b ..) -> (or b ..))
 
-  (all-equal -> =)
-  (xnor      -> =)
+             (all-equal -> =)
+             (xnor      -> =)
 
-         (not-all-equal         -> xor)
-        ((xor)                  -> false)
-        ((xor true)             -> false)
-        ((xor false)            -> false)
-  (for b (xor true false b ..)  -> true)
-  (for b (xor false true  b ..) -> true)
-  (for b (xor true true b ..)   -> (xor true b ..))
-  (for b (xor false false b ..) -> (xor false b ..))
+         (not-all-equal -> xor)
+  (for b (xor b ..)     -> (not (= b ..)))
 
           ((implies) -> false)
   (for p c (implies p .. c) -> (or (not p) .. c))
-
-; language 1.1 (boolean operation simplifications)
-
-  (for b (and (and b ..) ..) -> (and b .. ..))
-  (for b (or (or b ..) ..) -> (or b .. ..))
-  (for b (not (or b ..) ..) -> (nor b .. ..))
-  (for p c (or (not b ..) c ..) -> (implies b .. c ..))
 
 ; language 1.25 (boolean ordering operations)
 
@@ -137,17 +124,31 @@
 
   (for op (lift-op op ..) ->
     (begin (for p (op p ..) ->
-             (lift (op (lower p) ..)))
+             (op (lower p) ..))
            ..))
 
-  (lift-op and or not implies nand nor xor xnor > < >= <=)
+  (lift-op and not nand or xor implies =)
 
-; language 3 (the type boolean) [imports 1, 2]
+  (for t (: t nothing) -> false)
+  (for t (: t any) -> (xor t any))
+
+         (non-strict-subtypes     -> <=)
+
+         (strict-subtypes         -> <)
+  (for b (< b)                    -> true)
+  (for b (< any nothing b ..)     -> false)
+  (for b (< nothing nothing b ..) -> false)
+  (for b (< any any b ..)         -> false)
+  (for b (< nothing any b ..)     -> (< any b ..))
+
+; language 3 (the type boolean) [imports 2]
 
   (boolean -> boolean)
 
-  (for b (< ))
+  (for t (: t boolean) -> (or (= t true) (= t false)))
 
+  (for b (< boolean any b ..) -> (< any b ..))
+  (for b (< nothing boolean b ..) -> (< b ..))
 
 
 (not any)
