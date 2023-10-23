@@ -1,22 +1,565 @@
-; environment "boolean language 0"
+; language 1 (boolean values and boolean logical operations)
 
-           (true                -> true)
-           (false               -> false)
+  (true  -> true)
+  (false -> false)
 
-          ((not true)           -> false)
-          ((not false)          -> true)
 
-          ((and)                -> true)
-  (for b   (and false b ..)     -> false)
-  (for b   (and true b ..)      -> (and b ..))
+  ; Most languages define the usual boolean operators on a fixed
+  ; number of arguments. Because (1) these operators also have
+  ; sensible definitions for arbitrary numbers of arguments, (2) it is
+  ; not too hard to define them that way here, (3) supporting
+  ; arbitrary numbers of arguments makes certain programs much easier
+  ; to express (e.g, (and a b c d e f g) to check if the arguments are
+  ; all true instead of (and a (and b (and c (and d (and e (and f
+  ; g)))))) or (foldl and true (list a b c d e f g)), (4) supporting
+  ; arbitrary numbers of arguments does not seem to make programs less
+  ; easy to understand, and (5) it makes lifting these operations a
+  ; lot easier because there is no need to remember the number of
+  ; arguments, the choice has been made to define these operations as
+  ; taking arbitrary numbers of arguments.
 
-          ((or)                 -> false)
-  (for b   (or true b ..)       -> true)
-  (for b   (or false b ..)      -> (or b ..))
+         (none-false      -> and)
+        ((and)            -> true)
+  (for b (and false b ..) -> false)
+  (for b (and true b ..)  -> (and b ..))
 
-  (for p c (implies p c)        -> (or (not p) c))
+         (none-true       -> not)
+         (nor             -> not)
+        ((not)            -> true)
+  (for b (not true b ..)  -> false)
+  (for b (not false b ..) -> (not b ..))
 
-; environment "boolean language 1"
+         (not-all-true     -> nand)
+        ((nand)            -> false)
+  (for b (nand false b ..) -> true)
+  (for b (nand true b ..)  -> (nand b ..))
+
+         (not-all-false) -> or
+        ((or)            -> false)
+  (for b (or true b ..)  -> true)
+  (for b (or false b ..) -> (or b ..))
+
+  (all-equal -> =)
+  (xnor      -> =)
+
+         (not-all-equal         -> xor)
+        ((xor)                  -> false)
+        ((xor true)             -> false)
+        ((xor false)            -> false)
+  (for b (xor true false b ..)  -> true)
+  (for b (xor false true  b ..) -> true)
+  (for b (xor true true b ..)   -> (xor true b ..))
+  (for b (xor false false b ..) -> (xor false b ..))
+
+          ((implies) -> false)
+  (for p c (implies p .. c) -> (or (not p) .. c))
+
+; language 1.1 (boolean operation simplifications)
+
+  (for b (and (and b ..) ..) -> (and b .. ..))
+  (for b (or (or b ..) ..) -> (or b .. ..))
+  (for b (not (or b ..) ..) -> (nor b .. ..))
+  (for p c (or (not b ..) c ..) -> (implies b .. c ..))
+
+; language 1.25 (boolean ordering operations)
+
+  ; It is not uncommon to think of 'true' being 'one' and 'false'
+  ; being 'zero'. This is often defined to be the case in C/C++, for
+  ; example---although the opposite is also often the case, e.g., bash
+  ; return codes, where 'zero' means 'success' or 'true' and 'one' (or
+  ; any number at least 'one') means 'failure' or 'false'. Ultimately
+  ; it is of no importance which way 'true' and 'false' are defined so
+  ; long as it is not ambiguous which way they are defined. We take
+  ; the choice of 'true' being 'one' and 'false' being 'zero' here
+  ; because in other places when we lift '<' and interpret its
+  ; operands as types, it is more common to think of '(< T1 T2)' as
+  ; meaning 'T1 is a strict subtype of T2' and not 'T2 is a strict
+  ; subtype of T1'. The conversion to 'one' and 'zero' is not given
+  ; here, but ordering operators will be defined in its place.
+
+        ((>)                      -> true)
+        ((> true)                 -> true)
+        ((< false)                -> true)
+  (for b (> false true b ..)      -> false)
+  (for b (> true true b ..)       -> false)
+  (for b (> false false b ..)     -> false)
+  (for b (> true false b ..)      -> (> true b ..))
+
+        ((<)                      -> true)
+        ((< true)                 -> true)
+        ((< false)                -> true)
+  (for b (< true true b ..)       -> false)
+  (for b (< true false b ..)      -> false)
+  (for b (< false false b ..)     -> false)
+  (for b (< false true b ..)      -> (< true b ..))
+                                  
+        ((>=)                     -> true)
+        ((>= true)                -> true)
+        ((>= false)               -> true)
+  (for b (>= false true b ..)     -> false)
+  (for b (>= true true b ..)      -> (>= true b ..))
+  (for b (>= true false b ..)     -> (>= true b ..))
+  (for b (>= false false b ..)    -> (>= false b ..))
+
+        ((<=)                     -> true)
+        ((<= true)                -> true)
+        ((<= false)               -> true)
+  (for b (<= true false b ..)     -> false)
+  (for b (<= true true)           -> (<= true b ..))
+  (for b (<= false true b ..)     -> (<= true b ..))
+  (for b (<= false false)         -> (<= false b ..))
+
+; language 1.4 (aliases for ordering operations)
+
+  (strictly-decreasing     -> >)
+  (strictly-increasing     -> <)
+  (non-strictly-decreasing -> >=)
+  (non-strictly-increasing -> <=)
+
+; language 1.5 (default definitions for ordering operations)
+
+  ; Defines '>=', '<=', and '>' in terms of '<' (and some boolean
+  ; operations) to aid in the implementation of custom orderings.
+
+  (for x (>= x ..) -> (not (< x ..)))
+  (for x (<= x ..) -> (or (< x ..) (= x ..)))
+  (for x (> x ..)  -> (nor (< x ..) (= x ..)))
+
+; language 2 (top and bottom types and type operations) [imports 1, 1.5]
+
+  (any -> (lift true))
+  (nothing -> (lift false))
+
+  ((lift true) -> (lift true))
+  ((lift false) -> (lift false))
+
+  (for t (lower (lift t)) -> t)
+
+  (for op (lift-op op ..) ->
+    (begin (for p (op p ..) ->
+             (lift (op (lower p) ..)))
+           ..))
+
+  (lift-op and or not implies nand nor xor xnor > < >= <=)
+
+; language 3 (the type boolean) [imports 1, 2]
+
+  (boolean -> boolean)
+
+  (for b (< ))
+
+
+
+(not any)
+(lift (not (lower any)))
+(lift (not (lower (lift true))))
+(lift (not true))
+(lift false)
+nothing
+
+(for v (new any v) -> (: v any))
+(for v (new nothing v) -> nothing)
+(for v t (new (not t) v) -> (implies (new t v) (: v t)))
+
+
+(boolean -> boolean)
+
+(for t (<= t any) -> (not (= t any)))
+(for b (: b boolean) -> (or (= b true) (= b false)))
+
+
+(: true boolean)
+(or (= true true) (= true false))
+
+
+
+((<= boolean any) -> any)
+
+(for t (not t) -> (not t))
+(for t (or t ..) -> (or t ..))
+(for t (and t ..) -> (and t ..))
+(for p c (implies p c) -> (implies p c))
+
+(for v (new (or) v) -> none)
+(for v t o
+  (new (or t o ..) v)
+  ->
+  (implies (implies (: v t)
+                    (: v t))
+           (new (or o ..)
+                v)))
+
+
+
+
+
+
+
+
+
+
+(for t u o v
+  (prove (new (or t o ..) v) u)
+  ->
+  (implies (implies (<= u t)
+                    (: v u))
+           (: (new (or o ..) v) u)))
+
+(prove (new (or boolean integer)
+         (+ 2 3))
+       u8)
+(implies (implies (<= u8 boolean)
+                  (: (+ 2 3) u8))
+         (: (new (or integer)
+                 (+ 2 3))
+            u8))
+(implies (implies false
+                  (: (+ 2 3) u8))
+         (: (new (or integer)
+                 (+ 2 3))
+            u8))
+(implies any
+         (: (new (or integer)
+                 (+ 2 3))
+            u8))
+(: (new (or integer)
+        (+ 2 3))
+   u8)
+(implies (implies (<= u8 integer)
+                  (: (+ 2 3) u8))
+         (: (new (or) (+ 2 3)) u8))
+(implies (implies any
+                  (: (+ 2 3) u8))
+         (: (new (or) (+ 2 3)) u8))
+(implies (: (+ 2 3) u8)
+         (: (new (or) (+ 2 3)) u8))
+(implies (: (+ 2 3) u8)
+         (: (new (or) (+ 2 3)) u8))
+
+
+
+
+(new (or (not defined) defined) x)
+(implies (implies (: x (not defined))
+                  (: x (not defined)))
+         (implies (: x defined)
+                  (: x defined)))
+
+
+(for v
+  (new (or (not defined) defined) v)
+  ->
+  (seq v
+    (not (: v defined))
+    (: v defined)))
+
+
+(for b (proof b) -> (proof b))
+(for p (not p) -> (not p))
+(for p (or p ..) -> (or p ..))
+(for p (and p ..) -> (and p ..))
+(for p c (implies p c) -> (implies p c))
+
+
+(for t (defined t) -> (or t (not t) undefined))
+
+(new (or boolean (not boolean) undefined)
+     (and true false))
+(proof (is (and true false) boolean))
+
+
+(for v (is v defined) -> (seq v true false))
+
+(new (provably boolean) (and true true))
+(proof (is (and true true) boolean))
+
+(new (provably boolean) (and false true))
+(proof (is (and false true) boolean))
+
+(new (provably integer) (+ -10 10))
+(proof (is (+ -10 10) integer))
+
+(new (proovably boolean) (+ -10 10))
+(proof (not (is (+ -10 10) boolean)))
+
+(new (provably boolean) (and or true))
+(proof (not (is or defined)))
+
+;;;;
+
+(for b (proof b) -> (proof b))
+
+(new (proof boolean) (and true true))
+(proof (is (and true true) boolean))
+
+(new (proof boolean) (and false true))
+(proof (is (and false true) boolean))
+
+(new (proof integer) (= -10 10))
+(proof (not (= -10 10)))
+
+(new (proof boolean) (and or true))
+(proof (and ()))
+
+;;; controversial
+
+  (for b   (is b true)          -> b)
+  (for b   (is b false)         -> (not b))
+  (for b   (not (is b true))    -> (is false b))
+
+  (for b   (new true b)         -> (is true b))
+  (for b   (new false b)        -> (is false b))
+
+;;;
+
+(for k (ok k) -> (ok k))
+(for e (err e) -> (err e))
+
+(new (result boolean) (and true true))
+(ok (and true true))
+
+(new (result boolean) (and true false))
+(ok (and true false))
+
+(new (result boolean) (and or true))
+(err (not (is or defined)))
+
+(new (result boolean) (and true (new (result boolean) false)))
+(err (and (not (is #0=(new (result boolean) false)
+                   boolean))
+          (is #0# (result boolean))))
+
+;;; scratch
+
+
+(for j (correct j) -> (correct j))
+(for j (wrong j) -> (wrong j))
+
+(for t v (new (correct t) v) -> (seq b (is v t)
+                                       (correct v)
+                                       (wrong b)))
+
+
+
+(new boolean (and true true))
+(correct (is (and true true) boolean))
+
+(new boolean (and and true))
+(wrong (not (and (is and defined)
+                 (is and boolean))))
+
+(new boolean (new boolean (and true true)))
+(wrong (and (wrong (is (new boolean (and true true))
+                       boolean)
+            (is (new boolean (and true true))
+                (proof boolean)))))
+
+(undefined and)
+
+(new boolean (new boolean (and true true)))
+(wrong )
+
+(new u8 100)
+(correct 
+
+(new (correct boolean) (and true (and and)))
+; bad:  (wrong (is (and true (and and)) boolean))
+; good: (wrong (is (and and) boolean))
+
+(new (correct boolean) (and and))
+(seq #0=(is #1=(and and) boolean) (correct #1#) (wrong #0#))
+(wrong (is (and and) boolean))
+
+(new (correct boolean) (and true false))
+(seq (is #0=(and true false) boolean) (correct #0#) (wrong #0#))
+(seq (is #0=false boolean) (correct #0#) (wrong #0#))
+(seq true (correct #0=false) (wrong #0#))
+(correct false)
+
+(new (wrong boolean) (and and))
+(correct (wrong (and and)))
+
+(new (correct boolean) (and true false))
+(correct false)
+
+(new (correct boolean) (and true true))
+(correct true)
+;;;; scratch
+
+(for j (correct j) -> (correct j))
+(for j (wrong j) -> (wrong j))
+
+(for j (not (correct j)) -> (wrong j))
+(for j (not (wrong j)) -> (correct j))
+
+(for j k (is j (the correct k)) -> (seq j ())
+
+(for j (is j correct) -> (seq j (correct j) (wrong j)))
+(for j (is j wrong) -)
+
+(new boolean (and true true))
+(ok (new boolean (and true true)))
+
+(new )
+
+
+(new (correct false) (and true true))
+
+(is (and true true) the (correct false))
+
+
+
+
+(is (and true true) (the correct false))
+false
+
+(is (and true false) (the correct true))
+false
+
+
+(is (and true true) boolean)
+(correct true)
+
+(is (and false true) boolean)
+(correct false)
+
+(is (not wrong) correct)
+(correct correct)
+
+(is wrong (and true wrong))
+(correct wrong)
+
+(is (and true true) correct)
+(wrong (is (and true true) correct))
+
+(is correct correct)
+(wrong (is correct correct))
+
+
+;; ???
+
+(is wrong wrong)
+(wrong (is wrong wrong))
+
+; language 1a1
+
+  (correct -> true)
+  (wrong -> false)
+
+  (boolean -> correct)
+
+
+;;;;
+
+(main : correct = (not wrong))
+(correct correct)
+
+(main : correct = (and true true))
+(wrong (is correct correct))
+
+(main : wrong = (and true wrong))
+(correct wrong)
+
+;;;;;;;;
+
+(for m p r v o
+  (begin (is m correct) (for v .. p -> r) o ..) -> )
+
+
+;;;(for v p r b (let (for v .. p -> r) .. b) -> `(begin (for ,(v ..) ,p -> r) ..))
+
+
+
+
+; non-negative integers
+
+  (0 -> correct)
+  (for n (next n) -> n)
+  ; syntactic sugar by the compiler:
+  ;   1 -> (next 0)
+  ;   2 -> (next (next 0))
+  ;   etc.
+
+  (for z (+ 0 z ..) (+ z ..))
+  (for x y (+ (next x) y ..) -> (next (+ y ..)))
+
+  (is (and true boolean) correct)
+  (is (and true boolean) true)
+  (and true boolean)
+  boolean
+  correct
+  true
+
+; 
+
+  (correct -> correct)
+  (wrong -> wrong)
+
+  ((not correct) -> wrong)
+  ((not wrong) -> correct)
+
+  ((and) -> correct)
+  (all j (and wrong j ..) -> wrong)
+  (all j (and correct j ..) -> (and j ..))
+
+  ((or) -> wrong)
+  (all j (or correct j ..) -> correct)
+  (all j (or wrong j ..) -> (or j ..))
+
+  (for p c (implies p c) -> (or (not p) c))
+
+  
+;
+
+  (is (and true true) (type boolean))
+  (is (and true true) correct)
+  (is (and true true) true)
+  (is (and true) true)
+  (is (and) true)
+  (is true true)
+  true
+
+
+  (is (and true true) (type boolean))
+  (is (and true true) correct)
+
+  ((all) -> true)
+  (for p (all correct p ..) -> ())
+
+  ((or) -> correct)
+  (for t (or (not correct) t ..) -> (not correct))
+  (for t (or correct t ..) -> (or t ..))
+
+  (implies (is type type) type))
+  (or (not (is type type)) type)
+  (or (not false) type)
+  (or true type)
+  (not type)
+
+  (implies (is boolean type) boolean)
+  (or (not (is boolean type)) boolean)
+  (or (not true) boolean)
+  (or false boolean)
+  boolean
+
+
+  (is boolean type) -> true
+  (is type type) -> false
+  (for b (new type b) -> (implies (is b type) b))
+
+  (new type boolean)
+  (or (not (is boolean type)) boolean)
+  (or (not true) boolean)
+  (or false boolean)
+  boolean
+
+  (new type type)
+  (implies (is type type) type)
+  (or (not (is type type)) type)
+  (or (not false) type)
+  (or true type)
+  true
+
 
   (for v t (is v t) -> (is v t))
   (for v t (is-not v t) -> (is-not v t))
