@@ -3,7 +3,6 @@
   (true  -> true)
   (false -> false)
 
-
   ; Most languages define the usual boolean operators on a fixed
   ; number of arguments. Because (1) these operators also have
   ; sensible definitions for arbitrary numbers of arguments, (2) it is
@@ -45,7 +44,7 @@
          (not-all-equal -> xor)
   (for b (xor b ..)     -> (not (= b ..)))
 
-          ((implies) -> false)
+          ((implies)        -> false)
   (for p c (implies p .. c) -> (or (not p) .. c))
 
 ; language 1.25 (boolean ordering operations)
@@ -64,6 +63,14 @@
   ; subtype of T1'. The conversion to 'one' and 'zero' is not given
   ; here, but ordering operators will be defined in its place.
 
+        ((<)                      -> true)
+        ((< true)                 -> true)
+        ((< false)                -> true)
+  (for b (< true true b ..)       -> false)
+  (for b (< true false b ..)      -> false)
+  (for b (< false false b ..)     -> false)
+  (for b (< false true b ..)      -> (< true b ..))
+
         ((>)                      -> true)
         ((> true)                 -> true)
         ((< false)                -> true)
@@ -72,13 +79,13 @@
   (for b (> false false b ..)     -> false)
   (for b (> true false b ..)      -> (> true b ..))
 
-        ((<)                      -> true)
-        ((< true)                 -> true)
-        ((< false)                -> true)
-  (for b (< true true b ..)       -> false)
-  (for b (< true false b ..)      -> false)
-  (for b (< false false b ..)     -> false)
-  (for b (< false true b ..)      -> (< true b ..))
+        ((<=)                     -> true)
+        ((<= true)                -> true)
+        ((<= false)               -> true)
+  (for b (<= true false b ..)     -> false)
+  (for b (<= true true)           -> (<= true b ..))
+  (for b (<= false true b ..)     -> (<= true b ..))
+  (for b (<= false false)         -> (<= false b ..))
                                   
         ((>=)                     -> true)
         ((>= true)                -> true)
@@ -87,14 +94,6 @@
   (for b (>= true true b ..)      -> (>= true b ..))
   (for b (>= true false b ..)     -> (>= true b ..))
   (for b (>= false false b ..)    -> (>= false b ..))
-
-        ((<=)                     -> true)
-        ((<= true)                -> true)
-        ((<= false)               -> true)
-  (for b (<= true false b ..)     -> false)
-  (for b (<= true true)           -> (<= true b ..))
-  (for b (<= false true b ..)     -> (<= true b ..))
-  (for b (<= false false)         -> (<= false b ..))
 
 ; language 1.4 (aliases for ordering operations)
 
@@ -129,27 +128,585 @@
 
   (lift-op and not nand or xor implies =)
 
-  (for t (: t nothing) -> false)
-  (for t (: t any) -> (xor t any))
+  (for t (< t nothing) -> false)
+  (for t (< t any) -> (not (>= t any)))
 
-         (non-strict-subtypes     -> <=)
+  (for v t (the (<= v t)) -> (the (<= t v)))
+  (for v t (the t v) -> (implies (<= v t) (the (<= t v))))
 
-         (strict-subtypes         -> <)
   (for b (< b)                    -> true)
   (for b (< any nothing b ..)     -> false)
   (for b (< nothing nothing b ..) -> false)
   (for b (< any any b ..)         -> false)
   (for b (< nothing any b ..)     -> (< any b ..))
 
+; language 22 (well-typed and ill-typed types and operations)
+
+  (well-typed -> (lift any))
+  (ill-typed -> (lift nothing))
+
+  ((lift any) -> (lift any))
+  ((lift nothing) -> (lift nothing))
+
+  (for t (lower2 (lift (lift t))) -> t)
+
+  (for op (lift2-op op ..) ->
+    (begin (for p (op p ..)
+             (op (lower2 p) ..)
+             ..)))
+
+  (lift2-op and not nand or xor implies =)
+
+  (for t (< t well-typed) -> (not (>= t well-typed)))
+
 ; language 3 (the type boolean) [imports 2]
 
   (boolean -> boolean)
 
-  (for t (: t boolean) -> (or (= t true) (= t false)))
+  (for t (< t boolean) -> (or (= t true) (= t false)))
 
   (for b (< boolean any b ..) -> (< any b ..))
   (for b (< nothing boolean b ..) -> (< b ..))
 
+  (for op (annotate-with-types t op ..) ->
+    (begin
+      (for v (prove < (op v ..) t)
+        (implies (and (prove < v t) ..)
+          (< (op v ..) t)))))
+
+  (annotate-with-types boolean
+    and nor nand or xor implies < > <= >= =)
+
+  (for v (prove < (and v ..) boolean)
+    (implies (and (prove < v boolean) ..)
+      (< (and v ..) boolean)))
+
+  (prove <= undefined-lol any)
+  (impl prove <= undefined-lol any)
+  (> undefined-lol any) ; e.g., this is not a defined term in our language
+
+  (for t (impl <= t any) ->
+    (let (i -> (<= t any))
+      (catch ((irreducible i) -> (> t any))
+        (<= t any))))
+
+
+  ; (new delimiter <handler>) -> <delimiter>
+  ; (<delimiter> <body>) -> <body-delimited>
+
+  Evaluating '~' terms eagerly in rule terms
+
+
+    (for contains~terms
+      (remove-all~terms contains~terms) ->
+      (let (all~terms ->
+             (new environment
+               (for m (~ m ..) ->
+                 (raise (~ m ..)))))
+        (catch (for m (~ m ..) -> (m ..))
+               (for no~terms env
+                 (irreducible no~terms env) ->
+                 no~terms)
+          (with-environment (and this-environment all~terms)
+            contains~terms))))
+
+    (remove-all~terms (~ and true false))
+    -->
+    (let (all~terms ->
+           (new environment
+             (for m (~ m ..) ->
+               (raise (~ m ..)))))
+      (catch (for m (~ m ..) -> (m ..))
+             (for no~terms env
+               (irreducible no~terms env) ->
+               no~terms)
+        (with-environment (and this-environment all~terms)
+          (~ and true false))))
+    -->
+    (catch (for m (~ m ..) -> (m ..))
+           (for no~terms env
+             (irreducible no~terms env) ->
+             no~terms)
+      (with-environment (and this-environment all~terms)
+        (~ and true false)))
+    -->
+    
+
+    (for v p r (dyn v .. p -> r) ->
+      (remove-all~terms
+        (for v .. p -> r)))
+
+
+    (for contains~terms (remove-all~terms contains~terms) ->
+      (let (all~terms -> (new environment (val m (~ m ..))))
+        (catch (for m env (irreducible m env) -> m)
+          (with-environment (and current-environment all~terms)
+            contains~terms))))
+
+    (for m
+      (for~parser (~incomplete m)) ->
+      )
+
+    (for m
+      (for-tilde-parser (~literal m) ->
+        (~literal m)))
+    (for m
+      (for-tilde-parser (~ m ..)) ->
+      (seq (m ..)
+           (~literal (m ..))))
+    
+
+    (for v p r
+      (dyn v .. p -> r) ->
+      )
+    
+
+  Fixed points
+
+    (for v f (val v .. f) -> (for v .. f -> f))
+
+  Dynamic rules
+
+    (for v p p-f p-i
+           r r-f r-i
+      (dyn v .. (~ val p p-f p-i) -> (~val r r-f r-i))
+      (val p )
+    (for v p r
+      (dyn v .. (~val p) -> (~val r)) ->
+      (val p (val r (for v .. p -> r))))
+    (for v p r
+      (dyn v .. p -> (val r)) ->
+      (seq r (for v .. p -> r)))
+    (for v p r
+      (dyn v .. (val p) -> r) ->
+      (seq p (for v .. p -> r)))
+
+  Rules for declaring fixed-points
+
+    (for v pr
+      (for. v .. pr .) ->
+      (for v .. pr -> pr))
+    (for v p r
+      (for. v .. p -> r) ->
+      (for v .. p -> r))
+
+  Rules for throwing and catching exceptions
+
+    (for e (exception e) -> (exception e))
+    (sequence (new delimiter)
+      (for catch-delimiter -> (new delimiter)))
+    (for e (raise e) -> (abort catch-delimiter (exception e)))
+    (for v (try v) ->
+      (delimit catch-delimiter
+               (for e (exception e) -> (err e))
+        (ok v)))
+    (for c v (catch c .. v) ->
+      (delimit catch-delimiter
+               (for e (exception e) ->
+                 (let c .. e))
+               v))
+
+
+    (catch (for A -> 10)
+      (catch (for A -> 100)
+        (raise A)))
+    -->
+    (delimit catch-delimiter
+             (for e (exception e) ->
+               (let (A -> 10)
+                 e))
+      (catch (for A -> 100)
+        (raise A)))
+    -->
+    (catch (for A -> 100)
+      (raise A))
+    -->
+    (delimit catch-delimiter)
+              
+
+
+    (catch (for A -> 10)
+           (for B -> 100)
+      (raise A))
+    -->
+    (delimit catch-delimiter
+             (for e (exception e) ->
+               (let (for A -> 10)
+                    (for B -> 100)
+                 e))
+             (raise A))
+    -->
+    (delimit <delimiter>
+             (for e (exception e) ->
+               (let (for A -> 10)
+                    (for B -> 100)
+                 e))
+             (raise A))
+    -->
+    (delimit <delimiter>
+             <rule>
+             (raise A))
+    -->
+    (raise A)
+    -->
+    (abort catch-delimiter (exception A))
+    -->
+    (abort <delimiter> (exception A))
+    -->
+    (let (for A -> 10)
+         (for B -> 100)
+      A)
+    -->
+    A
+    -->
+    10
+    
+
+
+
+    (sequence (new unique identifier)
+      (for catch-delimiter -> (new unique identifier)))
+
+
+    (for catcher body
+      (catch catcher .. body) ->
+      (delimit catch-delimiter))
+
+    
+    (sequence catch-delimiter
+      (for catch-delimiter -> (new delimiter)))
+
+    (sequence (new unique symbol)
+      (let (dynamic -> (new unique symbol))
+        (let (body -> dynamic)
+          (sequence dynamic
+            (let (dynamic -> A)
+              body)))))
+    -->
+    (let (dynamic -> unique-symbol#12345)
+      (let (body -> dynamic)
+        (sequence dynamic
+          (let (dynamic -> A)
+            body))))
+    -->
+    (let (body -> dynamic)
+      (sequence dynamic
+        (let (dynamic -> A)
+          body)))
+    -->
+    (sequence dynamic
+      (let (dynamic -> A)
+        body))
+    -->
+    (let (unique-symbol#12345 -> A)
+      body)
+    -->
+    body
+    -->
+    dynamic
+    -->
+    unique-symbol#12345
+    -->
+    A
+
+
+    (sequence catch-delimiter
+      (let (catch-delimiter -> A)
+        catch-delimiter))
+    (for e (throw e) -> (abort catch-delimiter e))
+    (for c b
+      (catch c .. b) ->
+      (sequence catch-delimiter
+        (let (catch-delimiter ))))
+
+    (seq (new delimiter)
+      (for exception-delimiter (new delimiter)))
+    (for e (throw e) ->
+      (abort exception-delimiter e))
+    (for catcher body
+      (catch catcher .. body) ->
+      (seq exception-delimiter
+        (seq (new delimiter)
+          (let (for exception-delimiter ->)))))
+
+  Rules which eagerly reduce their patterns and results
+
+    (for v p0 p1 p r0 r1 r
+      (for~ v .. (~ p0 p1 p ..) -> (~ r0 r1 r ..)) ->
+      (seq (p0 p1 p ..)
+           (seq (r0 r1 r ..)
+                (for. v .. (p0 p1 p ..) -> (r0 r1 r ..)))))
+    (for v p r0 r1 r
+      (for~ v .. (. p) -> (~ r0 r1 r ..)) ->
+      (seq (r0 r1 r)
+           (for v .. p -> (r0 r1 r ..))))
+    (for v p r
+      (for~ v .. (. p) -> (. r)) ->
+      (for. v .. p -> r))
+    (for v pr
+      (for~ v .. pr .) ->
+      (for. v .. pr .))
+
+  Rules for throwing and catching exceptions
+
+    (for~ e (uncaught-exception e) .)
+    (for~ (. exception-delimiter) -> ())
+
+  Throwing and catching exceptions: '(catch handler .. body)' and
+  '(raise exception)'.
+
+    (for. e (uncaught-exception e) .)
+    (for. exception-delimiter -> ())
+
+
+
+    
+
+    (val e (uncaught-exception e))
+    (dyn exception-delimiter -> (new continuation-delimiter))
+    (dyn (val exception-delimiter) ->
+      (new-continuation-delimiter
+        (for (exception e) ->
+          (uncaught-exception e))))
+    (for e (raise e) ->
+      (continuation-delimit exception-delimiter e))
+    (for catcher body (catch c .. v) ->
+      (let (dyn (~reduce exception-delimiter) ->
+             (new delimiter
+               (for (exception e) ->
+                 (let c .. e))))
+        body))
+
+
+
+    (for c v (catch c .. v) ->
+      (let (dyn e )))
+
+  (for e (uncaught-exception e) .)
+
+  
+
+  (dyn current-exception-delimiter (~reduce (new unique symbol)))
+  (dyn )
+
+
+
+
+  (for exception-delimiter -> (~reduce (new unique term)))
+  (for (~reduce exception-delimiter) ->
+    )
+
+  (for exception-delimiter -> dyn
+    (new unique term))
+  (dyn exception-handler ->
+    (for e (exception e) ->
+      (uncaught-exception e)))
+
+
+
+  (for v d r (dyn v .. d r) -> (for v .. (#%reduce d) -> r))
+  (for e (uncaught-exception e) .)
+  (dyn exception-delimiter ->
+    (for e (exception e) ->
+      ))
+
+  (for (#%reduce exception-delimiter) ->
+    (for e (exception e) ->
+      ()))
+
+
+  (for (#%reduce-once exception-delimiter) ->
+    (for e (exception e)
+      (uncaught-exception e)))
+
+  (#%reduce (+ 1 (* 2 3)))
+  (#%incomplete (+ 1 (#%reduce (* 2 3))))
+  (#%reduce (+ 1 6))
+  7
+
+
+
+
+  (+ 1 (* 2 3))
+  (#%reduce (+ 1 (* 2 3)))
+  ((#%reduce +) 1 (* 2 3))
+  ((#%irreducible +) (#%reduce 1) (* 2 3))
+  (#%reduce ((#%irreducible +) (#%done 1) (* 2 3)))
+  ((#%irreducible +)
+   (#%done 1)
+   (#%reduce (* 2 3)))
+  ((#%irreducible +)
+   (#%done 1)
+   ((#%reduce )))
+
+  (reduce>>> reduce (+ 1 (* 2 3)))
+  (>>> reducing (+ (#%reduce 1) (* 2 3)))
+  (>>> reducing (+ (#%done 1) (#%reducing (* 2 3))))
+  (#%reduce (+ (#%done 1) (* 2 3)))
+  (+ (#%done 1)
+     (* (#%reduce 2) 3))
+  (#%reduce (+ 1 (* 2 3)))
+  
+
+  (dyn exception-delimiter ->
+    (new delimiter
+      (for e (exception e) ->
+        ())))
+
+  (for catcher body )
+
+  (for catcher body (catch catcher .. body)
+    (dynamic-let (exception-delimiter ->
+                   (new delimiter
+                     (for e (exception e)
+                       (let catcher .. e))))
+      (delimit body exception-delimiter)))
+
+  (for e (raise e)
+    (abort exception-delimiter e))
+
+
+  (catch (A -> 100)
+    (raise A))
+  -->
+  (let (d -> (new delimiter
+               (for ))))
+
+
+  (for abort-handler body (new continuation-delimiter abort-handler body) ->
+    (dynamic-let (exception-delimiter -> (new continuation-delimiter))
+      (continuation-delimit exception-delimiter)))
+
+  (for catcher body (catch catcher .. body) ->
+    (new continuation-delimiter
+      (for e (exception e) ->
+        (let catcher .. e))
+      body))
+
+
+
+
+
+
+
+  (current-exception-delimiter ->
+    (new continuation-delimiter))
+
+  (current-catcher ->
+    (for e (exception e) ->
+      (raise e)))
+
+    (dynamic-let (current-exception-delimiter ->
+                   (new delimiter))
+      (new continuation-delimiter
+        )
+      (continuation-delimit current-exception-delimiter
+        (for e (exception e)
+          (let catcher .. e))
+        ))
+
+
+    (dynamic-let (current-catcher ->
+                   (for e (exception e)
+                     (let handler .. e)))
+      body))
+
+  (for e (raise e) ->
+    (abort current-catcher))
+
+  (catch (A -> 10)
+         (B -> 100)
+    (raise A))
+
+  (for handler body (catch handler .. body) ->
+    (dynamic-let (for exception (exception-handler exception) ->
+                   (let handler .. exception))
+      body))
+
+
+  (<= surprise any)
+  (let (i -> (<= #0=surprise any))
+    (catch ((irreducible i) -> (> #0# any))
+      (impl <= #0# any)))
+  (let-handlers ((irreducible i) -> (> #0=surprise any))
+    (impl <= #0# any))
+  (impl <= surprise any)
+  (continuation-abort current-catch
+    (irreducible (impl <= surprise any)))
+  (let ((irreducible #1=(impl <= #0=surprise any)) -> (> #0# any))
+    (irreducible #1#))
+  (irreducible (impl <= surprise any))
+  (> surprise any)
+
+  (for t (<= t any)
+    (let (i (<= t any))
+      (let-handlers (for (irreducible i) (> t any))
+        (impl <= t any))))
+
+  (<= Surprise! any)
+  (let (i #0=(<= #1=Surprise! any))
+    (let-handlers (for (irreducible i) (> #1# any))
+      (impl <= #1# any )))
+
+
+
+    (let-handlers (impl <= t any)
+      (for term (irreducible term)
+        ())
+    (let-dynamic [current-abort-handler
+                  (for term (irreducible term)
+                    )]))
+
+  (for op v t (prove op v t)
+    (let [i -> (impl prove op v t)]
+      (and (<= i any) i))
+
+  (for op v t (prove op v t)
+    (with-handlers [for v (irreducible v)]))
+
+  (prove < (and true false) boolean)
+  (let [i (impl prove < (and true false) boolean)]
+    (and (<= i any) i))
+  (and (<= i any) i)
+  (and (<= #0=(impl prove < (and true false) boolean)
+           any)
+       #0#)
+  (and ())
+
+
+    (and (prove < (impl prove op v t) any)
+         (prove ))
+    (let [d ]
+      (if d (the d) d)))
+
+  (for v t (prove < (+ v ..) t)
+    (implies (and (< v t) ..)
+      (< (+ v ..) t)))
+
+  
+
+  (for t (prove < (+ (range t) ..) t)
+    (implies (prove < (+ t ..) t)
+      (< (+ (range t) ..) t)))
+
+  (for t (prove < (+ )))
+
+
+  (new (range integer) 5)
+  (range 5 5)
+
+  (new (range u8) 256)
+  (range 256 256)
+
+
+
+  (new (range u8)
+    (+ (range 10 20)
+       (range 30 40)))
+  -->
+
+  (for v (prove < (+ v ..) u8)
+    ]))
 
 (not any)
 (lift (not (lower any)))

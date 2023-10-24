@@ -1,0 +1,78 @@
+digraph type_system {
+    compound=true
+    node [fontname = "monospace"]
+    "-100" -> "(never lang)"
+    "-2" -> "(never lang)"
+    "-1" -> "(never lang)"
+    "0" -> "(never lang)"
+    "1" -> "(never lang)"
+    "2" -> "(never lang)"
+    "100" -> "(never lang)"
+    "(always glue)" -> { "(always gluelang)", "(always haskell)" }
+    "(always gluelang)" -> "integer" [lhead=cluster_integer]
+    "(always haskell)" -> "(haskell Int)"
+    "(range -536870912 536870911)" -> "(haskell Int)"
+    "(range integer)" -> "(range -536870912 536870911)" [ltail=cluster_integer]
+    "(always haskell)" -> { "(haskell (-> Int Int))", "(haskell IO)", "(haskell (IO String))" }
+    "(haskell (-> Int Int))" -> "(haskell *)"
+    "(haskell IO)" -> "(haskell (-> * *))"
+    "(haskell (-> * *))" -> "(haskell *)"
+    "(haskell *)" -> "(never haskell)"
+    "(haskell (IO String))" -> "(haskell *)"
+    "(always haskell)" -> 
+    "(haskell Maybe)" -> "(haskell (-> * *))"
+    "(haskell Int)" -> "(haskell *)"
+    "(never haskell)" -> "(never glue)"
+
+    "(all a a)" -> "(never glue)" [ltail=cluster_all_a_a]
+    "(all a (option a))" -> { "(all a (some a))", "none", "(haskell Maybe)" }
+    "(all a (some a))" -> "(all a b (-> a (a b)))"
+    "(all a b (-> a (a b)))" -> "(all a a)" [lhead=cluster_all_a_a]
+    "none" -> "(all a a)" [lhead=cluster_all_a_a]
+    "(all a (-> a a))" -> "(all a a)" [lhead=cluster_all_a_a]
+    "(all a (-> a a))" -> "(haskell (-> * *))"
+    "(all a b (-> a b))" -> "(all a a)" [lhead=cluster_all_a_a]
+    "(all a .. b (-> a .. b))" -> "(all a a)" [lhead=cluster_all_a_a]
+    "(-> boolean .. nonnegative-integer)" -> "(all a .. b (implies (and (<= b a) ..) (-> a .. b)))"
+    "(-> boolean .. nonnegative-integer)" -> "(all a .. b (-> a .. b))"
+    "(all l .. u .. ret (implies (<= (range (+ l ..) (+ u ..)) ret) (-> (range l u) .. ret)))" -> "(-> boolean .. nonnegative-integer)"
+    "(all a .. b (implies (and (<= b a) ..) (-> a .. b)))" -> "(all a a)" [lhead=cluster_all_a_a]
+    "+" -> "(all l .. u .. ret (implies (<= (range (+ l ..) (+ u ..)) ret) (-> (range l u) .. ret)))"
+    "(all l .. u .. ret (implies (<= (range (+ l ..) (+ u ..)) ret) (-> (range l u) .. ret)))" -> "(all a .. b (implies (and (<= b a) ..) (-> a .. b)))"
+    subgraph cluster_all_a_a {
+        "(all a a)"
+        "(never gluelang)"
+    }
+    subgraph cluster_integer {
+        "integer"
+        "(range integer)"
+        "(range -infinity +infinity)"
+    }
+    "integer" -> "nonnegative-integer" [ltail=cluster_integer lhead=cluster_nonnegative_integer]
+    subgraph cluster_nonnegative_integer {
+        "nonnegative-integer"
+        "(range 0 +infinity)"
+        "(- integer negative-integer)"
+    }
+    "integer" -> "negative-integer" [ltail=cluster_integer lhead=cluster_negative_integer]
+    subgraph cluster_negative_integer {
+        "negative-integer"
+        "(range -infinity -1)"
+        "(+ (range -infinity -500)\n(range 100000 499))"
+    }
+    "nonnegative-integer" -> "u16" [ltail=cluster_nonnegative_integer lhead=cluster_u16]
+    subgraph cluster_u16 {
+        "u16"
+        "(range 0 65_535)"
+    }
+    "u16" -> "u8" [ltail=cluster_u16 lhead=cluster_u8]
+    subgraph cluster_u8 {
+        "u8"
+        "(range 0 256)"
+    }
+    "integer" -> "i8" [ltail=cluster_integer lhead=cluster_i8]
+    subgraph cluster_i8 {
+        "i8"
+        "(range -128 127)"
+    }
+}

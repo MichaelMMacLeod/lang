@@ -1,0 +1,235 @@
+Use 'new' to create a subterm S of term T. The result is a proof about
+whether or not S is actually a subterm of T. For example, we can try
+and make a boolean:
+
+  (new boolean (and true false))
+  -->
+  (proof (< (and true false)
+            boolean))
+
+The '<' in the context of the proof means 'first is subterm of
+second'. In this specific example it means that the term '(and true
+false)' can, in the future, reduce to a boolean, and this process will
+not throw any errors or cause any undefined behavior. Contrast this
+with the following:
+
+  (new boolean (+ 2 3))
+  -->
+  (proof (not (< (+ 2 3)
+                 boolean)))
+
+We see the '<' reappear in the proof, but this time it is inside of a
+'not'. The proof here means that '(+ 2 3)' is not a term that reduces
+to a boolean. If we try to reduce '(+ 2 3)' to a boolean we will not
+get any undefined behavior, but we will get an exception raised.
+
+The 'new' terms we have just introduced do not actually compute the
+subterm; they compute a proof about whether or not this is possible to
+do. To actually compute the subterm, use 'the'.
+
+  (the (new boolean (or true false)))
+  -->
+  (the (proof (< (or true false)
+                 boolean)))
+  -->
+  (or true false)
+  -->
+  true
+
+If we try to use 'the' on a failed proof---like the one from before
+when we tried to make a boolean out of '(+ 2 3)'---an exception is
+raised which contains the failed proof. The default exception catcher
+knows how to print these proofs nicely:
+
+  (the (new boolean (and true 42)))
+  -->
+  (the (proof (implies (not (< 42 boolean))
+                       (not (< (and true 42) boolean)))))
+  --!
+  a term of
+
+    boolean
+
+  cannot be extracted from a proof that
+
+    (and true 42)
+
+  is not
+
+    boolean
+
+  because
+
+    42
+
+  is not
+
+    boolean
+  
+
+
+
+(the (proof (< non-negative-integer integer)))'
+-->
+
+
+(the (proof (< true boolean)))
+-->
+true
+
+Extract subterms with 'the'
+
+  If P is of the form (< V P), returns V
+
+    (the T (proof (< V )))
+
+  for example,
+
+    (the )
+
+A proof of either <v> being of type <t>
+
+
+(the (rust (vec u128))
+  (list 10 20 30))
+-->
+(proof (< (box (rust (vec u128))
+               <pointer>)
+          (rust (vec u128))))
+
+(the (list u128)
+  (+ (the (rust (vec u128))
+       (list 10 20 30))
+     (the (rust (vec u128))
+       (list 40 50 60))))
+-->
+(proof (< (list 10 20 30 40 50 60)
+          (list u128)))
+
+
+
+(new (source-code gluelang)
+  (new (source-code rust)
+    "255u8.wrapping_add(10)"))
+-->
+(proof (< "(wrap + (the new u8 255) 10)"
+          (source-code gluelang))))
+
+(the (box (rust (vec u128)))
+  (list 10 20 30))
+-->
+(proof (< (box (rust vec u128) <pointer>))
+          (rust (vec u128)))
+
+(the (box (c++11 (array int64_t)))
+  (list 10 20 (+ 30 40) (* 50 60)))
+-->
+(proof (<= ))
+
+Unique
+
+  (for gensym -> (letrec (g -> g) g))
+  (for v g (unique v g) .)
+  (for v n (new unique v) -> (unique v (~ gensym)))
+  (for v g op (unique-impl-op op ..)
+    (begin
+      (for a (the (unique v g) (< (op a ..))) ->
+        ())))
+
+  (for v t (<= (and v ..) t)
+    (and (<= v t) ..))
+
+
+  (< (range 0 10) (range integer))
+  -->
+  (proof (< (range 0 10) (range integer)))
+
+  (< (range -10 10) (range non-negative-integer))
+  -->
+  (proof (not (< (range -10 10)
+                 (range non-negative-integer))))
+
+  (< (range X 10) (range integer))
+  -->
+  (proof (not (< X integer)))
+
+  (for t v (< v (range t)) ->
+    (and ()
+         (< (range t) range)
+         (the gluelang
+           (match v
+             (for l u (range l u) ->
+               (range l u)))))
+
+
+  (the (range integer) (range 0 100))
+  -->
+  (match )
+
+  (for t (the (range t) v) ->
+    (match (< v (range t))
+      )
+    (if (< v (range t))
+      (match v
+        (for l u (range l u) ->
+          (range l u)))))
+
+  (for v t (<= (+ v ..) (range t))
+    (and (< (range t) range)
+         (<= (+ (the (range t) v) ..)
+             (range t))))
+
+  (for a (the (~ always) (and a ..))
+    (if (and (< a (~ always)) ..)
+      ))
+
+
+Always and never
+
+  (for always -> (~ (new unique true)))
+  (for never -> (~ (new unique false)))
+
+Lifting and lowering booleans
+
+  (for v (lifted n v) .)
+
+  (for n v (lift n) ->
+    (seq (new unique symbol)
+      (lifted n v (new unique symbol))))
+
+  (for n v (new (lift n) v) ->
+    (if (= n 0)
+      (seq (new unique symbol)
+        (lifted v (new unique symbol)))
+      (new (lift (- n 1)) (lift v))))
+
+  (for n v (lower v) ->
+    (if (= n 0)))
+
+Boolean
+
+  (for (always boolean) (~ (lift true)))
+
+
+
+Gluelang
+
+  (for (always gluelang) (~ (lift true)))
+  (for (never gluelang) (~ (lift false)))
+
+  (for (always gluelang) (~ (new unique symbol)))
+  (for (never gluelang) (~ (new unique symbol)))
+  (for )
+  
+
+Ranges
+
+  (for (< range (always gluelang)) -> true)
+  
+  (for a (< (range a) range) ->
+    (< a (implements <=)))
+  
+  (for l u a
+    (< (range l u) (range a)) ->
+    (and (< (range a) range)
+         (<= l u)))

@@ -1,0 +1,625 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+              GLUE: GLUE language, GLUE interpreter
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+This is a work-in-progress guide for GLUE, a name that refers to both
+a programming language called the 'GLUE language' and a specific
+computer program called the 'GLUE interpreter' which interprets GLUE
+language programs. The GLUE interpreter is still in development, so it
+currently only exists as some loosely-specified text documents and a
+little bit of computer code; take everything said here with only a few
+grains of salt. In what follows, 'GLUE' will refer either to the
+language or to the interpreter depending on the context. More
+information about [something in braces] can be found in the
+'References' section at the end of this document.
+
+GLUE itself is not intended to be a very good language for doing
+anything at all other than creating new programming languages that are
+actually sometimes useful. I mean 'not very good' quite literally;
+GLUE is a slow, sluggish language. This is because the semantics of
+GLUE make it very difficult to write a runtime environment for GLUE
+that is fast---the main reason being that the [time complexity] of
+'what step to take next in the computation' is, in its worst case, not
+constant, but at least linear with respect to the size of the input
+and the number and size of the available rules (what an 'available
+rule' means will be made more clear later). Contrast this with, say,
+[C++], [Rust], [Java], [Haskell], etc., where 'what step to take next
+in the computation' (i.e., 'what function or instruction to apply')
+can usually be thought of as being a very quick thing to decide; the
+answer to this question is often decided at compile-time so the
+resulting program, whether written in machine-specific [native code],
+[JVM bytecode], [STG], or some other language, is either simple to
+interpret (e.g., by the [JVM], or directly by the computer hardware in
+the case of native code) or simple to further compile to some other
+language (e.g., [C--] in the case of STG).
+
+The reason that the GLUE language is so bad (in the sense of time
+complexity) is that this choice enables it to be applicable to a wide
+variety of general purpose programming tasks, including the
+implementation of better, faster, more statically typed
+languages---without chaining those language implementations to a
+specific runtime environment.
+
+Some of the features that are built-in to GLUE include:
+
+ - [purity] (mostly), except for the [unsafe GLUE primitives] which
+   can do crazy things like mutating an array, displaying a message to
+   the screen, as well as certain other GLUE language primitives (more
+   on this later).
+
+ - [lazy evaluation]
+ 
+ - [lexically-scoped] [syntax-case-style] "macros" ("rules" in
+   GLUE. In fact, there are no "functions" as usually understood or
+   [phase levels] in GLUE, just rules, and terms they may or may not
+   apply to).
+
+ - [delimited continuations] [composable continuation captures] and
+   [delimited continuation aborts].
+
+ - [side effect sequencing] (no monads, just 'glue.builtin.sequence',
+   i.e., almost like [seq] from [Haskell])
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+An incomplete overview of the GLUE language primitives now begins.
+
+GLUE language primitive: data types
+
+  Every member of a data type in GLUE is called a 'term'. What follows
+  is a list of all of the GLUE language's built-in data-types:
+
+  - Immutable, infinite precision signed integers ('integers')
+
+  - Immutable, infinite precision ratios of signed integers ('ratios')
+
+  - Immutable, UTF-8 encoded strings ('strings')
+
+  - Immutable symbols ('symbols')
+
+  - Immutable continuation delimiters ('delimiters')
+
+  - Immutable, composable, delimited continuations ('continuations')
+
+  - Immutable rules ('rules')
+
+  - Immutable environments ('environments')
+
+  - Immutable, ordered lists of terms ('compound terms')
+
+  Exactly how to construct and perform operations on values of these
+  types will be made more clear later.
+
+GLUE language primitive: 'for' (creates a rule)
+
+  GLUE language's 'for' is quite similar to 'syntax-case' from
+  [Racket], What follows is an introduction to the syntax of 'for',
+  and, more generally, an introduction to how computation occurs in
+  the GLUE interpreter.
+
+  All of the examples below create a values of type 'rule', that is,
+  they are all terms.
+
+  1. (for x -> y)
+
+     This is a rule that transforms the symbol 'x' into the symbol
+     'y'. It is necessary to use an opening parenthesis '(' followed
+     by the symbol 'for' and eventually a closing parenthesis
+     ')'. There must also be the symbol '->' present in the
+     second-to-last position. The part of the rule just before the
+     '->' is called the 'pattern', and the part just after is called
+     the 'result'. In this example, 'x' is the pattern and 'y' is the
+     result. We say that a rule 'matches' a term T if T is equal to
+     its pattern. In this example, the term 'x' is equal to the
+     pattern, so this rule matches 'x'. Exactly what it means for a
+     pattern and term to be 'equal' will be described later. For now,
+     it is enough to know that if a term looks the same as the
+     pattern, then the rule matches.
+
+  2. (for (a b c d e) -> 999)
+  
+     This is a rule that transforms the term '(a b c d e)' into the
+     term '999'. Rules can contain arbitrarily complicated patterns
+     and results. For example, the garbled mess of '(a b ((+ 999999
+     123) (Hello world! (((c) d e)) f (g)) h))' is a valid pattern and
+     also a valid result, although there is probably no good reason to
+     ever create a rule with it as either.
+
+  3. (for true -> true)
+
+     This is a rule that transforms the term 'true' into the term
+     'true'---that is, it transforms the symbol 'true' into
+     itself. Computation in GLUE begins by finding an available rule
+     that matches the input to the computation and proceeds by
+     replacing that input with the rule's result. The replacement is
+     then considered the input to the computation and the process just
+     described is repeated as many times as possible. If a rule that
+     matches the input ever transforms the input into itself then the
+     computation halts. If the rule in this example was made available
+     and the input was the term 'true', then computation would halt
+     immediately. Exactly what it means for a rule to be available in
+     a given computation will be made more clear later. For now it is
+     enough to know that there are some rules available in a given
+     computation, and that it is possible to do different computations
+     where different rules are available. Not every computation needs
+     to use the same rules, in fact the act of writing GLUE language
+     code mainly consists of writing lots of different rules.
+
+  4. (for v (identity v) -> v)
+
+     This is a rule that transforms any compound term '(identity v)'
+     into 'v', where 'v' is not literally the symbol 'v' but instead
+     whatever was present in its place in the pattern when the rule
+     matched. Notice that unlike the 'true -> true' rule before, the
+     pattern and result of this rule are not the same. This means that
+     if this rule is available and it matches the input, computation
+     will at least undergo one 'step' before halting. A single 'step'
+     of computation is called a 'reduction'. There is no theoretical
+     limit on the number of possible reductions of GLUE language
+     programs; it is possible to write programs that can theoretically
+     continue computing forever. More on this later.
+
+     We can think of this 'identity' rule not as one rule (like the
+     previous rules we have seen), but instead as an abbreviation of
+     an infinite set of rules:
+
+       (for (identity a) -> a)
+       (for (identity b) -> b)
+       (for (identity c) -> c)
+       ....
+       (for (identity (and true false)) -> (and true false))
+       ....
+       (for (identity identity) -> identity)
+       ....
+       (for (identity (+ 2 3 (* 4 5))) -> (+ 2 3 (* 4 5)))
+       .... and so on, forever ....
+
+     The 'v' in the rule is called a 'variable' because it is a symbol
+     that comes before the pattern and after the 'for'. It is possible
+     to have more than one variable in a rule; there can be zero, one,
+     two, ..., one hundred, or as many variables as is desired. For
+     example, here is a rule that uses three variables:
+
+       (for one two three (one two three) -> (three two one))
+
+     In practice, it usually suffices to have zero, one, or two
+     variables; needing more than five is unusual, but still
+     allowed. If you find yourself using more than five or so
+     variables it is likely there is more clear way of writing the
+     same rules yet to be discovered.
+
+  5. (for v (list v ..) -> (list v ..))
+
+     This is a rule that transforms any term with the symbol 'list'
+     in the first position followed by zero or more terms into
+     itself. For example, this rule matches '(list 1 2 3)' and
+     transforms it into '(list 1 2 3)'; as mentioned earlier, this
+     would stop the computation if '(list 1 2 3)' was the input.
+
+  6. (for v
+      (flatten (list (list v ..) ..)) ->
+      (list v .. ..))
+
+     This is a rule that transforms lists containing lists by
+     extracting all of the elements of the inner lists and putting
+     them all, in order, into a flattened list. For example, if this
+     rule is made available and the input is ...
+
+        (flatten
+         (list (list 1 (list 2)))
+               (list (- 4 1))
+               (list 4 (+ 2 3) 6))
+
+     ... then the result of applying the rule is
+
+        (list 1 (list 2) (- 4 1) 4 (+ 2 3) 6)
+
+     Despite the fact that the result here contains an inner list,
+     the rule does not apply to it. This is because not *every* term
+     inside the outer list is itself a list.
+
+     This is the first rule so far that has been written on separate
+     lines: it starts with '(for v', continues on the next line with
+     the pattern followed by '->', and ends with the result followed
+     by the closing parenthesis ')' that closes the opening
+     parenthesis '(' before 'for'. In general it does not matter how
+     many lines a rule is written on or how much space is between
+     each part of the rule as long as the parentheses all match. For
+     example ...
+
+       (for                 X    ->                Y)
+
+                           (for
+
+
+
+         X
+
+
+                                       ->
+
+                     Y)
+    
+     ... those are two valid rules without any variables that both
+     match the term 'X' and transform it into the term 'Y'. The
+     extra spaces and multiple lines added when writing the rule
+     have absolutely no meaning when it comes to what the rule
+     matches or what the result of the rule is. Except for those
+     interested in making experimental artwork or writing this
+     document, creating either of these rules---or any like
+     them---is probably a bad idea; it would likely be considered
+     bad style by most to write anything like either of these two
+     rules. Adding newlines and more spaces into rules is possible
+     because sometimes it is necessary to create rules which do not
+     fit well on a single line or are more clearly stated using
+     vertical alignment. We have already seen an example of a
+     rule---the 'list flattening rule'---which is more clearly
+     stated using multiple lines instead of one line. If we had
+     tried to write it on one line, it would be difficult to see
+     what was going on:
+
+       (for v (flatten (list (list v ..) ..)) -> (list v .. ..))
+
+     It is not immediately clear from the way the above rule is
+     written which part of it is the pattern and which part of it is
+     the result. Here are some related rules which take advantage of
+     extra spaces to make their intent more clear:
+
+       (for   (none-false)            -> true)
+       (for b (none-false false b ..) -> false)
+       (for b (none-false true  b ..) -> (none-false b ..))
+
+     These rules mean exactly the same thing as the following rules ...
+
+       (for (none-false) -> true)
+       (for b (none-false false b ..) -> false)
+       (for b (none-false true b ..) -> (none-false b ..))
+
+     ... except that those rules do not use extra spaces for
+     vertical alignment. It is up to you to decide when and where to
+     use vertical alignment. In lieu of a style guide, use your best
+     judgment.
+
+  7. (for key value
+       (list (key   = value) ..) ->
+       (list (value = key)   ..))
+
+     This is a rule that swaps keys with values in a list. If the
+     input were '(list (a = 10) (b = 20))' then applying this rule
+     would result in '(list (10 = a) (20 = b))'. Notice that the
+     '..' in both the pattern and the result do not come directly
+     after the variables, but rather come after a grouping of
+     variables and the term '='. This is allowed; if a variable is
+     matched under N levels of dot-dots ('..'), then if it appears
+     in the result it must be surrounded by no less than N levels of
+     dot-dots. For example, all of these rules are allowed:
+
+       (for v ((v ..) ..) -> (v .. ..))
+       (for v ((v ..) ..) -> ((v ..) ..))
+       (for v (v ..)      -> (v ..))
+       (for v v           -> v)
+       (for w w           -> (w ..))
+
+     The last one may look confusing, but it is actually quite
+     simple: because 'w' in its pattern is matched under zero
+     dot-dots, there must be at least zero dot-dots that follow it,
+     i.e., there is no requirement about the number of dot-dots
+     following the 'w' in the result. The dot-dots after the 'w'
+     mean literally the term '..'; if the 'w' rule were made
+     available and the input was 'X', then the result would be '(X
+     ..)', i.e., literally '(' followed by 'X' followed by '..'
+     followed by ')'. In general, if there is a variable matched
+     under N levels of dot-dots, the number of dot-dots surrounding
+     it in the pattern is M, and M>N, then the outer M-N dot-dots
+     are taken literally. Dot-dots can also appear in the result
+     along side but not surrounding a variable. For example, the
+     following are all valid rules ...
+
+       (for X -> ..)
+       (for Y -> ((Y Y Y) (.. .. ..)))
+       (for Z -> (Z (Z (Z (.. (.. (..) ..) ..) Z) Z) Z) Z)
+
+     ... although it is unlikely these will ever be actually useful
+     for anything other than demonstrating the extent of rules
+     allowed.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+An incomplete overview of the GLUE language interpreter now begins.
+
+GLUE language: 'glue.builtin.sequence' (performs reductions in a
+specified order)
+
+  For all terms T, S, and F, the term
+
+    '(glue.builtin.sequence T S F)'
+
+  [identifies] T with S and F, then attempts to reduce 'T' to a
+  [fixed-point]. Only after 'T' has been successfully reduced to a
+  fixed-point is S reduced in [tail position] with respect to the
+  '(sequence ....)' term. If at any step during the reduction of T,
+  there is no applicable rule, F is reduced in tail position with
+  respect to the '(sequence ....)' term.
+
+GLUE interpreter: 'term', 'identical terms', and 'equal terms'
+
+  The interpreter performs computation on a [directed graph]. The
+  string input to a program is parsed into such a directed
+  graph. Because the interpreter makes no use of un-directed graphs,
+  from now on I will use 'graph' to mean 'directed graph'.
+
+  A 'term' is either a symbol, string, integer, or compound term. All
+  symbols, strings, and integers are [leaf]s in the directed graph.
+
+  The interpreter represents terms  in a directed
+  graph. Two terms are identical if and only if they are the same
+  vertex.
+
+  Two terms are 'equal' if they are either identical or their
+  [strongly connected component]s are isomorphic.
+
+  To 'identify' a term T with a term TI is to do the following:
+
+    1. Check whether or not T is equal to TI
+
+    2. If T is equal to TI, remove the strongly 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+                           References
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+[C++] https://en.cppreference.com/w/
+
+[Rust] https://www.rust-lang.org/
+
+[Java] https://www.oracle.com/java/
+
+[Haskell] https://www.haskell.org/ghc/
+
+  When I say 'Haskell' I mean 'the GHC implementation of
+  Haskell'. GHC has an impressive compilation process that at one
+  point generates programs written in [STG].
+
+[native code] https://en.wikipedia.org/wiki/Machine_code
+
+[JVM bytecode] https://en.wikipedia.org/wiki/Java_bytecode
+
+[STG] https://web.archive.org/web/20231024181340/https://www.cs.tufts.edu/comp/150FP/archive/simon-peyton-jones/spineless.pdf
+
+  The STG language is one of the intermediate languages that GHC (see
+  [Haskell]) uses to compile Haskell to [native code]. STG is the
+  Spineless Tagless G-machine. The 'STG language' is the language
+  that the STG interprets---at least in theory. In reality, code
+  written in the STG language is almost always compiled down to [C--]
+  which is then further compiled down to native code.
+
+[JVM] https://en.wikipedia.org/wiki/Java_virtual_machine
+
+[C--] https://en.wikipedia.org/wiki/C--
+
+[syntax-case-style] https://docs.racket-lang.org/reference/stx-patterns.html
+
+  GLUE rules have a simpler grammar than [Racket]'s (and more
+  generally, [Scheme]'s) 'syntax-case' because they do not have to
+  support lists that do not end in 'nil', vectors, boxes, structs,
+
+[Racket] https://docs.racket-lang.org/reference/index.html
+
+[Scheme] https://www.r6rs.org/final/html/r6rs/r6rs.html
+
+[lexically scoped] https://users.cs.utah.edu/plt/scope-sets/index.html
+
+[lazy evaluation] https://en.wikipedia.org/wiki/Lazy_evaluation
+
+[phase levels] https://docs.racket-lang.org/guide/phases.html
+
+[delimited continuations] https://en.wikipedia.org/wiki/Continuation
+
+  Also known as 'continuations'.
+
+  "What about [call/cc] (i.e., un-delimited continuations)?" - what
+  sense can be made of an "un-delimited continuation"? What happens
+  when I apply that? Does the current thread keep running? Does the
+  entire program/[REPL] keep running? Does my computer keep running?
+  Does the universe keep moving forwards in time? Do we all get
+  sucked back to the [big bang]? (all of these would be delimited
+  somewhere). I am only half-joking here.
+
+  Racket's 'make-continuation-prompt-tag' and
+  'call-with-continuation-prompt' are analogous to GLUE's
+  'glue.builtin.delimiter' and '(glue.builtin.delimit <delimiter>
+  <handler> <body>)' in GLUE respectively. (see [Racket's control
+  operations]).
+
+[Racket's control operations] https://docs.racket-lang.org/reference/cont.html
+
+[call/cc] https://en.wikipedia.org/wiki/Call-with-current-continuation
+
+[REPL] https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop
+
+[big bang] https://en.wikipedia.org/wiki/Big_Bang
+
+[composable continuation captures]
+
+  The GLUE language's 'glue.builtin.capture' primitive is analogous to
+  'call-with-composable-continuation' in Racket (see [Racket's control
+  operations]).
+
+  There are sometimes good performance reasons to implement
+  *composable* continuations in terms of continuations that, when
+  applied, remove the portion of the current continuation above (or
+  above and including) a certain delimiter. (a 'composable'
+  continuation is a continuation that does not remove any part of the
+  current continuation (or any other continuation for that matter)
+  when it is applied). That being said, GLUE is inherently slow, so
+  implementing GLUE continuations in a very clever and efficient way
+  would only get us so far---so we don't!
+
+[delimited continuation aborts]
+
+  Also known as 'continuation aborts'. See [delimited continuations].
+
+  The GLUE language's 'glue.builtin.abort' primitive is analogous to
+  'abort-current-continuation' (see [Racket's control operations]).
+
+[purity] https://en.wikipedia.org/wiki/Pure_function
+
+  The only side effects of running pure GLUE language code is that
+  the GLUE interpreter may allocate memory at any time and it may do
+  garbage collection at any time. This does not include the [unsafe
+  GLUE primitives].
+
+[unsafe GLUE primitives]
+
+  An unsafe GLUE primitive is how GLUE code performs side effects
+  (i.e., does anything that is actually useful). All unsafe GLUE
+  primitives contain the symbol 'glue.unsafe.primitive'. WARNING: It
+  is HIGHLY RECOMMENDED to PROVE and NOT just HOPE FOR THE BEST that
+  use of these primitives is safe. Exactly what these primitives are
+  is not yet decided. They will, at the very least, include some way
+  of generating and executing arbitrary [native code], perhaps by
+  calling into [LLVM].
+
+  "Why not just make GLUE completely pure? (i.e., allow effects but
+  only through the use of an effect system)" - these so-called "pure"
+  languages still perform effects but only allow them at the top-level
+  once the 'main' function has run (ignoring things like
+  [unsafe-perform-io]). Because the intent of GLUE is to develop
+  languages and "glue" them together, we need to be able to reason
+  about the actual execution of side effects in the language
+  itself. These languages also often do not consider things like heap
+  allocation to be a side effect (at least by default). This is an
+  issue when it comes to writing programs that execute with
+  predictable (i.e., no unwanted [GC] pauses), fast (i.e., minimizing
+  [cache misses]), and low memory usage (i.e., small binary sizes and
+  small necessary allocation for their runtime systems). These
+  requirements are common in embedded development where resources are
+  scarce or more generally for anyone who cares about writing good
+  software.
+
+[LLVM] https://llvm.org/
+
+[GC] https://en.wikipedia.org/wiki/Garbage_collection_%28computer_science%29
+
+[cache misses] https://en.wikipedia.org/wiki/CPU_cache
+
+[unsafe-perform-io] https://hackage.haskell.org/package/base-4.9.0.0/docs/System-IO-Unsafe.html
+
+[side effect sequencing]
+
+  The GLUE language provides the primitive '(sequence <T>
+  <if-fixed>)' which is analogous to [Haskell]'s [seq]. Unlike 'seq',
+  'sequence' guarantees that if its first argument can be reduced to
+  a fixed-point ('weak head normal form' in Haskell), then it will be
+  reduced to a fixed-point before any reduction of '<if-fixed>'
+  occurs. This guarantee is important because unlike Haskell and
+  similar languages, GLUE has no built-in [other ways of sequencing
+  side effects].
+
+[seq] https://hackage.haskell.org/package/ghc-prim-0.11.0/docs/GHC-Prim.html#v:seq
+
+[other ways of sequencing side effects] https://en.wikipedia.org/wiki/Monad_(functional_programming)
+
+[time complexity] https://en.wikipedia.org/wiki/Time_complexity
+
+[subtype] https://en.wikipedia.org/wiki/Subtyping
+
+[identifies] See the section called 'GLUE interpreter: identical
+  terms'
+
+[tail position] https://docs.racket-lang.org/reference/eval-model.html#%28part._.Tail_.Position%29
+
+[directed graph] https://en.wikipedia.org/wiki/Directed_graph
+
+  The directed graph used by the interpreter is not a [multigraph],
+
+[multigraph] https://en.wikipedia.org/wiki/Multigraph
+
+[leaf] https://en.wikipedia.org/wiki/Tree_(data_structure)#Terminology
+
+
+
+
+
+
+none-sense follows
+
+
+
+
+
+
+
+  An incomplete grammar for creating a new rule is
+
+    <rule>
+      | <open-parenthesis> <rule-internals> <close-parenthesis>
+      | <open-bracket> <rule-internals> <close-bracket>
+      | <open-brace> <rule-internals> <close-brace>
+    <open-parenthesis>
+      | '('
+    <open-bracket>
+      | '{'
+    <open-brace>
+      | '['
+    <close-parenthesis>
+      | ')'
+    <close-bracket>
+      | '}'
+    <close-brace>
+      | ')'
+    <rule-internals>
+      | <optional-space> <for> <after-for-part> <optional-space>
+    <optional-space>
+      | <required-space>
+      | <not defined: no spaces at all>
+    <required-space>
+      | <space> <optional-space>
+    <space>
+      | ' '
+      | <not defined: tab character>
+      | <not defined: newline character>
+      | <not defined: other space characters>
+    <for>
+      | 'for' <required-space>
+    <after-for-part>
+      | <optional-variables> <after-optional-variables>
+    <optional-variables>
+      | <symbol>
+      | <symbol> <required-space> <optional-variables>
+    <for> =
+      | <open> <vars> ' ' <pattern> ' -> ' <result> ')'
+    <vars> =
+      | <no-vars-at-all>
+      | <var> <vars>
+    <no-vars-at-all> =
+      |
+    <var> =
+      | <symbol>
+    <pattern> = <term>
+    <result> = <term>
+    <term> =
+      | <symbol>
+      | '(' <term> ... ')'
+      | '..'
+    <symbol> =
+      | <TODO: symbol is not yet defined>
+
+
+
+
+
+
+
+(seq (new scope)
+  (seq (insert (new scope) pattern)
+    (seq (insert (new scope) body)
+      (with-environment (+ this-environment
+                           (new environment
+                             (for v .. pattern -> result)
+                             ..))
+        body))))
