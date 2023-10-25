@@ -63,7 +63,7 @@ Some of the features that are built-in to GLUE include:
  - [delimited continuations] [composable continuation captures] and
    [delimited continuation aborts].
 
- - [side effect sequencing] (no monads, just 'glue.builtin.sequence',
+ - [side effect sequencing] (no monads, just 'sequence',
    i.e., almost like [seq] from [Haskell])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -371,7 +371,7 @@ GLUE language primitive: [frame]
 
   For any terms E and T, call the following the 'frame of E and T':
 
-    (glue.builtin.frame E T)
+    (frame E T)
 
   The frame of E and T is [undefined] if E does not reduce to an
   [environment]. If E reduces to an environment, then the frame term
@@ -499,12 +499,11 @@ An incomplete overview of the GLUE language interpreter now begins.
   not exist a sequence of rules to successively apply to T to reduce
   it to a fixed-point of E, and such reduction process terminates.
 
-GLUE language: 'glue.builtin.sequence' (performs reductions in a
-specified order)
+GLUE language: 'sequence' (performs reductions in a specified order)
 
   For all terms T, S, and F, the term
 
-    '(glue.builtin.sequence T S F)'
+    '(sequence T S F)'
 
   [identifies] T with S and F, then attempts to reduce 'T' to a
   [fixed-point]. Only after 'T' has been successfully reduced to a
@@ -600,10 +599,9 @@ GLUE interpreter: 'term', 'identical terms', and 'equal terms'
   somewhere). I am only half-joking here.
 
   Racket's 'make-continuation-prompt-tag' and
-  'call-with-continuation-prompt' are analogous to GLUE's
-  'glue.builtin.delimiter' and '(glue.builtin.delimit <delimiter>
-  <handler> <body>)' in GLUE respectively. (see [Racket's control
-  operations]).
+  'call-with-continuation-prompt' are analogous to GLUE's 'delimiter'
+  and '(delimit <delimiter> <handler> <body>)' in GLUE
+  respectively. (see [Racket's control operations]).
 
 [Racket's control operations] https://docs.racket-lang.org/reference/cont.html
 
@@ -615,7 +613,7 @@ GLUE interpreter: 'term', 'identical terms', and 'equal terms'
 
 [composable continuation captures]
 
-  The GLUE language's 'glue.builtin.capture' primitive is analogous to
+  The GLUE language's 'capture' primitive is analogous to
   'call-with-composable-continuation' in Racket (see [Racket's control
   operations]).
 
@@ -633,7 +631,7 @@ GLUE interpreter: 'term', 'identical terms', and 'equal terms'
 
   Also known as 'continuation aborts'. See [delimited continuations].
 
-  The GLUE language's 'glue.builtin.abort' primitive is analogous to
+  The GLUE language's 'abort' primitive is analogous to
   'abort-current-continuation' (see [Racket's control operations]).
 
 [purity] https://en.wikipedia.org/wiki/Pure_function
