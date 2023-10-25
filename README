@@ -45,11 +45,15 @@ specific runtime environment.
 Some of the features that are built-in to GLUE include:
 
  - [purity] (mostly), except for the [unsafe GLUE primitives] which
-   can do crazy things like mutating an array, displaying a message to
-   the screen, as well as certain other GLUE language primitives (more
-   on this later).
+   can do crazy things like mutating an array, and displaying a
+   message to the screen, as well as certain other GLUE language
+   primitives (more on this later).
 
- - [lazy evaluation]
+ - [lazy evaluation] - GLUE doesn't evaluate terms before it has
+   to. In fact---and this will become clear why later---no sense can
+   be made of "GLUE with strict evaluation", as there is no way to
+   know how to interpret the "arguments" first knowing what "values"
+   the "functions" in GLUE produce.
  
  - [lexically-scoped] [syntax-case-style] "macros" ("rules" in
    GLUE. In fact, there are no "functions" as usually understood or
@@ -66,7 +70,39 @@ Some of the features that are built-in to GLUE include:
 
 An incomplete overview of the GLUE language primitives now begins.
 
-GLUE language primitive: data types
+GLUE language primitive: terms
+
+  The GLUE interpreter does not directly operate on text: it first
+  translates the textual representation of GLUE langauge programs into
+  a [directed graph], then successively applies reduction rules to
+  this graph until it is finished (exactly what 'finished' means will
+  be made more clear later).
+
+  A 'term' is a piece of text that can be successfully translated by
+  the GLUE interpreter into this internal directed graph
+  representation of GLUE language programs. Specifically, a term is
+  some UTF-8 encoded text which matches the following grammar:
+
+  
+  
+
+GLUE language primitive: fixed-points
+
+  For some environment E and term T, T is said to be a 'fixed-point of
+  E' if and only if there exists the [rule] '(for T -> T)' in E. This
+  is analogous to the idea of T being in [weak head normal form] that
+  we see in other lazy languages like [Haskell].
+
+  The following terms are fixed-points of any environment: all
+  integers, ratios, strings, delimiters, continuations, rules, and
+  environments. There is no way to make these into terms which are not
+  fixed-points. The only terms which are not fixed-points by default
+  are symbols and compound terms. For a symbol or compound term T, T
+  can be made into a fixed-point in many environments with the
+  following rule: '(for T -> T)'. There exist some environments in
+  which it is impossible to make T a fixed-point because T has already
+  been made reducible to some other term with a rule like '(for T ->
+  Q)', where T and Q are not identical terms. More on this later.
 
   Every member of a data type in GLUE is called a 'term'. What follows
   is a list of all of the GLUE language's built-in data-types:
@@ -88,6 +124,12 @@ GLUE language primitive: data types
   - Immutable environments ('environments')
 
   - Immutable, ordered lists of terms ('compound terms')
+
+  The careful reader will notice that no mention is made here of fixed
+  width integers or other memory/performance-conscious data
+  types. This is on purpose, and for reasons that become clear later,
+  it is not even desirable to have these built-into GLUE except as
+  part of the [unsafe GLUE primitives].
 
   Exactly how to construct and perform operations on values of these
   types will be made more clear later.
@@ -511,13 +553,15 @@ GLUE interpreter: 'term', 'identical terms', and 'equal terms'
 
 [side effect sequencing]
 
-  The GLUE language provides the primitive '(sequence <T>
-  <if-fixed>)' which is analogous to [Haskell]'s [seq]. Unlike 'seq',
-  'sequence' guarantees that if its first argument can be reduced to
-  a fixed-point ('weak head normal form' in Haskell), then it will be
+  TODO: removeme
+
+  The GLUE language provides the primitive '(sequence <T> <if-fixed>
+  <if-fails>)' which is analogous to [Haskell]'s [seq]. Unlike 'seq',
+  'sequence' guarantees that if its first argument can be reduced to a
+  fixed-point, (see the section 'fixed-points'), then it will be
   reduced to a fixed-point before any reduction of '<if-fixed>'
   occurs. This guarantee is important because unlike Haskell and
-  similar languages, GLUE has no built-in [other ways of sequencing
+  similar languages, GLUE has no builth-in [other ways of sequencing
   side effects].
 
 [seq] https://hackage.haskell.org/package/ghc-prim-0.11.0/docs/GHC-Prim.html#v:seq
@@ -541,10 +585,9 @@ GLUE interpreter: 'term', 'identical terms', and 'equal terms'
 
 [leaf] https://en.wikipedia.org/wiki/Tree_(data_structure)#Terminology
 
+[weak head normal form] https://wiki.haskell.org/Weak_head_normal_form
 
-
-
-
+[rule] See the section on 'for'
 
 none-sense follows
 
