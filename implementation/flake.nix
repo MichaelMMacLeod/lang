@@ -1,5 +1,5 @@
 {
-  description = "development environment for lang";
+  description = "development environment for the GLUE interpreter";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
