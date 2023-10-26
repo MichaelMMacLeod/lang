@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use super::traits_block::Block;
+use super::blocks::Block;
 
 // Some simple composable traits for allocators that return
 // blocks of u8 slices
