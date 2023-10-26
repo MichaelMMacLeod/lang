@@ -1,0 +1,12 @@
+(frame (environment ....
+         (for continuation redex
+           (out-of-memory continuation redex) ->
+           (sequence (collect-garbage)
+             (continuation redex))))
+  (delimit d proc
+    <selected-input>))
+
+
+((for -> (X)))
+-->
+(for 

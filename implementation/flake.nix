@@ -22,6 +22,22 @@
         };
       in {
         devShells.default = pkgs.mkShell {
+          shellHook = ''
+            echo "GLUE interpreter development environment commands"
+            echo
+            echo "  codium - the free software version of vscode"
+            echo "           instrumented with Rust development tools"
+            echo "  cargo  - build, test, and run Rust code"
+            echo
+            echo "If you run into trouble, try ..."
+            echo
+            echo "  nix develop --ignore-environment"
+            echo
+            echo "... instead, which will ensure that this shell"
+            echo "contains *only* what is specified in flake.nix,"
+            echo "i.e., all other commands will not be available and"
+            echo "will thus not interfere with this environment."
+          '';
           buildInputs = with pkgs; [
             rust-bin.stable.latest.default
             (vscode-with-extensions.override {

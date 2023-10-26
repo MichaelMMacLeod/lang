@@ -21,6 +21,13 @@ mod scoped_term;
 mod term_graph;
 mod term;
 mod term_match;
+pub mod read;
+pub mod parse;
+pub mod symbol;
+pub mod symbol_storage;
+pub mod capacity;
+pub mod graph;
+pub mod symbol_storage_buffer;
 
 fn main() {
     let source = "(let (x 10) (let (x 100) x))";

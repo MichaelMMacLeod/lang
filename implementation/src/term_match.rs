@@ -16,7 +16,11 @@ impl RuleMatch {
         //
         // singular1 singular2
         // -->
-        // when singular1==singular2, $t=singular1 
+        // when singular1==singular2, $t=singular1
+        //
+        // (Rule (List ...) (List ...))
+        // -->
+        // (Rule (List))
         let mut pattern_bfs = Bfs::new(&r.pattern.graph, r.pattern.redex);
         let mut tg_bfs = Bfs::new(&tg.graph, term);
         let mut bindings = vec![];
@@ -52,7 +56,26 @@ impl Binding {
     }
 }
 
-pub struct BoundTerms {
-    terms: Vec<Term>,
-    dot_dot_dot_depth: u8,
+pub enum BoundTerms {
+    BindsToOneTerm(Term),
+    BindsToMultipleTerms(Vec<Term>),
+
+    NotBoundUnderDotDotDots(Vec<Term>),
+    OneMoreLevelOfDotDotDots(Box<BoundTerms>),
 }
+
+// pub struct BoundTerms {
+//     // One vec for each '...' binding level. For example,
+//     //   (List (List $x ...) ...)
+//     // when matched against
+//     //   (List (List 1 2 3) (List 4) (List 5 6))
+//     // could result in
+//     //   ($x ... ...) --> (1 2 3 4 5 6)
+//     //   (($x ...) ...) --> ((1 2 3) (4) (5 6))
+
+//     // ((($x ...) ...) ...)
+//     // (((1) (2 3)) ((4 5) (6 7 8)))
+//     // ($x ... ... ...) --> (1 2 3 4 5 6 7 8)
+//     // (($x ...) ... ...) --> ((1))
+//     terms: Vec<Box<BoundTerms>>,
+// }
