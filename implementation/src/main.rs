@@ -25,7 +25,6 @@ pub mod read;
 pub mod parse;
 pub mod symbol;
 pub mod symbol_storage;
-pub mod capacity;
 pub mod graph;
 pub mod symbol_storage_buffer;
 pub mod allocation;

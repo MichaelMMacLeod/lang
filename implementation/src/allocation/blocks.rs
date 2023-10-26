@@ -1,6 +1,9 @@
 pub trait Block {
     fn start(&self) -> usize;
-    fn num_bytes(&self) -> usize;
+    fn num_bytes(&self, alignment: usize) -> usize {
+        self.num_bytes_unaligned()
+    }
+    fn num_bytes_unaligned(&self) -> usize;
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
@@ -20,7 +23,7 @@ impl Block for DynamicSizedBlock {
         self.start
     }
 
-    fn num_bytes(&self) -> usize {
+    fn num_bytes_unaligned(&self) -> usize {
         self.num_bytes
     }
 }
@@ -40,7 +43,7 @@ impl<const NUM_BYTES: usize> Block for StaticSizedBlock<NUM_BYTES> {
         self.start
     }
 
-    fn num_bytes(&self) -> usize {
+    fn num_bytes_unaligned(&self) -> usize {
         NUM_BYTES
     }
 }

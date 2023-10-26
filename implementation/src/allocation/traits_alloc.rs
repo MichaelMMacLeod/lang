@@ -1,83 +1,103 @@
-use std::num::NonZeroUsize;
+// use std::num::NonZeroUsize;
 
-use super::blocks::Block;
+// use super::{
+//     alignment::{self, Alignment},
+//     blocks::{Block, DynamicSizedBlock, StaticSizedBlock},
+// };
 
-// Some simple composable traits for allocators that return
-// blocks of u8 slices
+// pub trait AllocBase {
+//     type DynamicAllocFail;
+//     type StaticAllocFail;
+//     fn good_size_for(num_bytes: usize) -> usize;
+// }
 
-pub trait Alloc<B: Block> {
-    type AllocFail;
-    const GOOD_SIZE: Option<NonZeroUsize>;
-    const ALIGNMENT: usize;
-    fn allocate(&mut self, num_bits: usize) -> Result<B, Self::AllocFail>;
-}
+// pub trait TryAlloc: AllocBase {
+//     fn try_allocate_dynamic(
+//         &mut self,
+//         alignment: Alignment,
+//         num_bytes: usize,
+//     ) -> Result<DynamicSizedBlock, Self::DynamicAllocFail>;
+//     fn try_allocate_static<const NUM_BYTES: usize>(
+//         &mut self,
+//         alignment: Alignment,
+//     ) -> Result<StaticSizedBlock<NUM_BYTES>, Self::StaticAllocFail>;
+// }
 
-pub trait InfallibleAlloc<B: Block> {
-    const ALIGNMENT: usize;
-    fn allocate_always(&mut self, num_bits: usize) -> B;
-}
+// pub trait Alloc: AllocBase {
+//     fn allocate_dynamic(&mut self, alignment: Alignment, num_bytes: usize) -> DynamicSizedBlock;
+//     fn allocate_static<const NUM_BYTES: usize>(
+//         &mut self,
+//         alignment: Alignment,
+//     ) -> StaticSizedBlock<NUM_BYTES>;
+// }
 
-impl<B: Block, T: InfallibleAlloc<B>> Alloc<B> for T {
-    type AllocFail = bool /* never constructed */;
+// pub trait GetAlloc<B: Block>: TryAlloc {
+//     type GetFail;
+//     fn get(&self, block: &B) -> Result<&[u8], Self::GetFail>;
+//     fn get_mut(&mut self, block: &B) -> Result<&mut [u8], Self::GetFail>;
+// }
 
-    const GOOD_SIZE: Option<NonZeroUsize> = None;
-    const ALIGNMENT: usize = Self::ALIGNMENT;
+// pub trait OwnsAlloc<B: Block>: TryAlloc<B> {
+//     fn owns(&self, block: &B) -> bool;
+// }
 
-    fn allocate(&mut self, size: usize) -> Result<B, Self::AllocFail> {
-        Ok(self.allocate_always(size))
-    }
-}
+// impl<B: Block, T: GetAlloc<B>> OwnsAlloc<B> for T {
+//     fn owns(&self, block: &B) -> bool {
+//         self.get(block).is_ok()
+//     }
+// }
 
-pub trait GetAlloc<B: Block>: Alloc<B> {
-    type GetFail;
-    fn get(&self, block: &B) -> Result<&[u8], Self::GetFail>;
-    fn get_mut(&mut self, block: &B) -> Result<&mut [u8], Self::GetFail>;
-}
+// pub trait Dealloc<B: Block>: TryAlloc<B> {
+//     type DeallocFail;
+//     fn deallocate(&mut self, block: &B) -> Option<Self::DeallocFail>;
+// }
 
-pub trait OwnsAlloc<B: Block>: Alloc<B> {
-    fn owns(&self, block: &B) -> bool;
-}
+// pub trait InfallibleDealloc<B: Block>: TryAlloc<B> {
+//     fn deallocate_always(&mut self, block: &B);
+// }
 
-impl<B: Block, T: GetAlloc<B>> OwnsAlloc<B> for T {
-    fn owns(&self, block: &B) -> bool {
-        self.get(block).is_ok()
-    }
-}
+// impl<B: Block, T: InfallibleDealloc<B>> Dealloc<B> for T {
+//     type DeallocFail = bool;
+//     fn deallocate(&mut self, block: &B) -> Option<Self::DeallocFail> {
+//         self.deallocate_always(block);
+//         None
+//     }
+// }
 
-pub trait Dealloc<B: Block>: Alloc<B> {
-    type DeallocFail;
-    fn deallocate(&mut self, block: &B) -> Option<Self::DeallocFail>;
-}
+// pub trait AllocAll<B: Block>: TryAlloc<B> {
+//     type AllocAllFail;
+//     fn allocate_all(&mut self) -> Result<B, Self::DynamicAllocFail>;
+// }
 
-pub trait InfallibleDealloc<B: Block>: Alloc<B> {
-    fn deallocate_always(&mut self, block: &B);
-}
+// pub trait DeallocAll<B: Block>: TryAlloc<B> {
+//     type DeallocAllFail;
+//     fn dealloc_all(&mut self) -> Option<Self::DeallocAllFail>;
+// }
 
-impl<B: Block, T: InfallibleDealloc<B>> Dealloc<B> for T {
-    type DeallocFail = bool /* never constructed */;
+// pub trait GrowAlloc<B: Block> {
+//     type GrowAllocFail;
+//     fn grow(&mut self, block: B, bytes_to_add: usize) -> Result<B, Self::GrowAllocFail>;
+// }
 
-    fn deallocate(&mut self, block: &B) -> Option<Self::DeallocFail> {
-        self.deallocate_always(block);
-        None
-    }
-}
+// pub trait ShrinkAlloc<B: Block> {
+//     type ShrinkAllocFail;
+//     fn shrink(&mut self, block: B, bytes_to_remove: usize) -> Result<B, Self::ShrinkAllocFail>;
+// }
 
-pub trait AllocAll<B: Block>: Alloc<B> {
-    type AllocAllFail;
-    fn allocate_all(&mut self) -> Result<B, Self::AllocFail>;
-}
-
-pub trait DeallocAll<B: Block>: Alloc<B> {
-    type DeallocAllFail;
-    fn dealloc_all(&mut self) -> Option<Self::DeallocAllFail>;
-}
-
-pub trait GrowAlloc<B: Block> {
-    type GrowAllocFail;
-    fn grow(&mut self, block: B, bytes_to_add: usize) -> Result<B, Self::GrowAllocFail>;
-}
-
-pub trait ShrinkAlloc<B: Block> {
-    type ShrinkAllocFail;
-    fn shrink(&mut self, block: B, bytes_to_remove: usize) -> Result<B, Self::ShrinkAllocFail>;
-}
+// impl<T: Alloc> TryAlloc for T {
+//     type DynamicAllocFail = Self::DynamicAllocFail;
+//     type StaticAllocFail = Self::StaticAllocFail;
+//     fn try_allocate_dynamic(
+//         &mut self,
+//         alignment: Alignment,
+//         num_bytes: usize,
+//     ) -> Result<DynamicSizedBlock, Self::DynamicAllocFail> {
+//         Ok(self.allocate_dynamic(alignment, num_bytes))
+//     }
+//     fn try_allocate_static<const NUM_BYTES: usize>(
+//         &mut self,
+//         alignment: Alignment,
+//     ) -> Result<StaticSizedBlock<NUM_BYTES>, Self::StaticAllocFail> {
+//         Ok(self.allocate_static(alignment))
+//     }
+// }

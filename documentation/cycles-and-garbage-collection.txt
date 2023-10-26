@@ -1,0 +1,42 @@
+One of the goals of GLUE is to be as applicable as possible to as many
+different platforms and scenarios as possible, which necessarily
+includes embedded and, more generally, development for real-time
+applications. These kinds of applications can't have GC pauses, so
+there needs to be some way to do the following:
+
+  1. Have some way to guarantee that a (subset) of possible GLUE
+     language programs do not introduce cycles (so that expensive GC
+     algorithms are not required to de-allocate unused memory)
+
+  2. Have some way to guarantee that this subset of GLUE code will be
+     allocated and de-allocated as necessary with predictable and
+     relatively constant performance (i.e., no random unpredictable
+     spikes in the time it takes to allocate / de-allocate).
+
+There are, as far as I know, only two ways to possibly introduce
+cycles into GLUE language code.
+
+  1. If 'sequence' identifies more than two terms:
+
+     (sequence (for x -> (x x))
+       ((for x -> (x x))
+        (for x -> (x x))))
+     -->
+     (sequence #0=(for x -> (x x))
+       (#0# #0#))
+     -->
+     (#0=(for x -> (x x)) #0#)
+     -->
+
+  2. If a rule contains a use of the same variable more than once in
+     its result
+
+NEVER MIND - I don't think either of these actually introduce
+cycles. It looks like we're just dealing with dags.
+
+I can't think of a good way to statically verify either except for
+checking for the absence of 'sequence' and of those types of rules in
+the environment.
+
+These can be detected at runtime when reducing 'sequence' or when
+entering into a new environment.

@@ -1,0 +1,19 @@
+digraph example {
+    compound=true
+    node [fontname = "monospace"]
+    label="Reduction using the rule '(for x (cycle x) -> (x (cycle (x x))))'"
+    subgraph cluster_step_1 {
+        label="step 1: (cycle X)"
+        "memory location 0" -> "string 'cycle'" [label="index 0"]
+        "memory location 0" -> "string 'X'" [label="index 1"]
+    }
+    subgraph cluster_step_2 {
+        label="step 2: (X (cycle (X X)))"
+        "memory location 1" -> "string 'X'" [label="index 0"]
+        "memory location 1" -> "memory location 2" [label="index 1"]
+        "memory location 2" -> "string 'cycle'" [label="index 0"]
+        "memory location 2" -> "memory location 3" [label="index 1"]
+        "memory location 3" -> "string 'X'" [label="index 0"]
+        "memory location 3" -> "string 'X'" [label="index 1"]
+    }
+}
