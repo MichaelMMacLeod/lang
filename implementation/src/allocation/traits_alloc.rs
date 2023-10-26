@@ -74,10 +74,10 @@ pub trait DeallocAll<B: Block>: Alloc<B> {
 
 pub trait GrowAlloc<B: Block> {
     type GrowAllocFail;
-    fn grow(&mut self, block: B, bits_to_add: usize) -> Result<B, Self::GrowAllocFail>;
+    fn grow(&mut self, block: B, bytes_to_add: usize) -> Result<B, Self::GrowAllocFail>;
 }
 
 pub trait ShrinkAlloc<B: Block> {
     type ShrinkAllocFail;
-    fn shrink(&mut self, block: B, bits_to_remove: usize) -> Result<B, Self::ShrinkAllocFail>;
+    fn shrink(&mut self, block: B, bytes_to_remove: usize) -> Result<B, Self::ShrinkAllocFail>;
 }

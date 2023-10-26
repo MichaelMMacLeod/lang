@@ -1,4 +1,9 @@
+use bitvec::vec::BitVec;
 
+pub struct StackAllocator<const MAX_BYTES: usize> {
+    buffer: BitVec,
+    top: usize,
+}
 
 // use super::traits::{Alloc, Block, GetAlloc, InfallibleAlloc};
 
