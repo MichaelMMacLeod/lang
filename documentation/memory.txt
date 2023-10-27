@@ -1,3 +1,56 @@
+
+
+
+We have 8192 KiB (8 MiB) of stack space to play with...
+
+ops:
+
+for sequence frame environment new-delimiter delimit capture abort unscope
+
+
+Compound terms with 1 child (arb symbol)
+
+
+Compound terms with 1 child
+
+  usize to store reference count
+
+  usize to store child
+
+Compound terms with 2 children
+
+  usize to store reference count
+
+  2x usize to store children
+
+Compound terms with at most 4 children ....
+
+Compound terms with at most 8 children ....
+
+Compound terms with at most 16 children ...
+
+Compound terms with at most 32 children ...
+
+Compound terms with at most 64 children ...
+
+Compound terms with at most 128 children ...
+
+Compound terms with at most 256 children ...
+
+Compound 
+
+
+ - 1 bit to test if compound term (1 if yes, 0 if no)
+
+ - 30/62 bits to store refcount
+
+ - If # subterms is:
+
+   (1) ne
+
+
+out-of-memory
+
 (frame (environment ....
          (for continuation redex
            (out-of-memory continuation redex) ->

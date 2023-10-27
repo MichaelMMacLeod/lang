@@ -1,3 +1,84 @@
+
+
+(for v p r b
+  (letrec (for v .. p -> r) .. b)
+  (frame (extend (for v .. p -> r) ..)
+     b))
+
+(for v p r b
+  (let (for v .. p -> r) .. b)
+  (sequence (unscope r)
+    (frame (extend (for v .. p -> r) ..)
+      b)))
+
+(let (x -> 10)
+  (let (x -> x)))
+-->
+(sequence (unscope/1r #0=10/1r)
+  (frame (extend (for x/1p -> #0#))
+    (let/1b (x/1b -> x/1b)/1b)/1b))
+-->
+(sequence #0=10
+  (frame (extend (for x/1p -> #0#))
+    (let/1b (x/1b -> x/1b)/1b)/1b))
+-->
+(frame (extend (for x/1p -> 10))
+  (let/1b (x/1b -> x/1b)/1b)/1b)
+-->
+(let/1b (x/1b -> x/1b)/1b)/1b
+-->
+(sequence (unscope/2 #0=x/1b2r)
+  (frame (extend (for x/1b2p -> #0#))
+    x/1b2b))
+(sequence #0=x/1b
+  (frame (extend (for x/1b2p -> #0#))
+    x/1b2b))
+(frame (extend (for x/12 -> x/1))
+  x/12)
+x/12
+x/1
+10
+
+
+(for v p r b
+  (let (for v .. p -> r) .. b)
+  (sequence (unscope r)
+    (frame (extend (for v .. p -> (unscope r)) ..)
+      b)))
+
+(let (for x -> 10)
+  (let (for x -> x)
+    x))
+-->
+(sequence (unscope #0=10/r)
+  (frame (extend (for x/p -> (unscope #0#)))
+    (let/b (for/b x/b ->/b x/b)/b
+      x/b)/b))
+
+(for v p r b
+  (let (for v .. p -> r) .. b) ->
+  (sequence (scope p)
+    (sequence (scope b)
+      (frame (extend (for v .. (scope p) -> r) ..)
+        (scope b)))))
+
+(let (for x -> 10)
+  (let (for x -> 100)
+    x))
+-->
+(sequence (scope x)
+  (sequence (scope x)
+    (frame (extend (for (scope x) -> 10))
+      (scope x))))
+-->
+
+
+
+
+
+
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 I don't know how to make (IO $) work safely yet. Consider an

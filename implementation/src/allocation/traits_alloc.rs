@@ -1,41 +1,58 @@
-// use std::num::NonZeroUsize;
+use std::num::NonZeroUsize;
 
-// use super::{
-//     alignment::{self, Alignment},
-//     blocks::{Block, DynamicSizedBlock, StaticSizedBlock},
-// };
+use bitvec::{
+    prelude::BitArray,
+    view::{BitView, BitViewSized},
+};
 
-// pub trait AllocBase {
-//     type DynamicAllocFail;
-//     type StaticAllocFail;
-//     fn good_size_for(num_bytes: usize) -> usize;
-// }
+use super::{
+    alignment::{self, Alignment},
+    blocks::{Block, DynamicSizedBlock, StaticSizedBlock},
+};
 
-// pub trait TryAlloc: AllocBase {
-//     fn try_allocate_dynamic(
-//         &mut self,
-//         alignment: Alignment,
-//         num_bytes: usize,
-//     ) -> Result<DynamicSizedBlock, Self::DynamicAllocFail>;
-//     fn try_allocate_static<const NUM_BYTES: usize>(
-//         &mut self,
-//         alignment: Alignment,
-//     ) -> Result<StaticSizedBlock<NUM_BYTES>, Self::StaticAllocFail>;
-// }
+pub trait GoodSizeAlloc {
+    fn good_size_for(num_bytes: usize) -> usize;
+}
 
-// pub trait Alloc: AllocBase {
-//     fn allocate_dynamic(&mut self, alignment: Alignment, num_bytes: usize) -> DynamicSizedBlock;
-//     fn allocate_static<const NUM_BYTES: usize>(
-//         &mut self,
-//         alignment: Alignment,
-//     ) -> StaticSizedBlock<NUM_BYTES>;
-// }
+pub trait AllocStatic {
+    fn allocate_static<const NUM_BYTES: usize>(
+        &mut self,
+        alignment: Alignment,
+    ) -> StaticSizedBlock<NUM_BYTES>;
+}
 
-// pub trait GetAlloc<B: Block>: TryAlloc {
-//     type GetFail;
-//     fn get(&self, block: &B) -> Result<&[u8], Self::GetFail>;
-//     fn get_mut(&mut self, block: &B) -> Result<&mut [u8], Self::GetFail>;
-// }
+pub trait AllocDynamic {
+    fn allocate_dynamic(&mut self, alignment: Alignment, num_bytes: usize) -> DynamicSizedBlock;
+}
+
+pub trait TryAllocStatic {
+    type StaticAllocFail;
+    fn try_allocate_static<const NUM_BYTES: usize>(
+        &mut self,
+        alignment: Alignment,
+    ) -> Result<StaticSizedBlock<NUM_BYTES>, Self::StaticAllocFail>;
+}
+
+pub trait TryAllocDynamic {
+    type DynamicAllocFail;
+    fn try_allocate_dynamic(
+        &mut self,
+        alignment: Alignment,
+        num_bytes: usize,
+    ) -> Result<DynamicSizedBlock, Self::DynamicAllocFail>;
+}
+
+pub trait GetAllocStatic<const NUM_BYTES: usize> {
+    type GetFail;
+    fn try_get(
+        &self,
+        block: &StaticSizedBlock<NUM_BYTES>,
+    ) -> Result<&BitArray<[usize; NUM_BYTES]>, Self::GetFail>;
+    fn try_get_mut(
+        &self,
+        block: &StaticSizedBlock<NUM_BYTES>,
+    ) -> Result<&mut BitArray<[usize; NUM_BYTES]>, Self::GetFail>;
+}
 
 // pub trait OwnsAlloc<B: Block>: TryAlloc<B> {
 //     fn owns(&self, block: &B) -> bool;

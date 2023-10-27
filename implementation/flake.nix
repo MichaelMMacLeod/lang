@@ -25,9 +25,10 @@
           shellHook = ''
             echo "GLUE interpreter development environment commands"
             echo
-            echo "  codium - the free software version of vscode"
-            echo "           instrumented with Rust development tools"
-            echo "  cargo  - build, test, and run Rust code"
+            echo "  codium   - the free software version of vscode"
+            echo "             instrumented with Rust development tools"
+            echo "  cargo    - build, test, and run Rust code"
+            echo "  wxmaxima - a computer algebra system"
             echo
             echo "If you run into trouble, try ..."
             echo
@@ -46,6 +47,7 @@
                 rust-lang.rust-analyzer
               ];
             })
+            wxmaxima
           ];
         };
       }

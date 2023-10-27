@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<!DOCTYPE html>
+<html lang="">
+ <head>
+  <title>memory_layout</title>
+  <meta name="generator" content="wxMaxima"/>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    displayAlign: "left",
+    context: "MathJax",
+    TeX: {TagSide: "left"}
+  })
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  // A comment that hinders wxWidgets from optimizing this tag too much.
+</script>
+  <link rel="stylesheet" type="text/css" href="memory_layout_htmlimg/memory_layout.css"/>
+ </head>
+ <body>
+
+<!-- ****************************************************** -->
+<!-- *        Created with wxMaxima version 23.02.1       * -->
+<!-- ****************************************************** -->
+<noscript><div class="error message"><p>Please enable JavaScript in order to get a 2d display of the equations embedded in this web page.</p></div></noscript><p hidden = "hidden">\(      \DeclareMathOperator{\abs}{abs}
+      \newcommand{\ensuremath}[1]{\mbox{$#1$}}
+\)</p>
+
+<!-- Code cell -->
+
+
+<table><tr><td>
+  <span class="prompt">
+(%i1)	
+  </span></td>
+  <td><span class="input">
+<span class="code_variable">hiw</span><span class="code_operator">:</span> <span class="code_variable">hardware_integer_width_bits</span><span class="code_endofline">;</span>  </span></td>
+</tr></table>
+<p>
+\[\operatorname{(hiw)	}\ensuremath{\mathrm{hardware\_ integer\_ width\_ bits}}\]
+</p>
+
+
+<!-- Code cell -->
+
+
+<table><tr><td>
+  <span class="prompt">
+(%i2)	
+  </span></td>
+  <td><span class="input">
+<span class="code_variable">asm</span><span class="code_operator">:</span> <span class="code_variable">available_stack_memory_kib</span><span class="code_endofline">;</span>  </span></td>
+</tr></table>
+<p>
+\[\operatorname{(asm)	}\ensuremath{\mathrm{available\_ stack\_ memory\_ kib}}\]
+</p>
+
+
+<!-- Code cell -->
+
+
+<table><tr><td>
+  <span class="prompt">
+(%i3)	
+  </span></td>
+  <td><span class="input">
+<span class="code_variable">bits_per_kib</span><span class="code_operator">:</span> <span class="code_number">2</span><span class="code_operator">^</span><span class="code_number">10</span><span class="code_endofline">;</span>  </span></td>
+</tr></table>
+<p>
+\[\operatorname{(bits\_ per\_ kib)	}1024\]
+</p>
+
+
+<!-- Code cell -->
+
+
+<table><tr><td>
+  <span class="prompt">
+(%i4)	
+  </span></td>
+  <td><span class="input">
+<span class="code_variable">bytes_per_kib</span><span class="code_operator">:</span><span class="code_variable">bits_per_kib</span><span class="code_operator">/</span><span class="code_number">8</span><span class="code_endofline">;</span>  </span></td>
+</tr></table>
+<p>
+\[\operatorname{(bytes\_ per\_ kib)	}128\]
+</p>
+
+
+<!-- Text cell -->
+
+
+<div class="comment">
+The amount of stack memory in KiB on the current system can be shown using the 'ulimit -s' command.
+</div>
+
+
+<!-- Text cell -->
+
+
+<div class="comment">
+We currently store only compound terms and symbols in memory. No optimization is done yet for terms that we know are specific data types. For example, numbers are not stored as numbers, but as strings (symbols), and deserialized into BigInts to perform a calculation, then serialized back into strings and stored as strings (symbols). This is really innefficient, but it's simple. This will be improved later.
+</div>
+
+
+<!-- Text cell -->
+
+
+<div class="comment">
+Symbols are stored in either a 'fixed-width symbol row' or on the heap. A fixed-width symbol row is a stack-allocated array of bytes that holds consecutive utf-8 encoded strings of no more than a specific number of bytes long. Part of the goal here is to figure out how many of these rows we should have, as well as how large their symbol requirements should be.
+</div>
+
+
+<!-- Code cell -->
+
+
+<table><tr><td>
+  <span class="prompt">
+(%i5)	
+  </span></td>
+  <td><span class="input">
+<span class="code_variable">nsr</span><span class="code_operator">:</span><span class="code_variable">number_of_symbol_rows</span><span class="code_endofline">;</span>  </span></td>
+</tr></table>
+<p>
+\[\operatorname{(nsr)	}\ensuremath{\mathrm{number\_ of\_ symbol\_ rows}}\]
+</p>
+
+
+<!-- Text cell -->
+
+
+<div class="comment">
+Symbol rows can be indexed from zero through 'nsr'. To decide which row to put a symbol in, find the row with the highest length requirement that is no higher than the length of the symbol. For example, the code points in &quot;abc&quot; can all be stored in utf-8 as one-byte each. If there exists rows holding symbols of 1, 2, 3, 4, and 5 bytes long, this string would be put in the third row, since it wouldn't fit in row 2, and if it were placed in row 4 that would waste a byte of space.
+</div>
+
+
+<!-- Code cell -->
+
+
+<table><tr><td>
+  <span class="prompt">
+(%i6)	
+  </span></td>
+  <td><span class="input">
+<span class="code_variable">swl</span><span class="code_operator">:</span><span class="code_variable">symbol_width_in_row_SR_calculated_linearly</span><span class="code_operator">:</span><span class="code_variable">SR</span><span class="code_operator">·</span><span class="code_number">1</span><span class="code_endofline">;</span>  </span></td>
+</tr></table>
+<p>
+\[\operatorname{(swl)	}\ensuremath{\mathrm{SR}}\]
+</p>
+
+
+<!-- Code cell -->
+
+
+<table><tr><td>
+  <span class="prompt">
+(%i7)	
+  </span></td>
+  <td><span class="input">
+<span class="code_variable">swe</span><span class="code_operator">:</span><span class="code_variable">symbol_width_in_row_SR_calculated_exponentially</span><span class="code_operator">:</span><span class="code_variable">SR</span><span class="code_operator">^</span><span class="code_number">2</span><span class="code_endofline">;</span>  </span></td>
+</tr></table>
+<p>
+\[\operatorname{(swe)	}{{\ensuremath{\mathrm{SR}}}^{2}}\]
+</p>
+
+ <hr/>
+ <p><small> Created with <a href="https://wxMaxima-developers.github.io/wxmaxima/">wxMaxima</a>.</small></p>
+ <small> The source of this Maxima session can be downloaded <a href="memory_layout_htmlimg/memory_layout.wxmx">here</a>.</small>
+ </body>
+</html>

@@ -1,0 +1,76 @@
+(for x y (x .. z y ..) -> ....)
+-->
+(for x y (# x (z y ..)) -> ....)
+-->
+(for x y (# x (# z (y ..))) -> ....)
+-->
+
+
+(# pat after) - zero or more of pat, then append matches to matches of
+after
+
+(# (before ..) pat (after ..))
+
+
+(for x y (x .. z y ..) -> ....)
+-->
+(for x y (# () x (z y ..)) -> ....)
+-->
+(for x y (# () x (# (z) y ())) -> ....)
+
+(for x (x .. y) -> ....)
+-->
+(for x (OO () x y) -> ....)
+
+
+(comp (B ..) P A) - matches if all B matches, then there are zero or
+more things that A doesn't match, and then the rest are all matched by
+A. The bound terms are P prepended to the bound terms of A
+
+
+(for x (x .. y) -> (x .. y))
+-->
+(for x {comp {} 1 {comp {} 0 y}})
+
+(for x (a b c d x ..) -> (a b c d x ..))
+-->
+(for x {comp {a b c d} x} -> {comp {a b c d} x})
+
+(for x (y x ..) -> (y x ..))
+-->
+(for x {comp {y} x} -. {comp {y} x})
+
+(for x ((x ..) ..) -> ((x ..) ..))
+-->
+(for x {Compound {} {Compound {} x}} -> {Compound {} {Compound {} x}})
+
+(for x (x ..) -> (x ..))
+-->
+(for x Compound{}x -> Compound{}x)
+
+
+
+
+"The Easy Cases" (i.e., "the cases without '..'")
+
+(for x x -> x)
+
+  Accept. Add a unique scope to the substituted term. Must recursively
+  add the scope, too.
+
+(for (x y z) -> x)
+
+  If the term is compound, check # of children. If not equal,
+  reject. If equal, check scopes. If inapplicable, reject. Recurse on
+  children. If all accept, return x.
+
+(for x -> x)
+
+  If term is compound, reject. Otherwise, check if it is a symbol. If
+  so, check if it is equal (i.e., it is the same visually and its
+  scope set is a superset). If so, reduce to RHS x, which may not be
+  the same as the input if the input had a larger scope set.
+
+Implementing rule matching ...
+
+
