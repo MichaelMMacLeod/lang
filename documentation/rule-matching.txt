@@ -1,3 +1,285 @@
+; scope is isomorphic to the rational numbers
+
+; i.e., take the "top-level" (really the 'never', 'false', 'nothing',
+; or 'bottom' scope) and call it 0. Then call the infinitely nested
+; scope 1. when evaluating, start with left=0, right=1. call
+; current_scope=(left+right)/0, i.e., 1/2 or 0.5. when reducing node N
+; which has two children, C1 and C2, and you can't reduce N, try
+; reducing C1 but cut the scope in half on the left, so left becomes
+; 1/2 and current becomes 1/4. When you bubble back up, if you still
+
+(<= (scope <l1> <r1>)
+    (scope <))
+-->
+
+
+(reduce (redex (environment (scope <el> <er>) <other-rules>)
+          (apply (-> (binding (scope <x1l> <x1r>)
+                       (var <x1>))
+                     (binding (scope <x2l> <x2r>)
+                       (var <x2>)))
+                 (binding (scope <yl> <yr>)
+                   <y>))))
+-->
+(implies (and (<= (scope <x1l> <x1r>)
+                  (scope <yl> <yr>))))
+
+
+(implies (= <x1> <x2>)
+  (reduce (redex (env (add1 scope))
+    (scope <y>)))
+
+
+For all terms x and y,
+
+  (reduce (redex (env scope)
+            ((var x) y)))
+-->
+  (redex (env scope)
+    y)
+
+For all terms y1 and y2,
+
+  (reduce (redex (env scope)
+            ((var x ..) y ...))
+-->
+  (reduce (redex (env scope)
+            ()))
+
+  
+
+
+
+(-> (environment
+      (next-scope (var n))
+      rules)
+    (var x)
+    ())
+
+(-> (var x) (scope (var x)))
+
+
+
+(for x (x .. y) -> (y .. x))
+(-> ((var x) .. y)
+    (y .. (var x)))
+
+
+
+(P for
+ (P x
+  (P (P x
+      (P ..
+       (P y N)))
+     (P ->
+      (P (P y
+          (P ..
+           (P x N)))
+         N)))))
+
+
+
+
+(for x (x .. y) -> (y .. x))
+(P for
+ (P x
+  (P (P x
+      (P ..
+       (P y N)))
+     (P ->
+      (P (P y
+          (P ..
+           (P x N)))
+         N)))))
+
+
+
+
+
+
+(for x (list x ..) -> (ground x ..))
+(for nil -> ground)
+(for x (some x) -> (above x))
+(for x none -> ground)
+
+(for ground -> ground)
+(for x (above x ..) -> (above x ..))
+
+; I am currently too lazy to write the n-args versions. Sorry.
+
+(for x (= false ground) -> true)
+(for x (= ground false) -> true)
+(for x (= (above x ..) true) -> true)
+(for x (= true (above x ..)) -> true)
+
+(for (+ ground ground) -> ground)
+(for x (+ (above x ..) ground) ->
+  (above x ..))
+(for x (+ ground (above x ..)) ->
+  (above x ..))
+(for x y (+ (above x ..) (above y ..)) ->
+  (above x .. y ..))
+
+(for (< ground ground) -> ground)
+(for x (< ground (above x ..)) -> (above x ..))
+(for x (< (above x ..) ground) -> ground)
+(for x y
+  (< (above x ..) (above y ..)) ->
+  (above (< x y) ..))
+
+(for x (ground (above x ..)) -> (above x ..))
+(for x t ((above x ..) t) -> (above (x t) ..))
+
+
+(for x y ((var x) y) -> y)
+(for x l r d
+  (pair ((var x ...) (pair l r))
+        d) ->
+  (pair l (pair ())))
+
+()
+
+
+(for A -> above)
+(for G -> ground)
+
+
+(< (A G G) (A (A G) G))
+-->
+(A (< G (A G))
+   (< G G))
+
+
+
+(for x (<= ground (above x ..)))
+(for (<= earth sky) -> true)
+(for (<= sky earth) -> false)
+(for (<= ))
+(for x y
+  (<= (above x ..) (above y ..)) ->
+  (and (<= x y) ..))
+
+leaf -> leaf
+(for left right (tree left right) -> (tree left right))
+(for (new <= leaf leaf) -> sequoia)
+(for l1 r1 l2 r2
+  (new <= (tree l1 r1)
+          (tree l2 r2)) ->
+  (implies (and (<= l1 l2)
+                (<= r1 r2))
+    (<= (tree l1 r1)
+        (tree l2 r2))))
+(for l1 r2 (tree l1 r1))
+
+(for t1 t2 (<= (var t1) (var t2))
+  (implies (<= t1 t2)
+    (<= (var t1) (var t2))))
+
+(for x (y x ..) -> (x .. y))
+(y (var x) ..) -> ((var x) .. y)
+(y (zero-or-more (var x))) -> ((zero-or-more (var x) y)
+
+
+(prove 0 ()) -> true
+(prove n ())
+
+
+(t ->
+  (implies (and (= (the 0 t) y)
+                (> t 1))
+    (+ (- t (the 0 t))
+       )))
+
+(for x (y x ..) -> (x .. y))
+-->
+(x ->
+  (y ->
+    (implies (and ))))
+
+
+(for x (y x ..) -> (x .. y))
+(0 ->
+  (1 ->
+    (implies (and (= 0 (lower )))))
+
+(for x (y x ..) -> (x .. y))
+(x ->
+  (y ->
+    (implies (and (= y (unscope y))
+                  (> x 0))
+      (+ x (y)))))
+
+
+(for x (y x ..) -> (x .. y))
+(for x x ->
+  (for y y ->
+    (implies (and (= y (literal y))
+                  (> x 0))
+      (+ x (y)))))
+
+
+(for x (y x ..) -> (x .. y))
+(implies (and (= 00 y)
+              (> 01 0))
+  (+ 01 (00)))
+
+
+(for x (y x ..) -> (x .. y))
+(implies (and (= (T 0 0) y)
+              (> (T 0 1) 0))
+  (+ (T 0 1)
+     ((T 0 0))))
+
+(for x (x ..) -> (x ..))
+(implies (> (T 1) 0)
+  (T 1))
+
+(for x (x x) -> x)
+(implies (+ 1 2)
+  (or 1 2))
+
+(for x x -> (x x))
+-->
+(+ true true)
+
+(for x x -> x)
+-->
+true
+
+(a .. b ..)
+->
+(+ a b)
+
+(a .. z b ..)
+->
+(+ a (list z) b)
+
+a
+->
+a
+
+(# P Q ..)
+-->
+(splice (+ (> P 0) Q ..))
+
+(P ..) -> (+ P ..)
+(v{is variable} ..) -> true
+
+
+
+(for x y (x .. y ..)) --- REJECTED!
+
+wait, actually, we could just apply the same rule and say that only y
+matches.
+
+no, that's weird behavior, probably best to reject this. there's no
+reason to ever make that pattern i think
+
+(for x y (x .. z y ..) -> ....)
+-->
+(fox x y ((# x z (# y))))
+
+
 (for x y (x .. z y ..) -> ....)
 -->
 (for x y (# x (z y ..)) -> ....)

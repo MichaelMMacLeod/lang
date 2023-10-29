@@ -1,51 +1,131 @@
 ; language 1 (boolean values and boolean logical operations)
 
-  (true  -> true)
-  (false -> false)
+  (for true  = 1)
+  (for false = 0)
 
-  ; Most languages define the usual boolean operators on a fixed
-  ; number of arguments. Because (1) these operators also have
-  ; sensible definitions for arbitrary numbers of arguments, (2) it is
-  ; not too hard to define them that way here, (3) supporting
-  ; arbitrary numbers of arguments makes certain programs much easier
-  ; to express (e.g, (and a b c d e f g) to check if the arguments are
-  ; all true instead of (and a (and b (and c (and d (and e (and f
-  ; g)))))) or (foldl and true (list a b c d e f g)), (4) supporting
-  ; arbitrary numbers of arguments does not seem to make programs less
-  ; easy to understand, and (5) it makes lifting these operations a
-  ; lot easier because there is no need to remember the number of
-  ; arguments, the choice has been made to define these operations as
-  ; taking arbitrary numbers of arguments.
+  ; 'true' and '1' are interchangeable; so are 'false' and '0'; you
+  ; can use either in any context that expects either. For example,
+  ; because '+' (the addition operation) can take '1' and add it to
+  ; other numbers, '+' can take 'true' as well as 'false' and add it
+  ; to other numbers (as well as 'true' and 'false' themselves).
 
-         (none-false      -> and)
-        ((and)            -> true)
-  (for b (and false b ..) -> false)
-  (for b (and true b ..)  -> (and b ..))
+  (for (is-false false) -> true)
+  (for (is-false true)  -> false)
 
-         (none-true       -> not)
-         (nor             -> not)
-        ((not)            -> true)
-  (for b (not true b ..)  -> false)
-  (for b (not false b ..) -> (not b ..))
+  ; I have deliberately not provided a definition of 'is-true'
+  ; here. This is because if 'b' is either 'true' or 'false', then
+  ; '(is-true b)' is equal to 'b'. Because it is clearer and faster to
+  ; use 'b' instead of '(is-true b)', just use 'b'. If a definition of
+  ; 'is-true' were to be provided, it would be this:
+  ;
+  ; (for (is-true true)  -> true)
+  ; (for (is-true false) -> false)
 
-         (not-all-true     -> nand)
-        ((nand)            -> false)
-  (for b (nand false b ..) -> true)
-  (for b (nand true b ..)  -> (nand b ..))
+  (for   (all-true)            -> true)
+  (for b (all-true false b ..) -> false)
+  (for b (all-true true  b ..) -> (all-true b ..))
 
-         (not-all-false) -> or
-        ((or)            -> false)
-  (for b (or true b ..)  -> true)
-  (for b (or false b ..) -> (or b ..))
+  (for   (all-false)            -> true)
+  (for b (all-false true  b ..) -> false)
+  (for b (all-false false b ..) -> (all-false b ..))
 
-             (all-equal -> =)
-             (xnor      -> =)
+  (for   (not-all-true)            -> true)
+  (for b (not-all-true false b ..) -> true)
+  (for b (not-all-true true  b ..) -> (not-all-true b ..))
 
-         (not-all-equal -> xor)
-  (for b (xor b ..)     -> (not (= b ..)))
+  (for   (not-all-false)            -> true)
+  (for b (not-all-false true  b ..) -> true)
+  (for b (not-all-false false b ..) -> (not-all-false b ..))
 
-          ((implies)        -> false)
-  (for p c (implies p .. c) -> (or (not p) .. c))
+  (for   (at-least-one-true)            -> false)
+  (for b (at-least-one-true true  b ..) -> true)
+  (for b (at-least-one-true false b ..) -> (at-least-one-true b ..))
+
+  (for   (at-least-one-false)            -> false)
+  (for b (at-least-one-false false b ..) -> true)
+  (for b (at-least-one-false true  b ..) -> (at-least-one-false b ..))
+
+  (for   (exactly-one-true)                  -> false)
+  (for   (exactly-one-true true)             -> true)
+  (for b (exactly-one-true true  true  b ..) -> false)
+  (for b (exactly-one-true false false b ..) -> (exactly-one-true      b ..))
+  (for b (exactly-one-true true  false b ..) -> (exactly-one-true true b ..))
+  (for b (exactly-one-true false true  b ..) -> (exactly-one-true true b ..))
+
+  (for   (exactly-one-false)                  -> false)
+  (for   (exactly-one-false false)            -> true)
+  (for b (exactly-one-false false false b ..) -> false)
+  (for b (exactly-one-false true  true  b ..) -> (exactly-one-false       b ..))
+  (for b (exactly-one-false false true  b ..) -> (exactly-one-false false b ..))
+  (for b (exactly-one-false true  false b ..) -> (exactly-one-false false b ..))
+
+  (for conclusion (if true  then conclusion) -> conclusion)
+  (for conclusion (if false then conclusion) -> true)
+
+  ; I will now claim that it is possible to define only 'not-all-true'
+  ; and then define every single other operation above in terms of it,
+  ; although I have not provided a proof of this clame here; my
+  ; apologies for that. Other people have proved that there are also
+  ; other operations which have this property, a property called
+  ; 'functional completeness'. To improve readability and performance,
+  ; I have implemented every operation in the simplest manner I was
+  ; able to, without building upon other operations. These are
+  ; clarity/performance critical rules; it is necessary for them to be
+  ; easy to understand and for them to run quickly; if you are able to
+  ; make improvements to either aspect, please do so!
+
+
+
+
+
+; probable none-sense follows
+
+
+
+
+
+ (for array = glue.builtin.array)
+ (for 
+
+ (for t         (array t ..) =
+   (glue.builtin.array t ..))
+
+ (for f t             (apply f (array t ..)) =
+   (glue.builtin.array.apply f (array t ..)))
+
+ (for f t )
+
+ (for f t             (map f (array t ..)) =
+   (glue.builtin.array.map f (array t ..))
+
+
+ (def t (list t ..))
+ (def )
+
+ (unsafe for f t
+   (apply f (list t ..)))
+
+ (for f t
+   (apply f (list t ..)) ->
+            (f    t ..))
+
+ (for f t
+   (map f (list    t  ..)) ->
+          (list (f t) ..))
+
+ (for t (some t) = (list t))
+ (for    none    = (list))
+
+ (for k (ok k)   = (list (some k) none))
+ (for e (err e)  = (list none (err e)))
+
+
+
+
+
+
+
+
 
 ; language 1.25 (boolean ordering operations)
 
