@@ -1,9 +1,838 @@
+(for x ((x ..) ..) -> (left x .. .. right))
+pattern:
+(compound
+  (many (compound
+          (many (variable x)
+            none))
+    none))
+result:
+(produce-compound
+  (produce-one (produce-symbol left)
+    (produce-many (produce-many (variable x)
+                    none)
+      (produce-many (produce-symbol right)
+        none)))
+
+((a b) (c d e) f)
+(left)
+
+(a b) (c d e) f
+(left)
+
+
+(for x ((x ..) ..) -> (left (x ..) .. right))
+pattern:
+(compound
+  (many (compound
+          (many (variable x)
+            none))
+    none))
+result:
+(produce-compound
+  (produce-one (produce-symbol left)
+    (produce-many (produce-compound
+                    (produce-many (variable x)
+                      produce-none))
+      (produce-one (produce-symbol right)
+        produce-none))))
+
+(for x ((x ..) ..) -> (left x .. .. right))
+pattern:
+(list
+  (many (list
+          (many (variable x)
+            none))
+    none))
+result:
+(list
+  (one (symbol left)
+    (extract x
+      (one (symbol right)
+        none))))
+
+
+
+
+
+
+
+(for x ((x ..) ..) -> (left (x ..) .. right))
+pattern:
+(list
+  (many (list
+          (many (variable x)
+            none))
+    none))
+result:
+(list
+  (one (symbol left)
+    (many 1 (list
+              (many 1 (variable x)
+                none))
+      (one (symbol right)
+        none))))
+
+(for x ((x ..) ..) -> (left x .. .. right))
+pattern:
+(list
+  (many (list
+          (many (variable x)
+            none))
+    none))
+result:
+(list
+  (one (symbol left)
+    (many 2 (variable x)
+      (one (symbol right)
+        none))))
+
+
+(for x ((x ..) ..) -> (x .. ..))
+(list
+  (many (list
+          (many (variable x)
+            none))
+    none))
+(extract-list
+  (extract-variable 2 x))
+
+(for x (x ..) -> (x ..))
+(list
+  (many (variable x)
+    (none)))
+(extract-list
+  (extract-variable 1 x))
+
+(for x (x ..) -> (x ..))
+(list
+  (many (variable x)
+    none))
+
+
+allowed in 'single context':
+
+  (list P)
+
+    Returns (Some P-matches), where P-matches is the result of
+    matching P on the elements of the compound term in the current
+    context. If the current context is not a compound term, returns
+    None. [P is matched in 'multiple context']. If P returns None,
+    then return None.
+
+  (variable V)
+
+    Returns the (Some T), where T is the term in the current context
+    (i.e., this matches anything). V must be a symbol and has no
+    effect on what matches, but is used to extract matches.
+
+  (symbol S)
+
+    Returns (Some S), where S is the symbol in the current context. If
+    the term in the current context is compound, returns None.
+
+allowed in 'multiple context':
+
+  none
+
+    Matches only if current context has no elements. Returns empty
+    list. Returns None if there is at least one element in the current
+    context.
+
+  (one PS PM)
+
+    Returns (Some PS+PM-Matches), where PS+PM-Matches is the result of
+    adding the result of matching PS on the first element of the
+    current context to the front of the list of the matches from PM
+    matched on the rest of the current context. Returns None if PS
+    doesn't match or PM doesn't match.
+
+  (many PS-non-greedy PM)
+
+    Returns the (Some R), where R is the result of matching
+    PS-non-greedy [in 'single context'] non-greedily followed by PM
+    [in 'multiple context']. If either doesn't match, returns None.
+
+
+
+
+(a (b c) .. d)
+(list
+  (one (symbol a)
+    (many (list
+            (one (symbol b)
+              (one (symbol c)
+                none)))
+      (one (symbol d)
+        none))))
+
+(for (x .. y z ..))
+(list
+  (many (symbol x)
+    (one (symbol y)
+      (many (symbol z)
+        (elements)))))
+
+(for (x .. y))
+(list
+  (many (symbol x)
+    (elements (symbol y))))
+
+(for x (x .. y))
+(list
+  (many any
+    (elements (symbol y))))
+
+(for x (y x ..))
+(list
+  (prepend (symbol y)
+    (zero-or-more any
+      (multiple))))
+
+(for x (x ..))
+(list
+  (zero-or-more any
+    (multiple)))
+
+(for (x ..))
+(list
+  (zero-or-more (symbol x)
+    (multiple)))
+
+(for (a (b c d) e f))
+(list
+  (prepend (symbol a)
+    (prepend (list
+               (prepend (symbol b)
+                 (prepend (symbol c)
+                   (prepend (symbol d)
+                     (multiple)))))
+      (prepend (symbol e)
+        (prepend (symbol f)
+          (multiple))))))
+
+(for y (x y z))
+(list
+  (prepend (symbol x)
+    (prepend any
+      (prepend (symbol z)
+        (multiple)))))
+
+(for (x y z))
+(list
+  (prepend (symbol x)
+    (prepend (symbol y)
+      (prepend (symbol z)
+        (multiple)))))
+
+(for x x)
+any
+
+(for x)
+(symbol x)
+
+allowed in 'single context':
+
+  (list P)
+
+    Returns (Some P-matches), where P-matches is the result of
+    matching P on the elements of the compound term in the current
+    context. If the current context is not a compound term, returns
+    None. [P is matched in 'multiple context']. If P returns None,
+    then return None.
+
+  any
+
+    Returns the (Some T), where T is the term in the current context.
+
+  (symbol S)
+
+    Returns (Some S), where S is the symbol in the current context. If
+    the term in the current context is compound, returns None.
+
+allowed in 'multiple context':
+
+  none
+
+    Matches only if current context has no elements. Returns empty
+    list. Returns None if there is at least one element in the current
+    context.
+
+  (one PS PM)
+
+    Returns (Some PS+PM-Matches), where PS+PM-Matches is the result of
+    adding the result of matching PS on the first element of the
+    current context to the front of the list of the matches from PM
+    matched on the rest of the current context. Returns None if PS
+    doesn't match or PM doesn't match.
+
+  (many PS-non-greedy PM)
+
+    Returns the (Some R), where R is the result of matching
+    PS-non-greedy [in 'single context'] non-greedily followed by PM
+    [in 'multiple context']. If either doesn't match, returns None.
+
+
+
+
+
+(for x (y x ..))
+(list
+  (prepend (elements (symbol y))
+    (append (elements any)
+      (elements))))
+
+(for x (x ..))
+(list
+  (append (elements any)
+    (elements)))
+
+(for x x)
+any
+
+(for x (q x))
+(list
+  (prepend (symbol q)
+    (prepend any
+      nothing)))
+
+
+  nothing (equivalent to (multiple))
+
+    Returns (Some E), where E is the empty list, only if the current
+    context contains no elements. If it contains one or more, returns
+    None.
+
+
+
+
+
+
+
+
+
+
+
+
+
+  any-multiple
+
+    Returns (Some Matches), where Matches is the list composed of the
+    elements of the current context.
+
+  (multiple P ...)
+
+    Returns (Some P-matches), where P-matches is the list whose
+    elements consist of the results of matching each P successively on
+    elements of the current context, one P for each element. [each P
+    is matched in 'single context']. If there are more or less
+    elements than P, return None. If any of P return None, return
+    None.
+
+  (non-greedy PS PM)
+
+    The same as matching PM in 'multiple context' on the current
+    context, except for the following qualifications. If PM returns
+    None, then the current (multiple) context is split into a single
+    context and a second multiple context. The single context consists
+    solely of the first element of the original multiple context. PS
+    is then matched [in 'single context'] against the single
+    context. If PS returns None, the result is None. Otherwise, if PS
+    returns (Some PS-match), then the result is (Some
+    PS-match+Others), where PS-match+Others is the list created by
+    prepending the match of PS to the result of matching (non-greedy
+    PS PM) [in 'multiple context'] on the second multiple
+    context. Returns None if the recursive call to 'non-greedy'
+    returns None.
+
+
+(for (a b c) -> X)
+
+(list
+  (prepend (symbol a)
+    (prepend (symbol b)
+      (prepend (symbol c)
+        nothing)))
+
+
+
+(for x y q ((x ..) y .. z q ..) -> X)
+(list
+  (prepend (list (zero-or-more any))
+    (append (zero-or-more any)
+      (prepend (symbol z)
+        (zero-or-more any)))))
+
+(for x y ((x ..) y .. z) -> q)
+(list
+  (prepend (list any-multiple)
+    (append any-multiple
+      (symbol z))))
+
+
+(for x y ((x ..) z y ..) -> q)
+(list
+  (prepend (list any-multiple)
+    (prepend (symbol z)
+      any-multiple)))
+
+
+(list
+  (non-greedy (multiple
+                (list
+                  (non-greedy any any))
+                (symbol z))
+    any))
+
+(list
+  (multiple
+    (list
+      (non-greedy any any))
+    ))
+
+(for x y (x .. z y ..) -> q)
+
+(list
+  (non-greedy any
+    (multiple
+      (symbol z)
+      (non-greedy any
+        any))))
+
+(1 2 3 z 4 5 6)
+-->
+(Some (list 1 2 3 z 4 5 6))
+
+(for x y (x (y .. z)) -> (y .. x))
+
+(list
+  (multiple
+    any
+    (list
+      (non-greedy
+        any
+        (multiple
+          (symbol z))))))
+
+allowed in 'single context':
+
+  (list P)
+
+    Returns (Some P-matches), where P-matches is the result of
+    matching P on the elements of the compound term in the current
+    context. If the current context is not a compound term, returns
+    None. [P is matched in 'multiple context']. If P returns None,
+    then return None.
+
+  any-single
+
+    Returns the (Some T), where T is the term in the current context.
+
+  (symbol S)
+
+    Returns (Some S), where S is the symbol in the current context. If
+    the term in the current context is compound, returns None.
+
+allowed in 'multiple context':
+
+  any-multiple
+
+    Returns (Some Matches), where Matches is the list composed of the
+    elements of the current context.
+
+  (multiple P ...)
+
+    Returns (Some P-matches), where P-matches is the list whose
+    elements consist of the results of matching each P successively on
+    elements of the current context, one P for each element. [each P
+    is matched in 'single context']. If there are more or less
+    elements than P, return None. If any of P return None, return
+    None.
+
+  (non-greedy PS PM)
+
+    The same as matching PM in 'multiple context' on the current
+    context, except for the following qualifications. If PM returns
+    None, then the current (multiple) context is split into a single
+    context and a second multiple context. The single context consists
+    solely of the first element of the original multiple context. PS
+    is then matched [in 'single context'] against the single
+    context. If PS returns None, the result is None. Otherwise, if PS
+    returns (Some PS-match), then the result is (Some
+    PS-match+Others), where PS-match+Others is the list created by
+    prepending the match of PS to the result of matching (non-greedy
+    PS PM) [in 'multiple context'] on the second multiple
+    context. Returns None if the recursive call to 'non-greedy'
+    returns None.
+
+
+(for x y (x (y ..)) -> (y .. x))
+
+(list
+  (multiple
+    any
+    (list
+      (multiple any))))
+
+(for x y (x y ..) -> (y .. x))
+
+(list
+  (non-greedy any
+    any))
+(create-append
+  (index list non-greedy-2)
+  (create-list (index list non-greedy-1)))
+
+(a b c d e f g)
+-->
+(list
+  (non-greedy a
+    (list b c d e f g)))
+
+(list-elements
+  ())
+
+
+(if list then
+  )
+
+
+(for x (flatten (vec (vec x ..) ..)) -> (vec x .. ..))
+(list
+  (non-greedy (symbol flatten)
+    (list
+      (non-greedy (symbol vec)
+        (list
+          (non-greedy (symbol vec)
+            (all any)))))))
+(create append
+  (create list
+    (create symbol
+      vec))
+  (extract list-elements
+    (list
+      (extract non-greedy-P2
+        (non-greedy (symbol flatten)
+          (extract list-elements
+            (list
+              (extract non-greedy-P2
+                (non-greedy (symbol vec)
+                  (extract list-elements
+                    (list
+                      (extract non-greedy-P2
+                        (non-greedy (symbol vec)
+                          (all any))))))))))))))
+
+(extract list-elements P): 
+
+
+any: (single context) matches unconditionally
+
+(symbol S) (single context) matches if context is the symbol S.
+
+(all P): (multiple context) takes P that expects to match in single
+context and matches if it matches every single element in the current
+multiple context.
+
+(non-greedy P1 P2): (multiple context) Matches P2 in multiple context
+on the current context; if P2 doesn't match, splits the current
+context into a single context and multiple context, where the single
+context is the first part of the multiple context, and the multiple
+one is the rest; tries to match P1 on the new single context (in
+single context); if that fails, match fails; if succeeds, matches only
+if recursing on the rest of the multiple context in the same manner
+matches; if the multiple context is empty, matches.
+
+(list P): (single context) matches only if current context is a single
+list; descends down into the list and matches P in the multiple
+context of the elements of the list; doesn't match if P fails to match
+there; matches otherwise.
+
+
+
+(for x (flatten (list (list x ..) ..)) -> (list x .. ..))
+-->
+(down
+  (non-greedy (symbol flatten)
+    (down
+      (non-greedy (symbol list)
+        (zero-or-more
+          (down
+            (non-greedy (symbol list)
+              (zero-or-more any))))))))
+
+
+
+
+
+x : down second down second down second
+(down
+  (non-greedy (symbol list)
+    (zero-or-more (zero-or-more any))))
+
+
+(append
+  (down (symbol list))
+  (up (up x)))
+
+
+(for x (flatten (list (list x ..) ..)) -> (list x .. ..))
+-->
+(down
+  (non-greedy (symbol flatten)
+    (down
+      (non-greedy (symbol list)
+        (zero-or-more
+          (down
+            (non-greedy (symbol list)
+              (zero-or-more (variable x)))))))))
+(append
+  (list (symbol list))
+  (matches-of x))
+
+
+(for x (flatten (list (list x ..) ..)) -> (list x .. ..))
+-->
+(list
+  (non-greedy (symbol flatten)
+    (list
+      (non-greedy (symbol list)
+        (zero-or-more
+          (list
+            (non-greedy (symbol list)
+              (zero-or-more (variable x)))))))))
+(append
+  (list (symbol list))
+  (expand 2 x))
+
+(for x (x .. y x ..))
+-->
+(list
+  (non-greedy (zero-or-more (variable x))
+    (non-greedy (symbol y)
+      (zero-or-more x))))
+
+
+
+
+
+(for x (x .. y x ..) -> y)
+(for x ((zero-or-more x) y (zero-or-more x)) -> y)
+(for x (compound
+        (zero-or-more x)
+        (symbol y)
+        (zero-or-more x)))
+(until (zero-or-more x)
+  (once (symbol y)
+    (zero-or-more x)))
+
+
+(until (after (symbol y)
+         (zero-or-more x))
+  (zero-or-more x))
+
+(for x ((x .. y) ..) -> (y x .. ..))
+(for [[(var x) y]] -> [y [[(var x)]]])
+
+MatchAnyOnce - matches anything once
+MatchOnce(pat) - matches 'pat' exactly once
+MatchZeroOrMore(pat) - matches 'pat' zero or more times
+MatchUntil(pat1, pat2) - matches 'pat1' until 'pat2' matches
+
+(for x y (y x .. y) -> (x .. y x ..))
+(for (y (var x) .. y) -> ((var x) .. y (var x) ..))
+(for (y [(var x) y]) -> [(var x) [y [(var x)]]])
+
+(for (y [(var x) y]) -> ([(var x)] y [(var x)]))
+
+(for x y (y x ..) -> (x .. y))
+(for x y (y [x]) -> ([x] y))
+(for (y [(var x)]) -> ([(var x)] y))
+
+(for x y (x .. y) -> (y x ..))
+(for x y ([x y]) -> (y [x]))
+
+(for t (if true  then t) -> t)
+(for t (if false then t) -> true)
+
+(if (get (index 3))
+  then )
+
+
+(for lhs rhs
+  (magic lhs rhs) ->
+  (let (for a -> 10)
+       (for lhs -> rhs)
+    a))
+(magic a 99)
+(let (for a -> 10)
+     (for a/1 -> 99/1)
+  a)
+(with-environment
+  (+ this-environment
+     (environment
+       (for a/2 -> 10/2)
+       (for a/12 -> 99/12)))
+  a/2)
+a/2
+10/2
+10
+
+(let (for x -> 10)
+     (for y -> 99)
+  (* (+ x y) x))
+-->
+(* x (+ x y))
+-->
+(* 10 (+ x y))
+-->
+(* #0=10 (+ #0# y))
+-->
+(* #0=10 (+ #0# 99))
+-->
+(* 10 109)
+-->
+1090
+
+
+(for lhs rhs
+  (magic lhs rhs) ->
+  (let (for lhs -> rhs)
+       (for A -> 99)
+    A))
+-->
+(magic A 10)
+-->
+(let (for A/1 -> 10/1)
+     (for A -> 99)
+  A)
+
+(let (for X -> (+ 2 3))
+     (for Y -> (* 2 3))
+  (* Y X X))
+-->
+(let (for Y -> (* 2 3))
+  (* Y #0=(+ 2 3) #0#))
+-->
+(* (* 2 3) #0=(+ 2 3) #0#)
+
+
+
+(for vars lhs rhs body
+  (let (for vars .. lhs -> rhs) .. body) ->
+  (with-environment
+    (environment
+      (sequence (unscope rhs)
+        (for vars .. lhs -> (unscope rhs)))
+      ..)
+    body))
+
+(for vars lhs rhs body
+  (let (for vars .. lhs -> rhs) .. body) ->
+  (frame (environment
+           (sequence (unscope rhs)
+             (for vars .. lhs -> (unscope rhs)))
+           ..)
+    body))
+
+(list
+ (let (for x -> 10) x)
+ (let (for x -> 10) x))
+
+(let (for x -> 10)
+  (let (for x -> 100)
+    x))
+
+
+
+
+(let-syntax ([(magic lhs rhs)
+              (list
+                (let ([lhs rhs]
+                      [A 10])
+                  A)
+                (let ([lhs rhs]
+                      [A 99])
+                  lhs))])
+ (magic A 100))
+-->
+(let-syntax ([(magic lhs rhs)
+              (list
+                (let ([lhs rhs]
+                      [A 10])
+                  A)
+                (let ([lhs rhs]
+                      [A 99])
+                  lhs))])
+ (magic A 100))
+-->
+
+
+
+
+(let-syntax ([(magic lhs rhs)
+              (list
+                (let ([lhs rhs]
+                      [A 10])
+                  A)
+                (let ([lhs rhs]
+                      [A 99])
+                  lhs))])
+ (magic A 100))
+-->
+(let-syntax ([(magic/{0,1/2} lhs rhs)
+              (list
+                (let ([lhs rhs]
+                      [A 10])
+                  A)
+                (let ([lhs rhs]
+                      [A 99])
+                  lhs))])
+ (magic/{0,1/2} A/{0,1/2} 100/{0,1/2}))
+-->
+(let-syntax ([(magic/{0,1/2} lhs rhs)
+              (list
+                (let ([lhs rhs]
+                      [A 10])
+                  A)
+                (let ([lhs rhs]
+                      [A 99])
+                  lhs))])
+ (list
+   (let ([A/{0,1/2} 100/{0,1/2}]
+         [A 10])
+     A)
+   (let ([A/{0,1/2} 100/{0,1/2}]
+         [A 99])
+     A/{0,1/2})))
+-->
+(let-syntax ([(magic/{0,1/2} lhs rhs)
+              (list
+                (let ([lhs rhs]
+                      [A 10])
+                  A)
+                (let ([lhs rhs]
+                      [A 99])
+                  lhs))])
+ (list
+   (let ([A/{0,1/2} 100/{0,1/2}]
+         [A 10])
+     A)
+   (let ([A/{0,1/2} 100/{0,1/2}]
+         [A 99])
+     A/{0,1/2})))
+
+(list
+ (let [for A -> 10] A)
+ (let [for A -> 99] A))
+
+
+
 ; scope is isomorphic to the rational numbers
 
 ; i.e., take the "top-level" (really the 'never', 'false', 'nothing',
 ; or 'bottom' scope) and call it 0. Then call the infinitely nested
 ; scope 1. when evaluating, start with left=0, right=1. call
-; current_scope=(left+right)/0, i.e., 1/2 or 0.5. when reducing node N
+; current_scope=(left+right)/2, i.e., 1/2 or 0.5. when reducing node N
 ; which has two children, C1 and C2, and you can't reduce N, try
 ; reducing C1 but cut the scope in half on the left, so left becomes
 ; 1/2 and current becomes 1/4. When you bubble back up, if you still

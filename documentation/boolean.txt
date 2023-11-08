@@ -1,13 +1,7 @@
 ; language 1 (boolean values and boolean logical operations)
 
-  (for true  = 1)
-  (for false = 0)
-
-  ; 'true' and '1' are interchangeable; so are 'false' and '0'; you
-  ; can use either in any context that expects either. For example,
-  ; because '+' (the addition operation) can take '1' and add it to
-  ; other numbers, '+' can take 'true' as well as 'false' and add it
-  ; to other numbers (as well as 'true' and 'false' themselves).
+  (for true  -> true)
+  (for false -> false)
 
   (for (is-false false) -> true)
   (for (is-false true)  -> false)
@@ -29,14 +23,6 @@
   (for b (all-false true  b ..) -> false)
   (for b (all-false false b ..) -> (all-false b ..))
 
-  (for   (not-all-true)            -> true)
-  (for b (not-all-true false b ..) -> true)
-  (for b (not-all-true true  b ..) -> (not-all-true b ..))
-
-  (for   (not-all-false)            -> true)
-  (for b (not-all-false true  b ..) -> true)
-  (for b (not-all-false false b ..) -> (not-all-false b ..))
-
   (for   (at-least-one-true)            -> false)
   (for b (at-least-one-true true  b ..) -> true)
   (for b (at-least-one-true false b ..) -> (at-least-one-true b ..))
@@ -46,6 +32,7 @@
   (for b (at-least-one-false true  b ..) -> (at-least-one-false b ..))
 
   (for   (exactly-one-true)                  -> false)
+  (for   (exactly-one-true false)            -> false)
   (for   (exactly-one-true true)             -> true)
   (for b (exactly-one-true true  true  b ..) -> false)
   (for b (exactly-one-true false false b ..) -> (exactly-one-true      b ..))
@@ -53,14 +40,17 @@
   (for b (exactly-one-true false true  b ..) -> (exactly-one-true true b ..))
 
   (for   (exactly-one-false)                  -> false)
+  (for   (exactly-one-false true)             -> false)
   (for   (exactly-one-false false)            -> true)
   (for b (exactly-one-false false false b ..) -> false)
   (for b (exactly-one-false true  true  b ..) -> (exactly-one-false       b ..))
   (for b (exactly-one-false false true  b ..) -> (exactly-one-false false b ..))
   (for b (exactly-one-false true  false b ..) -> (exactly-one-false false b ..))
 
-  (for conclusion (if true  then conclusion) -> conclusion)
-  (for conclusion (if false then conclusion) -> true)
+  (for t   (if true  then t)        -> t)
+  (for t   (if false then t)        -> true)
+  (for t e (if true  then t else e) -> t)
+  (for t e (if false then t else e) -> e)
 
   ; I will now claim that it is possible to define only 'not-all-true'
   ; and then define every single other operation above in terms of it,
@@ -74,15 +64,482 @@
   ; easy to understand and for them to run quickly; if you are able to
   ; make improvements to either aspect, please do so!
 
-
-
-
+  (for (equal) -> true)
+  (for t (equal t) -> true)
+  (for t0 t1 t
+    (equal t0 t1 t ..) ->
+    (sequence (= t0 t1) (equal t1 t ..) false))
 
 ; probable none-sense follows
 
 
+  ; boolean type
+
+    (for boolean -> boolean)
+    
+    (for (< true  boolean) -> true)
+    (for (< false boolean) -> true)
+
+    (for b
+      (< (all-true b ..) boolean) ->
+      (all-true (< b boolean) ..))
+
+  ; term type
+
+    (for t (term t) -> (term t))
+
+    (for v t (< v (term t)) ->
+      (sequence (< v t) (< v t) false))
+
+    (< true (term boolean))
+    -->
+    (sequence (< true boolean)
+              (< true boolean)
+              false)
+    -->
+    (sequence #0=true
+              #0#
+              false)
+    -->
+    true
+
+    (< 0 (term boolean))
+    -->
+    (sequence (< 0 boolean)
+      (< 0 boolean)
+      false)
+    -->
+    false
+
+  (proof < true boolean)
+  (proof all-false )
+
+  (new boolean true)
+  -->
+  (proof (< true boolean))
+
+  (new boolean "Hello, world!")
+  -->
+  (proof (< "Hello, world!" boolean))
+
+  (new string "Hello, world!")
+  -->
+  (proof (all-false (< "Hello, world!" string)))
+
+  (new boolean (all-true true false))
+  -->
+  (proof (< (all-true true false) boolean))
+
+  (new boolean (all-true true "Hello, world!"))
+  -->
+  (proof (all-false (< )))
+
+  (for (true (< true boolean)) -> (true (< true boolean)))
+  (for (true (< false boolean)) -> (true (< false boolean)))
+
+  (for t (?check (< t boolean)) ->
+    (if (at-least-one-true (equal t true)
+                           (equal t false))
+      then (true (< t boolean))))
 
 
+
+  It is all well and good that we can now compute if some terms are
+  'all-true' or 'all-false', or check if exactly one of them is true
+  and so on. But there is a real problem that arises when we write
+  something like this:
+
+    (all-true true SURPRISE)
+
+  If we were to write this the system would halt because it would be
+  unable to rewrite the term (all-true SURPRISE), as there are no
+  rules for doing so.
+
+  What we want is to be able to ask the system if, when reduced, a
+  certain term will reduce to some other terms, and not get 'stuck'
+  like this. In this example, we would want to ask if '(all-true true
+  SURPRISE)' would reduce to either 'true' or 'false'. The answer we
+  want from the system would be one of the following: (1) a proof that
+  the term in question reduces to 'true' or 'false'; (2) a proof that
+  the term cannot be reduced to 'true' or 'false', and a good
+  explanation of why it cannot.
+
+  For example, if we asked the system if '(all-true true (all-false
+  yikes true))' reduced to 'true' or 'false', we would like to get
+  back a proof that it can't be, because 'yikes' is not 'true' or
+  'false'.
+
+  After we get such a proof, it needs to be possible to extract the
+  term inside of a successful proof an evaluate it.
+
+  There are some subtleties to this that I want to point out. First,
+  if we ask the system to prove that '(all-true false SURPRISE)' is a
+  boolean, I think I want it to say 'no', even though, technically,
+  when reduced, '(all-true false SURPRISE)' will be 'false', because
+  as soon as it sees the first 'false' it reduces to 'false' and
+  doesn't look at its other arguments. This is to say that for a proof
+  to work, it needs to be the case that all the arguments to
+  'all-true' are actually terms.
+
+  First, to represent a type being either 'true' or 'false', we can
+  call that '(+ true false)', or 'boolean'. Second, it should be the
+  case that anything that is reducible to a fixed point should have
+  type 'top', and anything that isn't should have type 'bot'. 
+
+  (for in out
+    (worker in out) ->
+    (worker in out))
+
+  (for in out
+    (< (worker in out) term) ->
+    (if (all-true (< in term)
+                  (< out term))
+      then (term (worker in out))))
+
+
+
+  (for k (ok k) -> (ok k))
+  (for e (err e) -> (err e))
+
+  (for k1 k2 (if (ok k1) then (ok k2)) -> (ok k2))
+  (for e v   (if (err e) then v)       -> (err e))
+
+  (for (all-ok) -> (ok true))
+  (for (all-ok (ok k) o ..) -> (all-ok o ..))
+  (for (all-ok (err e) o ..) -> (err e))
+
+  (for (new true true) -> (ok true))
+  (for (new false false) -> (ok false))
+  (for t
+    (new boolean t) ->
+    (if (at-least-one-ok (new true t)
+                         (new false t))
+      then (ok (< t boolean))))
+
+  (for v t
+    (proof (< v t)) ->
+    (proof (< v t)))
+  (for v t
+    (proof (all-false (< v t) ..)) ->
+    (proof (all-false (< v t) ..)))
+
+  (for (is-provable (< true boolean)) -> (proof (< true boolean)))
+  (for (is-provable (< false boolean)) -> (proof (< false boolean)))
+
+  (for v t
+    (if (proof (< v t))
+      then ))
+
+  (for (is-provable (< t boolean)) ->
+    (if (at-least-one-provable (= t true) (= t false))
+      then (proof (< t boolean))))
+
+  (for t
+    (? (< t boolean)) ->
+    (?at-least-one-true (= t true)
+                        (= t false)))
+
+  (for t
+    (prove (< (all-true t ..) boolean)) ->
+    (if (prove )
+      then (proof (< t boolean))))
+
+  (prove (< (all-true true false) boolean))
+  -->
+  (proof (< (all-true true false) boolean))
+
+  (prove (< (all-true true Surprise) boolean))
+  -->
+  (proof (all-false (< (all-true true Surprise) boolean)
+                    (< Surprise boolean)
+                    (< Surprise term)))
+
+  (proof term has type)
+  (proof (< V T))
+
+  (proof term does-not-have type because reason)
+  (proof (all-true (is-false (< V T))
+                   (is-false (< ))))
+
+  (for c (true  c) -> (true  c))
+  (for c (false c) -> (false c))
+
+  (for v c (< v (true c)) ->
+    )
+
+  (for c (is-false (true  c)) -> (false c))
+  (for c (is-false (false c)) -> (true  c))
+
+  (for t (proof t) -> (proof t))
+
+  (for (< consistent (proof t)) -> true)
+  (for t1 t2
+    (< (inconsistent (< v t1))
+       (proof t2)) ->
+    (equal t1 t2))
+
+
+  (proof (< (all-true true false) boolean))
+  
+
+
+  (for v t
+    (< (all-true v ..) t)
+    (all-true (< v t) ..))
+  (for v t
+    (< (all-false v ..) t)
+    (all-true (< v t) ..))
+
+  (< (all-true true false) (proof boolean))
+  -->
+  (all-true (< true (proof boolean))
+            (< false (proof boolean)))
+  -->
+  (all-true consistent consistent)
+  -->
+  consistent
+
+  (< (all-true true false) boolean)
+  -->
+  (all-true (< true boolean) (< false boolean))
+  -->
+  true
+
+
+  Is the following less than 'boolean'?
+
+    (all-true true false Surprise!)
+
+  No, because 'Surprise!' is not less than boolean.
+
+
+  (for t (< t boolean)
+    (if (at-least-one-true (equal t true)
+                           (equal t false))
+      then consistent
+      else (inconsistent (< t boolean))))
+
+  (for (< (all-true) proof) -> consistent)
+  (for p
+    (< (all-true consistent p ..) proof) ->
+    (< (all-true p ..) proof))
+  (for p
+    (< (all-true (inconsistent v) p ..) proof) ->
+    (inconsistent v))
+
+
+  (for (< true proof) -> consistent)
+
+  (for (prove (< true boolean)) -> consistent)
+  (for (prove (< false boolean)) -> consistent)
+
+  (for b
+    (prove (< (all-true b ..) boolean)) ->
+    (< (all-true (prove (< b boolean)) ..) proof))
+
+  (for
+    (prove (< v t)) ->
+    (if (< v t)
+      then consistent
+      else (inconsistent (< v t))))
+
+  (prove (< (all-true true Surprise) boolean))
+  -->
+  (if (< (all-true true Surprise) boolean)
+    then consistent
+    else (inconsistent (< (all-true true Surprise) boolean)))
+
+  (for b
+    (< (all-true b ..) boolean) ->
+    (all-true (< b boolean) ..))
+  (for (< true boolean) -> true)
+  (for (< false boolean) -> true)
+
+  (< (all-true true false) boolean)
+  -->
+  (all-true (< true boolean) (< false boolean))
+  -->
+  (all-true true true)
+  -->
+  true
+
+  (for l u
+    (+ (range l u) ..) ->
+    (range (+ l ..) (+ u ..)))
+
+
+  (for l u t
+    (< (range l u) (range t)) ->
+    (all-true (< l t)
+              (< u t)
+              (<= l u)))
+
+
+  (for v l u
+    (< (+ v ..) (range l u)) ->
+    (< (+ (< v ))))
+
+
+
+  (for (< (< v t) proof)
+    (if (< v t)
+      then (proof (< v t))
+      else (proof (is-false (< v t)))))
+
+  (for
+    (< (< (range l u) (range t)) proof) ->
+    (if (< (range l u) (range t))
+      then (proof (< (range l u) (range t)))
+      else (proof (is-false (< (range l u) (range t))))))
+
+
+
+  (is-false )
+
+  (for (proof true) -> true)
+  (for (proof false) -> false)
+  (for true -> (proof true))
+  (for false -> (proof false))
+
+
+  (for l r
+    (< (< (= l r) true) proof)
+    )
+
+
+
+
+
+
+  (for (prove true is boolean) -> (proof true is boolean))
+  (for (prove false is boolean) -> (proof false is boolean))
+
+  (for x
+    (prove boolean (all-true x ..)) ->
+    (prove boolean x ..))
+
+
+
+
+
+
+
+  (for x
+    (< (all-true x ..) boolean) ->
+    (all-true (< x term) .. (< x boolean) ..))
+
+  (for t v
+    (new t v) ->
+    (if (< v t)
+      then (proof (< v t))
+      else (proof (is-false (< v t)))))
+
+
+
+
+  (for consistent -> consistent)
+  (for contradictory -> contradictory)
+
+  (for (the bool consistent) -> true)
+  (for (the bool contradictory) -> false)
+
+  (for (the result true) -> consistent)
+  (for (the result false) -> inconsistent)
+
+  (for f
+    (implement result f) ->
+    (for p (the result (f (the bool p) ..))))
+
+  (for defined -> defined)
+  (for undefined -> undefined)
+
+  (for v
+    (lower-to-false) ->)
+
+
+
+  (for t
+    (< t term) ->
+    (sequence (= t term) term undefined-term))
+  (for t0 t1 t
+    (< t0 t1 t .. term) ->
+    (all-true (< t0 t1) (< t1 t .. term)))
+
+
+
+
+; language 3 (boolean)
+
+  (for boolean -> boolean)
+
+  (for t (< t boolean) ->
+    (if (< t term)
+      then (at-least-one-true (equal t true)
+                              (equal t false))))
+
+  (for   (< false      boolean) -> true)
+  (for   (< true       boolean) -> true)
+  (for b (< false b .. boolean) -> (< b .. boolean))
+  (for b (< true  b .. boolean) -> (< b .. boolean))
+
+; language 4 (proof, new, the)
+
+  (for t (proof t) -> (proof t))
+
+  (for t v (new t v) ->
+    (if (< v t)
+      then (proof (< v t))
+      else (proof (is-false (< v t)))))
+
+  (for t1 t2 v
+    (the t1 (proof (< v t2))) ->
+    (sequence (= t1 t2) v))
+
+
+
+ (the boolean
+   (new boolean (all-true true false)))
+ ->
+ (the boolean
+   (if #0=(< (all-true true false) boolean)
+     then (proof #0#)
+     else (proof (is-false #0#))))
+ ->
+ (the boolean
+   (if #0=(< (all-true false) boolean)
+     then (proof #0#)
+     else (proof (is-false #0#))))
+ ->
+ (the boolean
+   (if #0=(< false boolean)
+     then (proof #0#)
+     else (proof (is-false #0#))))
+ ->
+ (the boolean
+   (if #0=true
+     then (proof #0#)
+     else (proof (is-false #0#))))
+ ->
+ (the boolean (proof true))
+   (if #0=true
+     then (proof #0#)
+     else (proof (is-false #0#))))
+
+
+
+ (for (< true boolean) -> true)
+ (for (< false boolean) -> true)
+
+
+
+
+ (new integer false) -> 0
+ (new integer true) -> 1
+
+ (new boolean 0) -> false
+ (new boolean 1) -> true
+
+ 
 
  (for array = glue.builtin.array)
  (for 
