@@ -28,6 +28,7 @@ pub mod symbol_storage;
 pub mod graph;
 pub mod symbol_storage_buffer;
 pub mod allocation;
+pub mod alloc2;
 
 fn main() {
     let source = "(let (x 10) (let (x 100) x))";

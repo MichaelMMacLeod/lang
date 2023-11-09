@@ -1,0 +1,43 @@
+Information
+
+  Symbol
+
+    Data (ordered list of u8)
+
+    Reference count
+
+    Should be interned
+
+  Compound term
+
+    Children (ordered list of children)
+
+    Reference count
+
+(BookkeepingAllocator
+ )
+
+
+Allocation strategy
+
+  location
+
+    pointer, size, alignment
+
+  Symbol interner
+
+    HashMap<hash-of-symbol, location>
+
+  Symbol allocator (possible setup)
+
+    ReferenceCounter(
+      
+      Fallback(
+        primary = LogarithmicBucketizer(
+          min = 1
+          max = 1024
+          step = 2
+        )
+        secondary = BoxAllocator
+      )
+    )
