@@ -3,7 +3,10 @@ use std::{
     ptr::NonNull,
 };
 
-use crate::alloc2::{traits::{Alloc, Dealloc}, blk::Blk};
+use crate::alloc2::{
+    blk::Block,
+    traits::{Alloc, Dealloc, ZeroingAlloc},
+};
 
 pub struct SystemAlloc;
 
@@ -18,7 +21,7 @@ static SYSTEM: System = System;
 impl Alloc for SystemAlloc {
     type AllocError = SystemAllocError;
 
-    fn alloc(&self, layout: std::alloc::Layout) -> Result<Blk, Self::AllocError> {
+    fn alloc(&self, layout: std::alloc::Layout) -> Result<Block, Self::AllocError> {
         if layout.size() == 0 {
             Err(SystemAllocError::ZeroSizedLayout)
         } else {
@@ -27,23 +30,33 @@ impl Alloc for SystemAlloc {
                 SYSTEM.alloc(layout)
             };
 
-            NonNull::new(r).ok_or(SystemAllocError::SystemAllocFailed).map(|n| {
-                Blk::new(
-                    NonNull::slice_from_raw_parts(n, layout.size()),
-                    layout,
-                )
-            })
+            NonNull::new(r)
+                .ok_or(SystemAllocError::SystemAllocFailed)
+                .map(|n| {
+                    Block::new(
+                        NonNull::slice_from_raw_parts(n, layout.size()),
+                        Some(layout),
+                    )
+                })
         }
     }
 }
 
-impl Dealloc for SystemAlloc {
-    type DeallocError = ();
+pub enum SystemDeallocError {
+    NoBlueprint,
+}
 
-    unsafe fn dealloc(&self, block: Blk) -> Option<Self::DeallocError> {
-        // safety: https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html#safety-2
-        System.dealloc(block.into(), block.blueprint());
-        None
+impl Dealloc for SystemAlloc {
+    type DeallocError = SystemDeallocError;
+
+    unsafe fn dealloc(&self, block: Block) -> Option<Self::DeallocError> {
+        if let Some(blueprint) = block.blueprint() {
+            // safety: https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html#safety-2
+            System.dealloc(block.into(), blueprint);
+            None
+        } else {
+            Some(SystemDeallocError::NoBlueprint)
+        }
     }
 }
 
