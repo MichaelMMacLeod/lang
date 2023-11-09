@@ -1,11 +1,9 @@
-// use super::traits::{Alloc, GetMut, Dealloc};
-
 use std::{
     alloc::{GlobalAlloc, System},
     ptr::NonNull,
 };
 
-use super::{traits::{Alloc, Dealloc}, blk::Blk};
+use crate::alloc2::{traits::{Alloc, Dealloc}, blk::Blk};
 
 pub struct SystemAlloc;
 
