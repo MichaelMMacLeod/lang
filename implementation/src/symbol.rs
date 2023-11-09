@@ -1,1 +1,0 @@
-pub(crate) struct Symbol<'s>(&'s str);

@@ -3,7 +3,7 @@ use std::{
     ptr::NonNull,
 };
 
-use crate::alloc2::{
+use crate::allocation::{
     blk::Block,
     traits::{Alloc, Dealloc, ZeroingAlloc},
 };
