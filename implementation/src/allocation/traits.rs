@@ -1,6 +1,6 @@
 use std::{alloc::{Layout, LayoutError}, ptr::NonNull};
 
-use super::blk::Block;
+use super::block::Block;
 
 pub trait GoodSize {
     fn good_size_for(&self, layout: Layout) -> usize;

@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::allocation::{
-    blk::Block,
+    block::Block,
     traits::{Alloc, Dealloc, ZeroingAlloc},
 };
 
