@@ -63,9 +63,9 @@ impl Dealloc for SystemAlloc {
 
 #[cfg(test)]
 mod tests {
-    use std::alloc::Layout;
+    use std::{alloc::Layout, io::Write};
 
-    use crate::allocation::traits::alloc_affixed;
+    use crate::allocation::traits::{alloc_affixed, dealloc_affixed};
 
     use super::*;
 
@@ -79,17 +79,17 @@ mod tests {
         assert!(Into::<NonNull<[u8]>>::into(b).len() >= SIZE);
         assert_eq!(Into::<*mut u8>::into(b).align_offset(1), 0);
         assert_eq!(unsafe { b.as_ref() }, &[0; SIZE]);
+        unsafe { s.dealloc(b) };
     }
 
     #[test]
     fn alloc2() {
+        let s = SystemAlloc;
         let prefix = Layout::from_size_align(4, 4).unwrap();
         let middle = Layout::from_size_align(512, 1024).unwrap();
         let suffix = Layout::from_size_align(4, 4).unwrap();
-        let alloc_zeroed = |layout| SystemAlloc.alloc_zeroed(layout);
-        let &[b_prefix, b_middle, b_suffix] = alloc_affixed(alloc_zeroed, prefix, middle, suffix)
-            .unwrap()
-            .blocks();
+        let affixed = alloc_affixed(|l| s.alloc_zeroed(l), prefix, middle, suffix).unwrap();
+        let &[b_prefix, b_middle, b_suffix] = affixed.blocks();
         assert!(b_prefix.blueprint().is_none());
         assert!(b_middle.blueprint().is_none());
         assert!(b_suffix.blueprint().is_none());
@@ -99,6 +99,15 @@ mod tests {
         assert_eq!(Into::<*mut u8>::into(b_prefix).align_offset(4), 0);
         assert_eq!(Into::<*mut u8>::into(b_middle).align_offset(1024), 0);
         assert_eq!(Into::<*mut u8>::into(b_suffix).align_offset(4), 0);
+        unsafe {
+            Into::<*mut u8>::into(b_prefix)
+                .write_bytes(1, Into::<NonNull<[u8]>>::into(b_prefix).len());
+            Into::<*mut u8>::into(b_middle)
+                .write_bytes(2, Into::<NonNull<[u8]>>::into(b_middle).len());
+            Into::<*mut u8>::into(b_suffix)
+                .write_bytes(3, Into::<NonNull<[u8]>>::into(b_suffix).len());
+        }
+        assert!(unsafe { dealloc_affixed(|b| s.dealloc(b), &affixed).is_none() });
         // const SIZE: usize = 1024;
         // let l = Layout::from_size_align(SIZE, 1).unwrap();
         // let b = s.alloc_zeroed(l).unwrap();

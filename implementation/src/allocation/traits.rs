@@ -42,20 +42,46 @@ impl<E> From<LayoutError> for AffixAllocError<E> {
     }
 }
 
+pub struct AffixedBlocks {
+    blocks: DisjointBlocks<3>,
+    combined: Block,
+}
+
+impl AffixedBlocks {
+    pub fn blocks(&self) -> &[Block; 3] {
+        self.blocks.blocks()
+    }
+
+    pub fn combined(&self) -> Block {
+        self.combined
+    }
+}
+
 pub fn alloc_affixed<E, F: FnMut(Layout) -> Result<Block, E>>(
     mut alloc: F,
     prefix: Layout,
     middle: Layout,
     suffix: Layout,
-) -> Result<DisjointBlocks<3>, AffixAllocError<E>> {
+) -> Result<AffixedBlocks, AffixAllocError<E>> {
     let (combined_layout, middle_offset) = prefix.extend(middle)?;
     let (combined_layout, suffix_offset) = combined_layout.extend(suffix)?;
     match alloc(combined_layout) {
         Err(e) => Err(AffixAllocError::AllocError(e)),
-        Ok(blk) => Ok(blk
+        Ok(blk) => blk
             .split3(middle_offset, suffix_offset)
-            .ok_or(AffixAllocError::CouldNotSplit)?),
+            .ok_or(AffixAllocError::CouldNotSplit)
+            .map(|blocks| AffixedBlocks {
+                blocks,
+                combined: blk,
+            }),
     }
+}
+
+pub unsafe fn dealloc_affixed<E, F: FnMut(Block) -> Option<E>>(
+    mut dealloc: F,
+    affixed_blocks: &AffixedBlocks,
+) -> Option<E> {
+    dealloc(affixed_blocks.combined())
 }
 
 pub trait Dealloc {
