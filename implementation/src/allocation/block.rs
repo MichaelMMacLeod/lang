@@ -18,13 +18,18 @@ impl Block {
         Self { ptr, blueprint }
     }
 
+    pub fn len(&self) -> usize {
+        let ptr: NonNull<[u8]> = (*self).into();
+        ptr.len()
+    }
+
     // Splits self into two blocks, one which contains the first 'middle' number of 'u8's,
     // and one which contains the rest (if any). If 'middle' is more than the number of
     // 'u8's pointed to by self, returns None.
     pub fn split2(&self, middle: usize) -> Option<DisjointBlocks<2>> {
         let ptr: NonNull<[u8]> = (*self).into();
         let length = ptr.len();
-        if middle < length {
+        if middle <= length {
             let ptr: *mut u8 = (*self).into();
             let tail = unsafe { ptr.add(middle) };
             let (p1, p2) = (
@@ -82,6 +87,19 @@ impl From<Block> for NonNull<[u8]> {
 impl From<Block> for *mut [u8] {
     fn from(value: Block) -> Self {
         value.ptr.as_ptr()
+    }
+}
+
+impl From<Block> for *const [u8] {
+    fn from(value: Block) -> Self {
+        value.ptr.as_ptr()
+    }
+}
+
+impl From<Block> for *const u8 {
+    fn from(value: Block) -> Self {
+        let ptr: *const [u8] = value.into();
+        ptr as *const u8
     }
 }
 
