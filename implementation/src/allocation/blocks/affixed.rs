@@ -1,3 +1,5 @@
+use super::block_dynamic::DynamicBlock;
+
 pub struct Affixed<Pre, Mid, Suf, Com> {
     prefix: Pre,
     middle: Mid,
@@ -41,5 +43,11 @@ impl<Pre, Mid, Suf, Com> Affixed<Pre, Mid, Suf, Com> {
 
     pub fn map_combined<Com2, F: Fn(Com) -> Com2>(self, f: F) -> Affixed<Pre, Mid, Suf, Com2> {
         Affixed::new(self.prefix, self.middle, self.suffix, f(self.combined))
+    }
+}
+
+impl<Pre, Mid, Suf> From<Affixed<Pre, Mid, Suf, DynamicBlock>> for DynamicBlock {
+    fn from(value: Affixed<Pre, Mid, Suf, DynamicBlock>) -> Self {
+        value.combined
     }
 }

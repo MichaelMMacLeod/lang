@@ -11,6 +11,22 @@ impl DynamicBlock {
         Self { non_null_ptr }
     }
 
+    pub fn len(&self) -> usize {
+        self.non_null_ptr.len()
+    }
+
+    pub fn aligned_to(&self, align: usize) -> bool {
+        self.start_ptr().align_offset(align) == 0
+    }
+
+    pub fn ptr(&self) -> *mut [u8] {
+        self.non_null_ptr.as_ptr()
+    }
+
+    pub fn start_ptr(&self) -> *mut u8 {
+        self.ptr() as *mut u8
+    }
+
     pub unsafe fn initialize_with_constant(self, c: u8) -> Initialized<Self> {
         self.start_ptr().write_bytes(c, self.len());
         Initialized::new(self)
@@ -45,21 +61,5 @@ impl DynamicBlock {
         let (prefix, rest) = self.try_subdivide_once(start_of_second)?;
         let (middle, suffix) = rest.try_subdivide_once(third_offset)?;
         Some((prefix, middle, suffix))
-    }
-
-    pub fn len(&self) -> usize {
-        self.non_null_ptr.len()
-    }
-
-    pub fn aligned_to(&self, align: usize) -> bool {
-        self.start_ptr().align_offset(align) == 0
-    }
-
-    pub(super) fn ptr(&self) -> *mut [u8] {
-        self.non_null_ptr.as_ptr()
-    }
-
-    pub(super) fn start_ptr(&self) -> *mut u8 {
-        self.ptr() as *mut u8
     }
 }

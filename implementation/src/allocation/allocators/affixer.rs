@@ -1,6 +1,6 @@
 use std::alloc::{Layout, LayoutError};
 
-use crate::allocation::blocks::{affixed::Affixed, block_dynamic::DynamicBlock};
+use crate::allocation::blocks::{affixed::Affixed, block_dynamic::DynamicBlock, blueprinted::Blueprinted};
 
 use super::allocator::Allocator;
 
@@ -10,6 +10,7 @@ pub struct AffixedLayout {
     suffix_offset: usize,
 }
 
+#[derive(Debug)]
 pub struct IntegerOverflow;
 
 impl From<LayoutError> for IntegerOverflow {
@@ -38,17 +39,21 @@ pub struct Affixer<A> {
     allocator: A,
 }
 
-pub type AffixedBlocks = Affixed<DynamicBlock, DynamicBlock, DynamicBlock, DynamicBlock>;
+impl<A> Affixer<A> {
+    pub fn new(allocator: A) -> Self { Self { allocator } }
+}
+
+pub type DynamicAffixedBlocks = Affixed<DynamicBlock, DynamicBlock, DynamicBlock, DynamicBlock>;
 
 pub enum AffixerAllocateError<A> {
     AllocatorError(A),
     CouldNotSubdivide,
 }
 
-impl<A: Allocator<Layout, DynamicBlock>> Allocator<AffixedLayout, AffixedBlocks> for Affixer<A> {
+impl<A: Allocator<Layout, DynamicBlock>> Allocator<AffixedLayout, DynamicAffixedBlocks> for Affixer<A> {
     type AllocateError = AffixerAllocateError<A::AllocateError>;
 
-    fn allocate(&self, layout: AffixedLayout) -> Result<AffixedBlocks, Self::AllocateError> {
+    fn allocate(&self, layout: AffixedLayout) -> Result<DynamicAffixedBlocks, Self::AllocateError> {
         let AffixedLayout {
             layout,
             middle_offset,
@@ -62,4 +67,32 @@ impl<A: Allocator<Layout, DynamicBlock>> Allocator<AffixedLayout, AffixedBlocks>
                 .map(|(prefix, middle, suffix)| Affixed::new(prefix, middle, suffix, block)),
         }
     }
+}
+
+pub type BlueprintedDynamicAffixedBlocks = Affixed<DynamicBlock, DynamicBlock, DynamicBlock, Blueprinted<DynamicBlock>>;
+
+impl<A: Allocator<Layout, Blueprinted<DynamicBlock>>> Allocator<AffixedLayout, BlueprintedDynamicAffixedBlocks> for Affixer<A> {
+    type AllocateError = AffixerAllocateError<A::AllocateError>;
+
+    fn allocate(&self, layout: AffixedLayout) -> Result<BlueprintedDynamicAffixedBlocks, Self::AllocateError> {
+        todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::allocation::allocators::{system::Sys, deallocator::Deallocator, allocator::Allocator};
+
+    use super::*;
+
+    // #[test]
+    // fn affixer1() {
+    //     let affixed_layout = AffixedLayout::try_new(
+    //         Layout::from_size_align(4, 4).unwrap(),
+    //         Layout::from_size_align(512, 1024).unwrap(),
+    //         Layout::from_size_align(4, 4).unwrap()
+    //     ).unwrap();
+    //     let affixer = Affixer::new(Sys);
+    //     let affixed = affixer.allocate(affixed_layout);
+    // }
 }

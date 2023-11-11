@@ -1,16 +1,16 @@
 use std::{
-    alloc::{Layout, System},
+    alloc::{Layout, System, GlobalAlloc},
     ptr::NonNull,
 };
 
-use crate::allocation::blocks::{block_dynamic::DynamicBlock, blueprinted::Blueprinted};
+use crate::allocation::blocks::{block_dynamic::DynamicBlock, blueprinted::Blueprinted, initialized::Initialized};
 
 use super::{allocator::Allocator, deallocator::Deallocator};
 
 #[global_allocator]
 static SYSTEM: System = System;
 
-struct Sys;
+pub struct Sys;
 
 #[derive(Debug)]
 pub enum SystemAllocateError {
@@ -43,10 +43,13 @@ impl Allocator<Layout, Blueprinted<DynamicBlock>> for Sys {
 }
 
 impl Deallocator<Blueprinted<DynamicBlock>> for Sys {
-    type DeallocateError;
+    type DeallocateError = ();
 
-    fn deallocate(&self, block: Blueprinted<DynamicBlock>) -> Option<Self::DeallocateError> {
-        todo!()
+    unsafe fn deallocate(&self, blueprinted: Blueprinted<DynamicBlock>) -> Option<Self::DeallocateError> {
+        let layout = blueprinted.blueprint();
+        let ptr = blueprinted.block().start_ptr();
+        System.dealloc(ptr, layout);
+        None
     }
 }
 
@@ -55,18 +58,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn alloc1() {
+    fn sys1() {
         let size = 128;
         let align = 1024;
         let layout = Layout::from_size_align(size, align).unwrap();
         let block = Sys.allocate(layout).unwrap();
         assert_eq!(block.blueprint(), layout);
-        block.map(|block| {
+        let block = block.map(|block| {
             assert!(block.len() >= size);
             assert!(block.aligned_to(align));
             block
         });
-        // block.block()
+        let d = unsafe { Sys.deallocate(block) };
+        assert!(d.is_none());
     }
 }
 

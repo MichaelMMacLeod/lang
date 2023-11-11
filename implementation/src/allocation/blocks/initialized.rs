@@ -9,21 +9,11 @@ impl<B> Initialized<B> {
         Self { block }
     }
 
+    pub fn block(self) -> B {
+        self.block
+    }
+
     pub fn map<C, F: Fn(B) -> C>(self, f: F) -> Initialized<C> {
         Initialized::new(f(self.block))
-    }
-}
-
-impl Initialized<DynamicBlock> {
-    pub fn ptr(&self) -> *mut [u8] {
-        self.block.ptr()
-    }
-
-    pub fn start_ptr(&self) -> *mut u8 {
-        self.block.start_ptr()
-    }
-
-    pub fn len(&self) -> usize {
-        self.block.len()
     }
 }
