@@ -1,9 +1,12 @@
 use std::{
-    alloc::{Layout, System, GlobalAlloc},
+    alloc::{GlobalAlloc, Layout, System},
     ptr::NonNull,
 };
 
-use crate::allocation::blocks::{block_dynamic::DynamicBlock, blueprinted::Blueprinted, initialized::Initialized};
+use crate::allocation::blocks::{
+    aligned::AlignedBlock, alignment::Alignment, blueprinted::BlueprintedBlock,
+    contains_ref::ContainsRef, contains::Contains, slice::SliceBlock,
+};
 
 use super::{allocator::Allocator, deallocator::Deallocator};
 
@@ -16,45 +19,49 @@ pub struct Sys;
 pub enum SystemAllocateError {
     ZeroSizedLayout,
     SystemAllocateFailed,
+    BlueprintBuildFailed,
 }
 
-impl Allocator<Layout, Blueprinted<DynamicBlock>> for Sys {
+impl Allocator<Layout, BlueprintedBlock> for Sys {
     type AllocateError = SystemAllocateError;
 
-    fn allocate(&self, layout: Layout) -> Result<Blueprinted<DynamicBlock>, Self::AllocateError> {
+    fn allocate(&self, layout: Layout) -> Result<BlueprintedBlock, Self::AllocateError> {
         if layout.size() == 0 {
             Err(SystemAllocateError::ZeroSizedLayout)
         } else {
-            let r = unsafe {
+            let ptr = unsafe {
                 // safety: https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html#safety-1
                 std::alloc::GlobalAlloc::alloc(&SYSTEM, layout)
             };
 
-            NonNull::new(r)
+            NonNull::new(ptr)
                 .ok_or(SystemAllocateError::SystemAllocateFailed)
-                .map(|n| {
-                    Blueprinted::new(
-                        DynamicBlock::new(NonNull::slice_from_raw_parts(n, layout.size())),
-                        layout,
-                    )
+                .map(|ptr| {
+                    let alignment = unsafe { Alignment::new_unchecked(layout.align()) };
+                    let ptr = NonNull::slice_from_raw_parts(ptr, layout.size());
+                    let ptr = unsafe { SliceBlock::new_unchecked(ptr) };
+                    let ptr = unsafe { AlignedBlock::new_unchecked(ptr, alignment) };
+                    unsafe { BlueprintedBlock::new_unchecked(ptr, layout.size()) }
                 })
         }
     }
 }
 
-impl Deallocator<Blueprinted<DynamicBlock>> for Sys {
+impl<B: Contains<BlueprintedBlock>> Deallocator<B> for Sys {
     type DeallocateError = ();
 
-    unsafe fn deallocate(&self, blueprinted: Blueprinted<DynamicBlock>) -> Option<Self::DeallocateError> {
-        let layout = blueprinted.blueprint();
-        let ptr = blueprinted.block().start_ptr();
-        System.dealloc(ptr, layout);
+    unsafe fn deallocate(&self, b: B) -> Option<Self::DeallocateError> {
+        b.for_part(|b| System.dealloc(b.start_ptr(), b.requested_layout()));
         None
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
+    use crate::allocation::blocks::{contains::Contains, initialized::Initialized};
+
     use super::*;
 
     #[test]
@@ -63,13 +70,25 @@ mod tests {
         let align = 1024;
         let layout = Layout::from_size_align(size, align).unwrap();
         let block = Sys.allocate(layout).unwrap();
-        assert_eq!(block.blueprint(), layout);
-        let block = block.map(|block| {
-            assert!(block.len() >= size);
-            assert!(block.aligned_to(align));
-            block
-        });
+        assert_eq!(block.requested_layout(), layout);
+        assert!(block.len() >= size);
+        assert_eq!(block.start_ptr().align_offset(align), 0);
         let d = unsafe { Sys.deallocate(block) };
+        assert!(d.is_none());
+    }
+
+    #[test]
+    fn sys2() {
+        let size = 128;
+        let align = 1024;
+        let layout = Layout::from_size_align(size, align).unwrap();
+        let blueprinted_block = Sys.allocate(layout).unwrap();
+        let init = unsafe { Initialized::with_constant(blueprinted_block, 42) };
+        let vs: &[u8] = unsafe { init.initialized_ref().as_ref() };
+        for &v in vs {
+            assert_eq!(v, 42);
+        }
+        let d = unsafe { Sys.deallocate(init.initialized()) };
         assert!(d.is_none());
     }
 }

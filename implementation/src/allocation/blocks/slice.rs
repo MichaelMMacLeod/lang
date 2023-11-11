@@ -1,14 +1,67 @@
-use std::{ops::Deref, ptr::NonNull};
+use std::{
+    ops::Deref,
+    ptr::{slice_from_raw_parts_mut, NonNull},
+};
 
-use super::{copy_as::CopyAs, start::StartBlock};
+use super::{contains::Contains, initialized::Initialized};
 
 pub struct SliceBlock {
     block: NonNull<[u8]>,
 }
 
 impl SliceBlock {
-    pub fn new(ptr: NonNull<[u8]>) -> Self {
+    // SAFETY: 'ptr' must be properly aligned (i.e., it must be aligned
+    // to the alignment of a 'u8', which is 1). Moreover, it must be 
+    // valid to write (not *read*; the slice may be uninitialized) to 
+    // each 'u8' in the slice. It is allowed to pass a pointer to a slice
+    // of length zero to this function.
+    pub unsafe fn new_unchecked(ptr: NonNull<[u8]>) -> Self {
         Self { block: ptr }
+    }
+
+    pub fn block_ptr(&self) -> *mut [u8] {
+        self.as_ptr()
+    }
+
+    pub fn start_ptr(&self) -> *mut u8 {
+        self.block_ptr() as *mut u8
+    }
+
+    pub fn start(&self) -> NonNull<u8> {
+        unsafe { NonNull::new_unchecked(self.start_ptr()) }
+    }
+
+    pub fn try_subdivide_once(&self, start_of_second: usize) -> Option<(Self, Self)> {
+        (start_of_second <= self.len()).then(|| {
+            let second_start_ptr = unsafe { self.start_ptr().add(start_of_second) };
+            let (first_ptr, second_ptr) = (
+                slice_from_raw_parts_mut(self.start_ptr(), self.len()),
+                slice_from_raw_parts_mut(second_start_ptr, self.len() - start_of_second),
+            );
+            let (first_non_null_ptr, second_non_null_ptr) = unsafe {
+                (
+                    NonNull::new_unchecked(first_ptr),
+                    NonNull::new_unchecked(second_ptr),
+                )
+            };
+            unsafe {
+                (
+                    Self::new_unchecked(first_non_null_ptr),
+                    Self::new_unchecked(second_non_null_ptr),
+                )
+            }
+        })
+    }
+
+    pub fn try_subdivide_twice(
+        &self,
+        start_of_second: usize,
+        start_of_third: usize,
+    ) -> Option<(Self, Self, Self)> {
+        let third_offset = start_of_third.checked_sub(start_of_second)?;
+        let (prefix, rest) = self.try_subdivide_once(start_of_second)?;
+        let (middle, suffix) = rest.try_subdivide_once(third_offset)?;
+        Some((prefix, middle, suffix))
     }
 }
 
@@ -20,28 +73,8 @@ impl Deref for SliceBlock {
     }
 }
 
-impl CopyAs<*mut [u8]> for SliceBlock {
-    fn copy_as(&self) -> *mut [u8] {
-        self.as_ptr()
-    }
-}
-
-impl CopyAs<*mut u8> for SliceBlock {
-    fn copy_as(&self) -> *mut u8 {
-        let p: *mut [u8] = self.copy_as();
-        p as *mut u8
-    }
-}
-
-impl CopyAs<NonNull<u8>> for SliceBlock {
-    fn copy_as(&self) -> NonNull<u8> {
-        unsafe { NonNull::new_unchecked(self.copy_as()) }
-    }
-}
-
-impl CopyAs<StartBlock> for SliceBlock {
-    fn copy_as(&self) -> StartBlock {
-        let p: NonNull<u8> = self.copy_as();
-        StartBlock::new(p)
+impl Contains<SliceBlock> for SliceBlock {
+    fn map_part<F: FnOnce(SliceBlock) -> SliceBlock>(self, f: F) -> Self {
+        f(self)
     }
 }

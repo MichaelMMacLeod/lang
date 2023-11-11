@@ -1,48 +1,54 @@
-// use std::{alloc::Layout, ptr::NonNull};
+use std::{alloc::Layout, ops::Deref, ptr::NonNull};
 
-// use super::{alignment::Alignment, slice::SliceBlock};
+use super::{alignment::Alignment, contains::Contains, slice::SliceBlock};
 
-// pub struct AlignedBlock<B: Into<SliceBlock>> {
-//     // invariant: Layout::from_size_align(block.len(), usize::from(align)).is_ok()
-//     block: B,
-//     align: Alignment,
-// }
+pub struct AlignedBlock {
+    block: SliceBlock,
+    align: Alignment,
+}
 
-// impl<B: Into<SliceBlock>> AlignedBlock<B> {
-//     pub fn try_new(block: B, align: Alignment) -> Option<Self> {
-//         Layout::from_size_align(block.into().len(), usize::from(align))
-//             .map(|_| Self { block, align })
-//             .ok()
-//     }
+impl AlignedBlock {
+    pub fn new(block: SliceBlock, align: Alignment) -> Option<Self> {
+        Layout::from_size_align(block.len(), usize::from(align))
+            .ok()
+            .map(|_| unsafe { Self::new_unchecked(block, align) })
+    }
 
-//     pub fn align(&self) -> Alignment {
-//         self.align
-//     }
+    // SAFETY: 'block' must be allocated with alignment 'align'. Moreover, 'block.len()',
+    // when rounded up to the nearest multiple of 'align', must be less than or equal to
+    // isize::MAX.
+    pub unsafe fn new_unchecked(block: SliceBlock, align: Alignment) -> Self {
+        Self { block, align }
+    }
 
-//     // pub fn layout(&self) -> Layout {
-//     //     // SAFETY: we checked that the non-unchecked version was .is_ok()
-//     //     // in try_new(), moreover, we never mutate the insides, so that
-//     //     // should still hold.
-//     //     unsafe { Layout::from_size_align_unchecked(self.block.len(), usize::from(self.align)) }
-//     // }
+    pub fn align(&self) -> Alignment {
+        self.align
+    }
 
-//     // pub fn len(&self) -> usize {
-//     //     self.block.len()
-//     // }
+    pub fn allocated_layout(&self) -> Layout {
+        unsafe { Layout::from_size_align_unchecked(self.len(), usize::from(self.align())) }
+    }
+}
 
-//     // pub fn block(&self) -> NonNull<[u8]> {
-//     //     self.block
-//     // }
+impl Deref for AlignedBlock {
+    type Target = SliceBlock;
 
-//     // pub fn block_ptr(&self) -> *mut [u8] {
-//     //     self.block.as_ptr()
-//     // }
+    fn deref(&self) -> &Self::Target {
+        &self.block
+    }
+}
 
-//     // pub fn start(&self) -> NonNull<u8> {
-//     //     unsafe { NonNull::new_unchecked(self.start_ptr()) }
-//     // }
+impl Contains<AlignedBlock> for AlignedBlock {
+    fn map_part<F: FnOnce(AlignedBlock) -> AlignedBlock>(self, f: F) -> Self {
+        f(self)
+    }
+}
 
-//     // pub fn start_ptr(&self) -> *mut u8 {
-//     //     self.block_ptr() as *mut u8
-//     // }
-// }
+impl Contains<SliceBlock> for AlignedBlock {
+    fn map_part<F: FnOnce(SliceBlock) -> SliceBlock>(self, f: F) -> Self {
+        Self {
+            block: f(self.block),
+            ..self
+        }
+    }
+}
