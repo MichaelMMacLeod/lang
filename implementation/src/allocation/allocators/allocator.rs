@@ -1,6 +1,4 @@
-use std::alloc::Layout;
-
-pub trait Allocator<B> {
+pub trait Allocator<L, B> {
     type AllocateError;
-    fn allocate(&self, layout: Layout) -> Result<B, Self::AllocateError>;
+    fn allocate(&self, layout: L) -> Result<B, Self::AllocateError>;
 }

@@ -1,6 +1,6 @@
 use std::ptr::{slice_from_raw_parts_mut, NonNull};
 
-use super::{initialized::Initialized, block::Block, map_dynamic_block::MapDynamicBlock};
+use super::initialized::Initialized;
 
 pub struct DynamicBlock {
     non_null_ptr: NonNull<[u8]>,
@@ -16,7 +16,7 @@ impl DynamicBlock {
         Initialized::new(self)
     }
 
-    pub fn try_subdivide_once(self, start_of_second: usize) -> Option<(Self, Self)> {
+    pub fn try_subdivide_once(&self, start_of_second: usize) -> Option<(Self, Self)> {
         (start_of_second <= self.len()).then(|| {
             let second_start_ptr = unsafe { self.start_ptr().add(start_of_second) };
             let (first_ptr, second_ptr) = (
@@ -37,7 +37,7 @@ impl DynamicBlock {
     }
 
     pub fn try_subdivide_twice(
-        self,
+        &self,
         start_of_second: usize,
         start_of_third: usize,
     ) -> Option<(Self, Self, Self)> {
@@ -46,16 +46,20 @@ impl DynamicBlock {
         let (middle, suffix) = rest.try_subdivide_once(third_offset)?;
         Some((prefix, middle, suffix))
     }
-}
 
-impl Block for DynamicBlock {
-    fn non_null_ptr(&self) -> NonNull<[u8]> {
-        self.non_null_ptr
+    pub fn len(&self) -> usize {
+        self.non_null_ptr.len()
     }
-}
 
-impl MapDynamicBlock<DynamicBlock> for DynamicBlock {
-    fn map<F: Fn(DynamicBlock) -> DynamicBlock>(self, f: F) -> Self {
-        f(self)
+    pub fn aligned_to(&self, align: usize) -> bool {
+        self.start_ptr().align_offset(align) == 0
+    }
+
+    pub(super) fn ptr(&self) -> *mut [u8] {
+        self.non_null_ptr.as_ptr()
+    }
+
+    pub(super) fn start_ptr(&self) -> *mut u8 {
+        self.ptr() as *mut u8
     }
 }

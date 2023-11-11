@@ -1,12 +1,12 @@
-pub struct Affixed<P, M, S, C> {
-    prefix: P,
-    middle: M,
-    suffix: S,
-    combined: C,
+pub struct Affixed<Pre, Mid, Suf, Com> {
+    prefix: Pre,
+    middle: Mid,
+    suffix: Suf,
+    combined: Com,
 }
 
-impl<P, M, S, C> Affixed<P, M, S, C> {
-    pub fn new(prefix: P, middle: M, suffix: S, combined: C) -> Self {
+impl<Pre, Mid, Suf, Com> Affixed<Pre, Mid, Suf, Com> {
+    pub fn new(prefix: Pre, middle: Mid, suffix: Suf, combined: Com) -> Self {
         Self {
             prefix,
             middle,
@@ -15,19 +15,31 @@ impl<P, M, S, C> Affixed<P, M, S, C> {
         }
     }
 
-    pub fn prefix(&self) -> &P {
+    pub fn prefix(&self) -> &Pre {
         &self.prefix
     }
 
-    pub fn middle(&self) -> &M {
+    pub fn middle(&self) -> &Mid {
         &self.middle
     }
 
-    pub fn suffix(&self) -> &S {
+    pub fn suffix(&self) -> &Suf {
         &self.suffix
     }
 
-    pub fn combined(&self) -> &C {
+    pub fn combined(&self) -> &Com {
         &self.combined
+    }
+
+    pub fn map<Pre2, Mid2, Suf2, F: Fn(Pre, Mid, Suf) -> (Pre2, Mid2, Suf2)>(
+        self,
+        f: F,
+    ) -> Affixed<Pre2, Mid2, Suf2, Com> {
+        let (pre2, mid2, suf2) = f(self.prefix, self.middle, self.suffix);
+        Affixed::new(pre2, mid2, suf2, self.combined)
+    }
+
+    pub fn map_combined<Com2, F: Fn(Com) -> Com2>(self, f: F) -> Affixed<Pre, Mid, Suf, Com2> {
+        Affixed::new(self.prefix, self.middle, self.suffix, f(self.combined))
     }
 }

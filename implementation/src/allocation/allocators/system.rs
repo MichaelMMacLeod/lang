@@ -3,9 +3,9 @@ use std::{
     ptr::NonNull,
 };
 
-use crate::allocation::blocks::{blueprinted::Blueprinted, block_dynamic::DynamicBlock};
+use crate::allocation::blocks::{block_dynamic::DynamicBlock, blueprinted::Blueprinted};
 
-use super::allocator::Allocator;
+use super::{allocator::Allocator, deallocator::Deallocator};
 
 #[global_allocator]
 static SYSTEM: System = System;
@@ -18,13 +18,10 @@ pub enum SystemAllocateError {
     SystemAllocateFailed,
 }
 
-impl Allocator<Blueprinted<DynamicBlock>> for Sys {
+impl Allocator<Layout, Blueprinted<DynamicBlock>> for Sys {
     type AllocateError = SystemAllocateError;
 
-    fn allocate(
-        &self,
-        layout: Layout,
-    ) -> Result<Blueprinted<DynamicBlock>, Self::AllocateError> {
+    fn allocate(&self, layout: Layout) -> Result<Blueprinted<DynamicBlock>, Self::AllocateError> {
         if layout.size() == 0 {
             Err(SystemAllocateError::ZeroSizedLayout)
         } else {
@@ -45,10 +42,16 @@ impl Allocator<Blueprinted<DynamicBlock>> for Sys {
     }
 }
 
+impl Deallocator<Blueprinted<DynamicBlock>> for Sys {
+    type DeallocateError;
+
+    fn deallocate(&self, block: Blueprinted<DynamicBlock>) -> Option<Self::DeallocateError> {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::allocation::blocks::map_dynamic_block;
-
     use super::*;
 
     #[test]
@@ -58,7 +61,12 @@ mod tests {
         let layout = Layout::from_size_align(size, align).unwrap();
         let block = Sys.allocate(layout).unwrap();
         assert_eq!(block.blueprint(), layout);
-        block.map(|d| d);
+        block.map(|block| {
+            assert!(block.len() >= size);
+            assert!(block.aligned_to(align));
+            block
+        });
+        // block.block()
     }
 }
 

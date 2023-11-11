@@ -1,4 +1,4 @@
 pub mod system;
 pub mod allocator;
-pub mod affixed;
-pub mod zeroing;
+pub mod affixer;
+pub mod deallocator;
