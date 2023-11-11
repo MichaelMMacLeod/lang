@@ -3,3 +3,8 @@ pub mod initialized;
 pub mod blueprinted;
 pub mod affixed;
 pub mod block_static;
+pub mod slice;
+pub mod aligned;
+pub mod alignment;
+pub mod start;
+pub mod copy_as;
