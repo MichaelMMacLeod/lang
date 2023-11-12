@@ -6,15 +6,11 @@ use std::{
 use crate::{
     alignment::Alignment,
     partition::{Partitioned, TryPartition},
-    slice::AlignedSlice,
+    slice::Slice,
 };
 
 #[global_allocator]
 static GLOBAL_ALLOC: System = System;
-
-pub enum GlobalAllocSize {
-    Bytes(),
-}
 
 pub struct GlobalAlloc {
     layout: Layout,
@@ -25,10 +21,8 @@ pub enum GlobalAllocPartitionError {
     GlobalAllocFailed,
 }
 
-impl TryPartition<AlignedSlice, GlobalAlloc, GlobalAllocPartitionError> for GlobalAlloc {
-    fn try_partition(
-        self,
-    ) -> Result<Partitioned<AlignedSlice, GlobalAlloc>, GlobalAllocPartitionError> {
+impl TryPartition<Slice, GlobalAlloc, GlobalAllocPartitionError> for GlobalAlloc {
+    fn try_partition(self) -> Result<Partitioned<Slice, GlobalAlloc>, GlobalAllocPartitionError> {
         if self.layout.size() == 0 {
             Err(GlobalAllocPartitionError::ZeroSizedLayout)
         } else {
@@ -43,7 +37,7 @@ impl TryPartition<AlignedSlice, GlobalAlloc, GlobalAllocPartitionError> for Glob
                 .map(|ptr| {
                     let slice_ptr = NonNull::slice_from_raw_parts(ptr, self.layout.size());
                     let alignment = unsafe { Alignment::new_unchecked(self.layout.align()) };
-                    let slice = AlignedSlice::new(slice_ptr, alignment);
+                    let slice = Slice::new(slice_ptr, alignment);
                     Partitioned::new(slice, self)
                 })
         }
