@@ -1,11 +1,14 @@
 use std::ptr::NonNull;
 
-pub struct Slice {
-    slice_ptr: NonNull<[u8]>,
+use crate::alignment::Alignment;
+
+pub struct AlignedSlice {
+    slice: NonNull<[u8]>,
+    alignment: Alignment,
 }
 
-impl Slice {
-    pub fn new(slice_ptr: NonNull<[u8]>) -> Self {
-        Self { slice_ptr }
+impl AlignedSlice {
+    pub fn new(slice: NonNull<[u8]>, alignment: Alignment) -> Self {
+        Self { slice, alignment }
     }
 }

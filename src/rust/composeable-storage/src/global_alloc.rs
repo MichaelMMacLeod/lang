@@ -4,9 +4,9 @@ use std::{
 };
 
 use crate::{
-    global_alloc_slice::GlobalAllocSlice,
+    alignment::Alignment,
     partition::{Partitioned, TryPartition},
-    slice::Slice,
+    slice::AlignedSlice,
 };
 
 #[global_allocator]
@@ -25,10 +25,10 @@ pub enum GlobalAllocPartitionError {
     GlobalAllocFailed,
 }
 
-impl TryPartition<GlobalAllocSlice, GlobalAlloc, GlobalAllocPartitionError> for GlobalAlloc {
+impl TryPartition<AlignedSlice, GlobalAlloc, GlobalAllocPartitionError> for GlobalAlloc {
     fn try_partition(
         self,
-    ) -> Result<Partitioned<GlobalAllocSlice, GlobalAlloc>, GlobalAllocPartitionError> {
+    ) -> Result<Partitioned<AlignedSlice, GlobalAlloc>, GlobalAllocPartitionError> {
         if self.layout.size() == 0 {
             Err(GlobalAllocPartitionError::ZeroSizedLayout)
         } else {
@@ -42,12 +42,12 @@ impl TryPartition<GlobalAllocSlice, GlobalAlloc, GlobalAllocPartitionError> for 
                 .ok_or(GlobalAllocPartitionError::GlobalAllocFailed)
                 .map(|ptr| {
                     let slice_ptr = NonNull::slice_from_raw_parts(ptr, self.layout.size());
-                    let slice = Slice::new(slice_ptr);
-                    let global_alloc_slice = GlobalAllocSlice::new(slice, self.layout);
-                    Partitioned::new(global_alloc_slice, self)
+                    let alignment = unsafe { Alignment::new_unchecked(self.layout.align()) };
+                    let slice = AlignedSlice::new(slice_ptr, alignment);
+                    Partitioned::new(slice, self)
                 })
         }
     }
 }
 
-// impl TryMergeUnsafe<GlobalAllocSlice, GlobalAlloc, 
+// impl TryMergeUnsafe<GlobalAllocSlice, GlobalAlloc,
