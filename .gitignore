@@ -1,2 +1,2 @@
-/implementation/target
-/implementation/.vscode
+**/target
+**/.vscode
