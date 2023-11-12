@@ -11,7 +11,10 @@ impl AlignedBlock {
     pub fn new(block: SliceBlock, align: Alignment) -> Option<Self> {
         Layout::from_size_align(block.len(), usize::from(align))
             .ok()
-            .map(|_| unsafe { Self::new_unchecked(block, align) })
+            .and_then(|_| {
+                (block.start_ptr().align_offset(usize::from(align)) == 0)
+                    .then(|| unsafe { Self::new_unchecked(block, align) })
+            })
     }
 
     // SAFETY: 'block' must be allocated with alignment 'align'. Moreover, 'block.len()',
