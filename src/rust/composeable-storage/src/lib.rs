@@ -1,14 +1,11 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub mod partition;
+pub mod affix;
+pub mod slice;
+pub mod merge;
+pub mod alignment;
+pub mod size;
+pub mod align;
+pub mod global_alloc_slice;
+pub mod inclusive_bounds;
+pub mod global_alloc;
+pub mod slice_aligned;
