@@ -12,19 +12,19 @@ use crate::{
 #[global_allocator]
 static GLOBAL_ALLOC: System = System;
 
-pub struct GlobalAlloc {
+pub struct Ram {
     layout: Layout,
 }
 
-pub enum GlobalAllocPartitionError {
+pub enum RamPartitionErrror {
     ZeroSizedLayout,
     GlobalAllocFailed,
 }
 
-impl TryPartition<Slice, GlobalAlloc, GlobalAllocPartitionError> for GlobalAlloc {
-    fn try_partition(self) -> Result<Partitioned<Slice, GlobalAlloc>, GlobalAllocPartitionError> {
+impl TryPartition<Slice, Ram, RamPartitionErrror> for Ram {
+    fn try_partition(self) -> Result<Partitioned<Slice, Ram>, RamPartitionErrror> {
         if self.layout.size() == 0 {
-            Err(GlobalAllocPartitionError::ZeroSizedLayout)
+            Err(RamPartitionErrror::ZeroSizedLayout)
         } else {
             let ptr = unsafe {
                 // Safety: https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html#safety-1
@@ -33,7 +33,7 @@ impl TryPartition<Slice, GlobalAlloc, GlobalAllocPartitionError> for GlobalAlloc
             };
 
             NonNull::new(ptr)
-                .ok_or(GlobalAllocPartitionError::GlobalAllocFailed)
+                .ok_or(RamPartitionErrror::GlobalAllocFailed)
                 .map(|ptr| {
                     let slice_ptr = NonNull::slice_from_raw_parts(ptr, self.layout.size());
                     let alignment = unsafe { Alignment::new_unchecked(self.layout.align()) };
