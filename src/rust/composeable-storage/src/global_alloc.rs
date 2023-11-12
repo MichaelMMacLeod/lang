@@ -6,7 +6,6 @@ use std::{
 use crate::{
     alignment::Alignment,
     global_alloc_slice::GlobalAllocSlice,
-    inclusive_bounds::InclusiveLowerBound,
     partition::{Partition, Partitioned, TryPartition},
     slice::Slice,
     merge::TryMergeUnsafe,

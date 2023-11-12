@@ -2,7 +2,7 @@
 // unstable rust.
 
 use core::{fmt, num};
-use std::{mem, num::NonZeroUsize, cmp, hash};
+use std::{cmp, hash, mem, num::NonZeroUsize};
 
 /// A type storing a `usize` which is a power of two, and thus
 /// represents a possible alignment in the rust abstract machine.
@@ -29,8 +29,7 @@ impl Alignment {
     /// # Examples
     ///
     /// ```
-    /// #![feature(ptr_alignment_type)]
-    /// use std::ptr::Alignment;
+    /// use composeable_storage::alignment::Alignment;
     ///
     /// assert_eq!(Alignment::MIN.as_usize(), 1);
     /// ```
@@ -95,8 +94,7 @@ impl Alignment {
     /// # Examples
     ///
     /// ```
-    /// #![feature(ptr_alignment_type)]
-    /// use std::ptr::Alignment;
+    /// use composeable_storage::alignment::Alignment;
     ///
     /// assert_eq!(Alignment::of::<u8>().log2(), 0);
     /// assert_eq!(Alignment::new(1024).unwrap().log2(), 10);

@@ -1,11 +1,7 @@
 pub mod partition;
-pub mod affix;
 pub mod slice;
 pub mod merge;
 pub mod alignment;
-pub mod size;
-pub mod align;
 pub mod global_alloc_slice;
-pub mod inclusive_bounds;
 pub mod global_alloc;
 pub mod slice_aligned;
