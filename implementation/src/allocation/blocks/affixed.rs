@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use super::contains::Contains;
+use super::{contains::Contains, slice::SliceBlock};
 
 pub struct Affixed<P, M, S, C> {
     prefix: P,
@@ -10,15 +10,6 @@ pub struct Affixed<P, M, S, C> {
 }
 
 impl<P, M, S, C> Affixed<P, M, S, C> {
-    pub fn new(prefix: P, middle: M, suffix: S, combined: C) -> Self {
-        Self {
-            prefix,
-            middle,
-            suffix,
-            combined,
-        }
-    }
-
     pub fn prefix(self) -> PrefixPart<P, M, S, C> {
         self.into()
     }

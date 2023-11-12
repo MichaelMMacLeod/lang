@@ -1,4 +1,4 @@
-use std::{alloc::Layout, ops::Deref, ptr::NonNull};
+use std::{alloc::Layout, ops::Deref};
 
 use super::{aligned::AlignedBlock, contains::Contains, slice::SliceBlock};
 

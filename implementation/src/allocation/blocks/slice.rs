@@ -3,7 +3,7 @@ use std::{
     ptr::{slice_from_raw_parts_mut, NonNull},
 };
 
-use super::{contains::Contains, initialized::Initialized};
+use super::{contains::Contains, initialized::Initialized, split_at::TrySplitOnce};
 
 pub struct SliceBlock {
     block: NonNull<[u8]>,
@@ -11,10 +11,11 @@ pub struct SliceBlock {
 
 impl SliceBlock {
     // SAFETY: 'ptr' must be properly aligned (i.e., it must be aligned
-    // to the alignment of a 'u8', which is 1). Moreover, it must be 
-    // valid to write (not *read*; the slice may be uninitialized) to 
+    // to the alignment of a 'u8', which is 1). Moreover, it must be
+    // valid to write (not *read*; the slice may be uninitialized) to
     // each 'u8' in the slice. It is allowed to pass a pointer to a slice
-    // of length zero to this function.
+    // of length zero to this function, although I know of no good way to
+    // do this in stable Rust.
     pub unsafe fn new_unchecked(ptr: NonNull<[u8]>) -> Self {
         Self { block: ptr }
     }
@@ -30,8 +31,24 @@ impl SliceBlock {
     pub fn start(&self) -> NonNull<u8> {
         unsafe { NonNull::new_unchecked(self.start_ptr()) }
     }
+}
 
-    pub fn try_subdivide_once(&self, start_of_second: usize) -> Option<(Self, Self)> {
+impl Deref for SliceBlock {
+    type Target = NonNull<[u8]>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.block
+    }
+}
+
+impl Contains<SliceBlock> for SliceBlock {
+    fn map_part<F: FnOnce(SliceBlock) -> SliceBlock>(self, f: F) -> Self {
+        f(self)
+    }
+}
+
+impl TrySplitOnce for SliceBlock {
+    fn try_split_once(self, start_of_second: usize) -> Option<(Self, Self)> {
         (start_of_second <= self.len()).then(|| {
             let second_start_ptr = unsafe { self.start_ptr().add(start_of_second) };
             let (first_ptr, second_ptr) = (
@@ -51,30 +68,5 @@ impl SliceBlock {
                 )
             }
         })
-    }
-
-    pub fn try_subdivide_twice(
-        &self,
-        start_of_second: usize,
-        start_of_third: usize,
-    ) -> Option<(Self, Self, Self)> {
-        let third_offset = start_of_third.checked_sub(start_of_second)?;
-        let (prefix, rest) = self.try_subdivide_once(start_of_second)?;
-        let (middle, suffix) = rest.try_subdivide_once(third_offset)?;
-        Some((prefix, middle, suffix))
-    }
-}
-
-impl Deref for SliceBlock {
-    type Target = NonNull<[u8]>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.block
-    }
-}
-
-impl Contains<SliceBlock> for SliceBlock {
-    fn map_part<F: FnOnce(SliceBlock) -> SliceBlock>(self, f: F) -> Self {
-        f(self)
     }
 }
