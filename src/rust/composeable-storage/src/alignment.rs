@@ -1,7 +1,7 @@
 // I coppied this code from the standard library to avoid switching to
 // unstable rust.
 
-use core::{fmt, num};
+use core::{fmt};
 use std::{cmp, hash, mem, num::NonZeroUsize};
 
 /// A type storing a `usize` which is a power of two, and thus

@@ -4,11 +4,9 @@ use std::{
 };
 
 use crate::{
-    alignment::Alignment,
     global_alloc_slice::GlobalAllocSlice,
-    partition::{Partition, Partitioned, TryPartition},
+    partition::{Partitioned, TryPartition},
     slice::Slice,
-    merge::TryMergeUnsafe,
 };
 
 #[global_allocator]
