@@ -1,7 +1,3 @@
-pub trait Partition<L, R> {
-    fn partition(self) -> Partitioned<L, R>;
-}
-
 pub trait TryPartition<L, R, E> {
     fn try_partition(self) -> Result<Partitioned<L, R>, E>;
 }

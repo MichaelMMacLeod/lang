@@ -12,6 +12,10 @@ impl Ram {
         Self { slice, alignment }
     }
 
+    pub fn alignment(&self) -> Alignment {
+        self.alignment
+    }
+
     pub fn start_ptr(&self) -> *mut u8 {
         self.as_ptr() as *mut u8
     }
