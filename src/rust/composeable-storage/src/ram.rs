@@ -5,6 +5,7 @@ use std::{
 
 use crate::{
     alignment::Alignment,
+    merge::TryMergeUnsafe,
     partition::{Partitioned, TryPartition},
     slice::Slice,
 };
@@ -14,6 +15,12 @@ static GLOBAL_ALLOC: System = System;
 
 pub struct Ram {
     layout: Layout,
+}
+
+impl Ram {
+    pub fn new(layout: Layout) -> Self {
+        Self { layout }
+    }
 }
 
 pub enum RamPartitionErrror {
@@ -44,4 +51,11 @@ impl TryPartition<Slice, Ram, RamPartitionErrror> for Ram {
     }
 }
 
-// impl TryMergeUnsafe<GlobalAllocSlice, GlobalAlloc,
+impl TryMergeUnsafe<Slice, Ram, Ram, ()> for Ram {
+    unsafe fn try_merge(p: Partitioned<Slice, Ram>) -> Result<Ram, ()> {
+        p.transform(|slice, ram| {
+            std::alloc::dealloc(slice.start_ptr(), ram.layout);
+            Ok(ram)
+        })
+    }
+}
