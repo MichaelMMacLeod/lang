@@ -6,6 +6,7 @@ use crate::{
 pub trait Version: Sized + PartialOrd + Copy {
     fn first() -> Self;
     fn try_next(self) -> Option<Self>;
+    fn previous(self) -> Self;
 }
 
 // This is adapted from 'new_key_type!' in the 'slotmap' crate.
@@ -41,6 +42,10 @@ impl<T: Copy + PartialOrd + From<usize> + Into<usize>> Version for T {
     fn try_next(self) -> Option<Self> {
         self.into().checked_add(1).map(Into::into)
     }
+
+    fn previous(self) -> Self {
+        self.into().saturating_sub(1).into()
+    }
 }
 
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -65,44 +70,86 @@ impl<V: Version, S> Versioned<V, S> {
         &self.storage
     }
 
-    pub fn transform<T, F: FnOnce(S) -> T>(self, f: F) -> T {
-        f(self.storage)
+    pub fn as_tuple(self) -> (V, S) {
+        (self.version, self.storage)
     }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum VersionedPartitionError<E> {
     NoNextVersion,
-    StoragePartitionError(E),
+    StorageError(E),
 }
 
 impl<E> From<E> for VersionedPartitionError<E> {
     fn from(value: E) -> Self {
-        Self::StoragePartitionError(value)
+        Self::StorageError(value)
     }
 }
 
-impl<A, S: TryPartition<A>, V: Version> TryPartition<A> for Versioned<V, S> {
+impl<A, S: TryPartition<A>, V: Version> TryPartition<Versioned<V, A>> for Versioned<V, S> {
     type TryPartitionError = VersionedPartitionError<S::TryPartitionError>;
-    fn try_partition(self) -> Result<Partitioned<A, Versioned<V, S>>, Self::TryPartitionError> {
-        self.storage.try_partition()?.transform(|a, storage| {
-            self.version
-                .try_next()
-                .ok_or(VersionedPartitionError::NoNextVersion)
-                .map(|version| Partitioned::new(a, Self { storage, version }))
-        })
+
+    fn try_partition(self) -> Result<Partitioned<Versioned<V, A>, Self>, Self::TryPartitionError> {
+        let (data, storage): (A, S) = self.storage.try_partition()?.as_tuple();
+        self.version
+            .try_next()
+            .ok_or(VersionedPartitionError::NoNextVersion)
+            .map(|version| {
+                let data: Versioned<V, A> = Versioned {
+                    storage: data,
+                    version,
+                };
+                let storage: Versioned<V, S> = Versioned { storage, version };
+                Partitioned::new(data, storage)
+            })
     }
 }
 
-impl<Data, Storage: TryMergeUnsafe<Data>, V: Version> TryMergeUnsafe<Data> for Versioned<V, Storage> {
-    type TryMergeUnsafeError = Storage::TryMergeUnsafeError;
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub enum VersionedTryMergeUnsafeError<E> {
+    WrongVersion,
+    StorageError(E),
+}
 
-    unsafe fn try_merge_unsafe(self, data: Data) -> Result<Self, Self::TryMergeUnsafeError> {
-        self.storage
-            .try_merge_unsafe(data)
-            .map(|storage| Versioned { storage, ..self })
+impl<E> From<E> for VersionedTryMergeUnsafeError<E> {
+    fn from(value: E) -> Self {
+        Self::StorageError(value)
     }
 }
+
+impl<Data, Storage: TryMergeUnsafe<Data>, V: Version> TryMergeUnsafe<Versioned<V, Data>>
+    for Versioned<V, Storage>
+{
+    type TryMergeUnsafeError = VersionedTryMergeUnsafeError<Storage::TryMergeUnsafeError>;
+
+    unsafe fn try_merge_unsafe(
+        self,
+        data: Versioned<V, Data>,
+    ) -> Result<Self, Self::TryMergeUnsafeError> {
+        if self.version != data.version {
+            Err(VersionedTryMergeUnsafeError::WrongVersion)
+        } else {
+            let storage = self.storage.try_merge_unsafe(data.storage)?;
+            Ok(Versioned {
+                storage,
+                version: self.version.previous(),
+            })
+        }
+    }
+}
+
+// impl<S, V: Version> Versioned<V, S> {
+//     pub unsafe fn try_merge_unsafe<D>(
+//         self,
+//         data: Versioned<V, D>,
+//     ) -> Result<S, S::TryMergeUnsafeError>
+//     where
+//         S: TryMergeUnsafe<D>,
+//     {
+//         self.try_merge_unsafe(data)
+//     }
+// }
 
 #[cfg(test)]
 mod test {
@@ -117,26 +164,26 @@ mod test {
         define_usize_version! {
             struct V;
         }
-        let v0: Versioned<V, _> = Versioned::new(UnusedRam::new(
+        let unused_ram_0: Versioned<V, _> = Versioned::new(UnusedRam::new(
             System,
             Layout::from_size_align(16, 64).unwrap(),
         ));
-        let v0v = *v0.version();
+        let unused_ram_0_version_a = *unused_ram_0.version();
 
-        let v0p = v0.clone().try_partition().unwrap();
-        let (ram0, v1) = v0p.clone().as_tuple();
-        let v1v = *v1.version();
-        assert!(v0v < v1v);
+        let (ram_1, unused_ram_1) = unused_ram_0.try_partition().unwrap().as_tuple();
+        let unused_ram_1_version_a = *unused_ram_1.version();
+        assert!(unused_ram_0_version_a < unused_ram_1_version_a);
 
-        let v1p = v1.clone().try_partition().unwrap();
-        let (ram1, v2) = v1p.clone().as_tuple();
-        let v2v = *v2.version();
-        assert!(v1v < v2v);
+        let (ram_2, unused_ram_2) = unused_ram_1.try_partition().unwrap().as_tuple();
+        let unused_ram_2_version_a = *unused_ram_2.version();
+        assert!(unused_ram_1_version_a < unused_ram_2_version_a);
 
-        let v00 = unsafe { v0p.try_merge_unchecked().unwrap() };
-        assert_eq!(*v00.version(), v1v);
+        let unused_ram_1 = unsafe { unused_ram_2.try_merge_unsafe(ram_2).unwrap() };
+        let unused_ram_1_version_b = *unused_ram_1.version();
+        assert_eq!(unused_ram_1_version_b, unused_ram_1_version_a);
 
-        let v10 = unsafe { v1p.try_merge_unchecked().unwrap() };
-        assert_eq!(*v10.version(), v2v);
+        let unused_ram_0 = unsafe { unused_ram_1.try_merge_unsafe(ram_1).unwrap() };
+        let unused_ram_0_version_b = *unused_ram_0.version();
+        assert_eq!(unused_ram_0_version_a, unused_ram_0_version_b);
     }
 }

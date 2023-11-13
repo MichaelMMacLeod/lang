@@ -8,3 +8,4 @@ pub mod affixed_ram;
 pub mod aligned;
 pub mod bytes;
 pub mod version;
+mod all_macro;

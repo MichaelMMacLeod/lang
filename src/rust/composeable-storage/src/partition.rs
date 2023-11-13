@@ -5,6 +5,7 @@ pub trait TryPartition<Data>: Sized {
     fn try_partition(self) -> Result<Partitioned<Data, Self>, Self::TryPartitionError>;
 }
 
+#[must_use]
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Partitioned<Data, Storage> {
     data: Data,
@@ -27,17 +28,10 @@ impl<D, S> Partitioned<D, S> {
     pub fn as_tuple(self) -> (D, S) {
         (self.data, self.storage)
     }
-
-    pub fn transform<T, F>(self, f: F) -> T
-    where
-        F: FnOnce(D, S) -> T,
-    {
-        f(self.data, self.storage)
-    }
 }
 
 impl<D, S: TryMergeUnsafe<D>> Partitioned<D, S> {
-    pub unsafe fn try_merge_unchecked(self) -> Result<S, S::TryMergeUnsafeError> {
+    pub unsafe fn try_merge_unsafe(self) -> Result<S, S::TryMergeUnsafeError> {
         self.storage.try_merge_unsafe(self.data)
     }
 }

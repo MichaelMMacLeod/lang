@@ -11,32 +11,32 @@ use crate::{
     ram::Ram,
 };
 
-/// Represents all of the unused [`Ram`] that can be allocated with
-/// [`std::alloc::GlobalAlloc`].
+/// Represents all of the unused slices of RAM which can be returned
+/// from [`GlobalAlloc::alloc`] using the same [`Layout`]. See [`Ram`]
+/// for an example of allocation and deallocation.
 ///
-/// In principle, "unused [`Ram`]" should mean [`Ram`] that can be
-/// used by programs other than this one. In reality, implementations
-/// of [`std::alloc::GlobalAlloc`] often won't---at least
+/// In principle, "unused RAM" should mean RAM that can be used by
+/// other processes. In reality, implementations of
+/// [`std::alloc::GlobalAlloc`] often won't---at least
 /// immediately---give memory back to the operating system when
-/// [`std::alloc::dealloc`] is called, reserving such freed memory for
-/// subsequent allocations by the same program. The perceived bennefit
-/// of this behavior is that when the program calls
-/// [`std::alloc::alloc`] later on, it is possible to reuse the
-/// deallocated memory instead of asking the operating system for new
-/// memory (e.g., via `brk()` or `mmap()`) which can be very
-/// slow. Unfortunately, this makes the task of implementing
-/// [`std::alloc::alloc`] a great challenge, and imposes the overhead
-/// of keeping track of such freed memory on all programs, each of
-/// which have access to context sensitive information about how to
-/// partition the unused [`Ram`] which is inaccesible to any
-/// [`std::alloc::GlobalAlloc`] implementation. The behavior of
-/// [`std::alloc::alloc`] reusing deallocated [`Ram`] for efficiency
-/// should not be relied upon; it should be expected that
-/// [`UnusedRam::<G>::try_partition`] is very slow. This means it is
-/// better to partition out a large slice of the unused [`Ram`] a
-/// small number of times (and then further partition that [`Ram`] if
-/// necessary) than it is to partition out small slices of unused
-/// [`Ram`] a large number of times.
+/// [`GlobalAlloc::dealloc`] is called, reserving such freed memory
+/// for subsequent allocations. The perceived benefit of this behavior
+/// is that if [`GlobalAlloc::alloc`] is called later on, it may be
+/// possible to avoid asking the operating system for more RAM via
+/// `brk()` or `mmap()` (on POSIX-compliant operating systems) which
+/// can be very slow. Unfortunately, this imposes the overhead of
+/// keeping track of such freed memory on all processes with a global
+/// allocator. Given that each process almost certainly has more
+/// information about the way it partitions the unused RAM than the
+/// global allocator, it makes sense to parameterize this type on a
+/// simple global allocator which doesn't hold on to any deallocated
+/// ram. The behavior of [`GlobalAlloc::alloc`] reusing deallocated
+/// RAM for efficiency should not be relied upon; it should be
+/// expected that [`UnusedRam::<G>::try_partition`] is very slow. This
+/// means it is better to partition out a large slice of the unused
+/// RAM a small number of times (and then further partition that
+/// [`Ram`] if necessary) than it is to partition out small slices of
+/// unused RAM a large number of times.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct UnusedRam<G: GlobalAlloc> {
     global_alloc: G,
@@ -58,12 +58,11 @@ pub enum UnusedRamPartitionErrror {
     GlobalAllocFailed,
 }
 
-/// Partitions the computer's unused random acces memory into a slice
-/// of [`Ram`] and the rest of the [`UnusedRam`], where "unused" is to
-/// be understood as the memory that is allocatable via
-/// [`GlobalAlloc::alloc`] via `G`.
+/// Partitions the computer's unused RAM into a slice of [`Ram`] and
+/// the rest of the [`UnusedRam`].
 impl<G: GlobalAlloc> TryPartition<Ram> for UnusedRam<G> {
     type TryPartitionError = UnusedRamPartitionErrror;
+
     fn try_partition(self) -> Result<Partitioned<Ram, Self>, UnusedRamPartitionErrror> {
         if self.layout.size() == 0 {
             Err(UnusedRamPartitionErrror::ZeroSizedLayout)
@@ -87,12 +86,11 @@ impl<G: GlobalAlloc> TryPartition<Ram> for UnusedRam<G> {
     }
 }
 
-/// Merges a no-longer-needed slice of the computer's random access
-/// memory back into the [`UnusedRam`] so it may be used by other
-/// programs.
+/// Merges a no-longer-needed slice of the computer's RAM back into
+/// its unused RAM so such RAM may be used by other processes.
 ///
 /// Safety: the [`Ram`] must have been originally partitioned from the
-/// same [`UnusedRam`], and must not have not already been merged.
+/// same [`UnusedRam`] and must not have already been merged.
 impl<G: GlobalAlloc> TryMergeUnsafe<Ram> for UnusedRam<G> {
     type TryMergeUnsafeError = Infallible;
 
