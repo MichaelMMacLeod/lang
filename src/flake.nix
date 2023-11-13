@@ -35,40 +35,15 @@
             extensions = [ "miri-preview" "rust-src" ];
           }));
       in {
-        devShells.miri = pkgs.mkShell {
-          shellHook = ''
-            ${prelude "miri"}
-            echo "\
-            This environment contains the tool 'miri' (an interpreter
-            for Rust's mid-level-IR), which can help find certain
-            cases of undefined behavior in Rust programs. Running
-            'miri' requires the nightly version of Rust whereas the
-            crates herein are implemented in stable Rust---this is why
-            'miri' is provided in a separate devshell.
-
-            To run 'miri' on the tests, use:
-
-              nix develop .#miri -c cargo-miri-test
-
-            Alternatively, once inside this devshell, use:
-
-              cargo miri test
-            "
-            cargo miri setup
-          '';
-          buildInputs = with pkgs; [
-            nightly
-            (writeShellScriptBin "cargo-miri-test" ''
-              cargo miri test
-            '')
-          ];
-        };
         devShells.default = pkgs.mkShell {
           shellHook = ''
             ${prelude "default"}
-            devshell.current.programs
+            export DEVSHELL_NAME=default
+            ./devshells.current.add-gc-root
+            devshells.current.programs
           '';
           buildInputs = with pkgs; [
+            jq
             stable
             cargo-watch
             (vscode-with-extensions.override {
@@ -77,7 +52,7 @@
                 [ rust-lang.rust-analyzer ];
             })
             wxmaxima
-            (writeShellScriptBin "devshell.current.programs" ''
+            (writeShellScriptBin "devshells.current.programs" ''
               echo "\
               devshells.current.programs
 
@@ -172,6 +147,34 @@
             (writeShellScriptBin "document-on-save" ''
               cargo doc --open
               cargo watch --shell 'cargo doc $@'
+            '')
+          ];
+        };
+                devShells.miri = pkgs.mkShell {
+          shellHook = ''
+            ${prelude "miri"}
+            echo "\
+            This environment contains the tool 'miri' (an interpreter
+            for Rust's mid-level-IR), which can help find certain
+            cases of undefined behavior in Rust programs. Running
+            'miri' requires the nightly version of Rust whereas the
+            crates herein are implemented in stable Rust---this is why
+            'miri' is provided in a separate devshell.
+
+            To run 'miri' on the tests, use:
+
+              nix develop .#miri -c cargo-miri-test
+
+            Alternatively, once inside this devshell, use:
+
+              cargo miri test
+            "
+            cargo miri setup
+          '';
+          buildInputs = with pkgs; [
+            nightly
+            (writeShellScriptBin "cargo-miri-test" ''
+              cargo miri test
             '')
           ];
         };
