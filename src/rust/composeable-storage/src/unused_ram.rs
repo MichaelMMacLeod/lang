@@ -87,7 +87,7 @@ impl<G: GlobalAlloc> TryPartition<Ram> for UnusedRam<G> {
 }
 
 /// Merges a no-longer-needed slice of the computer's RAM back into
-/// its unused RAM so such RAM may be used by other processes.
+/// its unused RAM so it may be used by other processes.
 ///
 /// Safety: the [`Ram`] must have been originally partitioned from the
 /// same [`UnusedRam`] and must not have already been merged.
