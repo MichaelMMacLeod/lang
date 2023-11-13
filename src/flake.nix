@@ -170,6 +170,7 @@
               cargo watch --shell 'cargo test $@'
             '')
             (writeShellScriptBin "document-on-save" ''
+              cargo doc --open
               cargo watch --shell 'cargo doc $@'
             '')
           ];
