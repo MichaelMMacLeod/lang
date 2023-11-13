@@ -5,4 +5,5 @@ pub mod unused_ram;
 pub mod slice;
 pub mod affix;
 pub mod affixed_ram;
-pub mod aligned_size;
+pub mod aligned;
+pub mod bytes;
