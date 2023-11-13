@@ -62,7 +62,8 @@ pub enum UnusedRamPartitionErrror {
 /// of [`Ram`] and the rest of the [`UnusedRam`], where "unused" is to
 /// be understood as the memory that is allocatable via
 /// [`GlobalAlloc::alloc`] via `G`.
-impl<G: GlobalAlloc> TryPartition<Ram, UnusedRamPartitionErrror> for UnusedRam<G> {
+impl<G: GlobalAlloc> TryPartition<Ram> for UnusedRam<G> {
+    type TryPartitionError = UnusedRamPartitionErrror;
     fn try_partition(self) -> Result<Partitioned<Ram, Self>, UnusedRamPartitionErrror> {
         if self.layout.size() == 0 {
             Err(UnusedRamPartitionErrror::ZeroSizedLayout)

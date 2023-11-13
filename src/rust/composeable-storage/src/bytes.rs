@@ -28,8 +28,8 @@ enum AlignedOffsetBytesPartitionError {
     Overflow,
 }
 
-impl TryPartition<Bytes, AlignedOffsetBytesPartitionError> for AlignedOffsetBytes {
-    fn try_partition(self) -> Result<Partitioned<Bytes, Self>, AlignedOffsetBytesPartitionError> {
-        todo!()
-    }
-}
+// impl TryPartition<Bytes, AlignedOffsetBytesPartitionError> for AlignedOffsetBytes {
+//     fn try_partition(self) -> Result<Partitioned<Bytes, Self>, AlignedOffsetBytesPartitionError> {
+//         todo!()
+//     }
+// }

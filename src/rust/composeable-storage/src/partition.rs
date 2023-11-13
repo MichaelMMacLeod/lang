@@ -1,48 +1,43 @@
 use crate::merge::TryMergeUnchecked;
 
-pub trait TryPartition<L, E>: Sized {
-    fn try_partition(self) -> Result<Partitioned<L, Self>, E>;
+pub trait TryPartition<Data>: Sized {
+    type TryPartitionError;
+    fn try_partition(self) -> Result<Partitioned<Data, Self>, Self::TryPartitionError>;
 }
 
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct Partitioned<L, R> {
-    left: L,
-    right: R,
+pub struct Partitioned<Data, Storage> {
+    data: Data,
+    storage: Storage,
 }
 
-impl<L, R> Partitioned<L, R> {
-    pub fn new(left: L, right: R) -> Self {
-        Self { left, right }
+impl<D, S> Partitioned<D, S> {
+    pub fn new(data: D, storage: S) -> Self {
+        Self { data, storage }
     }
 
-    pub fn left(&self) -> &L {
-        &self.left
+    pub fn data(&self) -> &D {
+        &self.data
     }
 
-    pub fn right(&self) -> &R {
-        &self.right
+    pub fn storage(&self) -> &S {
+        &self.storage
     }
 
-    pub fn as_tuple(self) -> (L, R) {
-        (self.left, self.right)
+    pub fn as_tuple(self) -> (D, S) {
+        (self.data, self.storage)
     }
 
     pub fn transform<T, F>(self, f: F) -> T
     where
-        F: FnOnce(L, R) -> T,
+        F: FnOnce(D, S) -> T,
     {
-        f(self.left, self.right)
+        f(self.data, self.storage)
     }
 }
 
-impl<L, R: TryMergeUnchecked<L>> Partitioned<L, R> {
-    pub unsafe fn try_merge_unchecked(self) -> Result<R, R::MergeError> {
-        self.right.try_merge_unchecked(self.left)
+impl<D, S: TryMergeUnchecked<D>> Partitioned<D, S> {
+    pub unsafe fn try_merge_unchecked(self) -> Result<S, S::MergeError> {
+        self.storage.try_merge_unchecked(self.data)
     }
 }
-
-// impl<L, E, M: TryMergeUnsafe<L, E>> Partitioned<L, M> {
-//     unsafe fn try_merge(self) -> Result<L, E> {
-//         TryMergeUnsafe::try_merge(self)
-//     }
-// }

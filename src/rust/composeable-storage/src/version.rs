@@ -86,10 +86,9 @@ impl<E> From<E> for VersionedPartitionError<E> {
     }
 }
 
-impl<A, E, S: TryPartition<A, E>, V: Version> TryPartition<A, VersionedPartitionError<E>>
-    for Versioned<V, S>
-{
-    fn try_partition(self) -> Result<Partitioned<A, Versioned<V, S>>, VersionedPartitionError<E>> {
+impl<A, S: TryPartition<A>, V: Version> TryPartition<A> for Versioned<V, S> {
+    type TryPartitionError = VersionedPartitionError<S::TryPartitionError>;
+    fn try_partition(self) -> Result<Partitioned<A, Versioned<V, S>>, Self::TryPartitionError> {
         self.storage.try_partition()?.transform(|a, storage| {
             self.version
                 .try_next()
