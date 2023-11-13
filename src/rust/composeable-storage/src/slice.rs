@@ -2,6 +2,7 @@ use std::{ptr::NonNull, ops::Deref, u8};
 
 use crate::alignment::Alignment;
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Ram {
     slice: NonNull<[u8]>,
     alignment: Alignment,

@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     alignment::Alignment,
-    merge::TryMergeUnsafe,
+    merge::TryMergeUnchecked,
     partition::{Partitioned, TryPartition},
     slice::Ram,
 };
@@ -91,11 +91,12 @@ impl<G: GlobalAlloc> TryPartition<Ram, UnusedRamPartitionErrror> for UnusedRam<G
 /// programs.
 ///
 /// Safety: the [`Ram`] must have been originally partitioned from the
-/// same [`UnusedRam`].
-impl<G: GlobalAlloc> TryMergeUnsafe<Ram, Infallible> for UnusedRam<G> {
-    unsafe fn try_merge(p: Partitioned<Ram, Self>) -> Result<Self, Infallible> {
-        let (ram, unused_ram) = p.as_tuple();
-        std::alloc::dealloc(ram.start_ptr(), unused_ram.layout);
-        Ok(unused_ram)
+/// same [`UnusedRam`], and must not have not already been merged.
+impl<G: GlobalAlloc> TryMergeUnchecked<Ram> for UnusedRam<G> {
+    type MergeError = Infallible;
+
+    unsafe fn try_merge_unchecked(self, ram: Ram) -> Result<Self, Self::MergeError> {
+        std::alloc::GlobalAlloc::dealloc(&self.global_alloc, ram.start_ptr(), self.layout);
+        Ok(self)
     }
 }

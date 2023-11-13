@@ -1,4 +1,7 @@
-use crate::partition::{Partitioned, TryPartition};
+use crate::{
+    merge::TryMergeUnchecked,
+    partition::{Partitioned, TryPartition},
+};
 
 pub trait Version: Sized + PartialOrd + Copy {
     fn first() -> Self;
@@ -96,6 +99,16 @@ impl<A, E, S: TryPartition<A, E>, V: Version> TryPartition<A, VersionedPartition
     }
 }
 
+impl<L, R: TryMergeUnchecked<L>, V: Version> TryMergeUnchecked<L> for Versioned<V, R> {
+    type MergeError = R::MergeError;
+
+    unsafe fn try_merge_unchecked(self, left: L) -> Result<Self, Self::MergeError> {
+        self.storage
+            .try_merge_unchecked(left)
+            .map(|storage| Versioned { storage, ..self })
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::alloc::{Layout, System};
@@ -115,14 +128,20 @@ mod test {
         ));
         let v0v = *v0.version();
 
-        let (ram1, v1) = v0.try_partition().unwrap().as_tuple();
+        let v0p = v0.clone().try_partition().unwrap();
+        let (ram0, v1) = v0p.clone().as_tuple();
         let v1v = *v1.version();
         assert!(v0v < v1v);
 
-        let (ram2, v2) = v1.try_partition().unwrap().as_tuple();
+        let v1p = v1.clone().try_partition().unwrap();
+        let (ram1, v2) = v1p.clone().as_tuple();
         let v2v = *v2.version();
         assert!(v1v < v2v);
 
-        // v2.try_merge(ram1);
+        let v00 = unsafe { v0p.try_merge_unchecked().unwrap() };
+        assert_eq!(*v00.version(), v1v);
+
+        let v10 = unsafe { v1p.try_merge_unchecked().unwrap() };
+        assert_eq!(*v10.version(), v2v);
     }
 }
