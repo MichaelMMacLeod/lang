@@ -28,6 +28,11 @@
           "${c2}(nix develop .#${name}) ${c1}\\u@\\h:${c1b}\\w${c0}\\n\\$ ";
         prelude = devShellName: ''
           export PS1='${makePromptString devShellName}'
+          export DEVSHELL_NAME='${devShellName}'
+          if [ -x ./devshells.current.add-gc-root ]; then
+            ./devshells.current.add-gc-root
+          fi
+          devshells.current.programs
         '';
         stable = pkgs.rust-bin.stable.latest.default;
         nightly = (pkgs.rust-bin.selectLatestNightlyWith (toolchain:
@@ -38,11 +43,6 @@
         devShells.default = pkgs.mkShell {
           shellHook = ''
             ${prelude "default"}
-
-            export DEVSHELL_NAME=default
-            ./devshells.current.add-gc-root
-
-            devshells.current.programs
           '';
           buildInputs = with pkgs; [
             jq
@@ -101,7 +101,13 @@
                 the current directory or any subdirectory is
                 saved. Arguments to these commands are passed to
                 'cargo'; see 'cargo --help' for the possible
-                arguments."
+                arguments.
+
+              test-with-miri
+
+                Run the tests in the Rust crate in the current
+                directory with 'miri', a tool which can help discover
+                undefined behavior in Rust programs."
             '')
             (writeShellScriptBin "devshells.list" ''
               echo "\
@@ -113,11 +119,11 @@
 
               nix develop .#miri
 
-                Contains 'cargo miri test', a tool which may help
-                discover undefined behavior in the tests of the crate
-                in the current directory. 'miri' is only available on
-                the nightly release channel which is why it is
-                provided in a seperate devshell."
+                Contains 'miri', a tool which may help discover
+                undefined behavior in the tests of the crate in the
+                current directory. 'miri' is only available on the
+                nightly release channel which is why it is provided in
+                a seperate devshell."
             '')
             (writeShellScriptBin "check-with-optimizations" ''
               cargo check --release $@
@@ -150,35 +156,21 @@
               cargo doc --open
               cargo watch --shell 'cargo doc $@'
             '')
+            (writeShellScriptBin "test-with-miri" ''
+              nix develop .#miri -c cargo-miri-test
+            '')
           ];
         };
-                devShells.miri = pkgs.mkShell {
+        devShells.miri = pkgs.mkShell {
           shellHook = ''
             ${prelude "miri"}
-
-            export DEVSHELL_NAME=miri
-            ./devshells.current.add-gc-root
-
-            echo "\
-            This environment contains the tool 'miri' (an interpreter
-            for Rust's mid-level-IR), which can help find certain
-            cases of undefined behavior in Rust programs. Running
-            'miri' requires the nightly version of Rust whereas the
-            crates herein are implemented in stable Rust---this is why
-            'miri' is provided in a separate devshell.
-
-            To run 'miri' on the tests, use:
-
-              nix develop .#miri -c cargo-miri-test
-
-            Alternatively, once inside this devshell, use:
-
-              cargo miri test
-            "
             cargo miri setup
           '';
           buildInputs = with pkgs; [
             nightly
+            (writeShellScriptBin "devshells.current.programs" ''
+              exit 0
+            '')
             (writeShellScriptBin "cargo-miri-test" ''
               cargo miri test
             '')
