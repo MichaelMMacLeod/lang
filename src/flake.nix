@@ -38,8 +38,10 @@
         devShells.default = pkgs.mkShell {
           shellHook = ''
             ${prelude "default"}
+
             export DEVSHELL_NAME=default
             ./devshells.current.add-gc-root
+
             devshells.current.programs
           '';
           buildInputs = with pkgs; [
@@ -153,6 +155,10 @@
                 devShells.miri = pkgs.mkShell {
           shellHook = ''
             ${prelude "miri"}
+
+            export DEVSHELL_NAME=miri
+            ./devshells.current.add-gc-root
+
             echo "\
             This environment contains the tool 'miri' (an interpreter
             for Rust's mid-level-IR), which can help find certain
