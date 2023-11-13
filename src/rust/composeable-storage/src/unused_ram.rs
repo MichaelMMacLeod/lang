@@ -6,13 +6,13 @@ use std::{
 
 use crate::{
     alignment::Alignment,
-    merge::TryMergeUnchecked,
+    merge::TryMergeUnsafe,
     partition::{Partitioned, TryPartition},
-    slice::Ram,
+    ram::Ram,
 };
 
-/// Represents all of the unused [`Ram`] (random access memory) that
-/// can be allocated with [`std::alloc::GlobalAlloc`].
+/// Represents all of the unused [`Ram`] that can be allocated with
+/// [`std::alloc::GlobalAlloc`].
 ///
 /// In principle, "unused [`Ram`]" should mean [`Ram`] that can be
 /// used by programs other than this one. In reality, implementations
@@ -93,10 +93,10 @@ impl<G: GlobalAlloc> TryPartition<Ram> for UnusedRam<G> {
 ///
 /// Safety: the [`Ram`] must have been originally partitioned from the
 /// same [`UnusedRam`], and must not have not already been merged.
-impl<G: GlobalAlloc> TryMergeUnchecked<Ram> for UnusedRam<G> {
-    type MergeError = Infallible;
+impl<G: GlobalAlloc> TryMergeUnsafe<Ram> for UnusedRam<G> {
+    type TryMergeUnsafeError = Infallible;
 
-    unsafe fn try_merge_unchecked(self, ram: Ram) -> Result<Self, Self::MergeError> {
+    unsafe fn try_merge_unsafe(self, ram: Ram) -> Result<Self, Self::TryMergeUnsafeError> {
         std::alloc::GlobalAlloc::dealloc(&self.global_alloc, ram.start_ptr(), self.layout);
         Ok(self)
     }

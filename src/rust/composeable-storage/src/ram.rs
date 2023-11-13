@@ -2,6 +2,8 @@ use std::{ptr::NonNull, ops::Deref, u8};
 
 use crate::alignment::Alignment;
 
+
+/// An aligned slice of the computer's random access memory.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Ram {
     slice: NonNull<[u8]>,

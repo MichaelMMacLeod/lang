@@ -1,15 +1,15 @@
 use crate::{
-    merge::TryMergeUnchecked,
+    merge::TryMergeUnsafe,
     partition::{Partitioned, TryPartition},
 };
 
 pub trait Version: Sized + PartialOrd + Copy {
     fn first() -> Self;
     fn try_next(self) -> Option<Self>;
-    fn next(self) -> Self;
 }
 
 // This is adapted from 'new_key_type!' in the 'slotmap' crate.
+#[macro_export]
 macro_rules! define_usize_version {
     ( $(#[$outer:meta])* $vis:vis struct $name:ident; $($others:tt)* ) => {
         $(#[$outer])*
@@ -40,10 +40,6 @@ impl<T: Copy + PartialOrd + From<usize> + Into<usize>> Version for T {
 
     fn try_next(self) -> Option<Self> {
         self.into().checked_add(1).map(Into::into)
-    }
-
-    fn next(self) -> Self {
-        self.into().wrapping_add(1).into()
     }
 }
 
@@ -98,12 +94,12 @@ impl<A, S: TryPartition<A>, V: Version> TryPartition<A> for Versioned<V, S> {
     }
 }
 
-impl<L, R: TryMergeUnchecked<L>, V: Version> TryMergeUnchecked<L> for Versioned<V, R> {
-    type MergeError = R::MergeError;
+impl<Data, Storage: TryMergeUnsafe<Data>, V: Version> TryMergeUnsafe<Data> for Versioned<V, Storage> {
+    type TryMergeUnsafeError = Storage::TryMergeUnsafeError;
 
-    unsafe fn try_merge_unchecked(self, left: L) -> Result<Self, Self::MergeError> {
+    unsafe fn try_merge_unsafe(self, data: Data) -> Result<Self, Self::TryMergeUnsafeError> {
         self.storage
-            .try_merge_unchecked(left)
+            .try_merge_unsafe(data)
             .map(|storage| Versioned { storage, ..self })
     }
 }

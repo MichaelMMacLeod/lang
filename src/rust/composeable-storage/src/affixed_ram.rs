@@ -3,7 +3,7 @@ use std::alloc::Layout;
 use crate::{
     affix::{Affixed, Affixer},
     partition::{Partitioned, TryPartition},
-    slice::Ram,
+    ram::Ram,
 };
 
 pub struct AffixedRam(Affixed<Ram, Ram, Ram>);

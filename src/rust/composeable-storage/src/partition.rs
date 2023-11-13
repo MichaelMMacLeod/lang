@@ -1,4 +1,4 @@
-use crate::merge::TryMergeUnchecked;
+use crate::merge::TryMergeUnsafe;
 
 pub trait TryPartition<Data>: Sized {
     type TryPartitionError;
@@ -36,8 +36,8 @@ impl<D, S> Partitioned<D, S> {
     }
 }
 
-impl<D, S: TryMergeUnchecked<D>> Partitioned<D, S> {
-    pub unsafe fn try_merge_unchecked(self) -> Result<S, S::MergeError> {
-        self.storage.try_merge_unchecked(self.data)
+impl<D, S: TryMergeUnsafe<D>> Partitioned<D, S> {
+    pub unsafe fn try_merge_unchecked(self) -> Result<S, S::TryMergeUnsafeError> {
+        self.storage.try_merge_unsafe(self.data)
     }
 }
