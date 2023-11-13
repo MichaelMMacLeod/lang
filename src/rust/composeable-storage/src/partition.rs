@@ -1,5 +1,5 @@
-pub trait TryPartition<L, R, E> {
-    fn try_partition(self) -> Result<Partitioned<L, R>, E>;
+pub trait TryPartition<L, E>: Sized {
+    fn try_partition(self) -> Result<Partitioned<L, Self>, E>;
 }
 
 pub struct Partitioned<L, R> {
@@ -18,6 +18,10 @@ impl<L, R> Partitioned<L, R> {
 
     pub fn right(&self) -> &R {
         &self.right
+    }
+
+    pub fn as_tuple(self) -> (L, R) {
+        (self.left, self.right)
     }
 
     pub fn transform<T, F>(self, f: F) -> T

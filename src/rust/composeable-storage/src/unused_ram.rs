@@ -1,5 +1,6 @@
 use std::{
     alloc::{GlobalAlloc, Layout},
+    convert::Infallible,
     ptr::NonNull,
 };
 
@@ -11,23 +12,24 @@ use crate::{
 };
 
 /// Represents all of the unused [`Ram`] (random access memory) that
-/// can be allocated with [`GlobalAlloc`].
+/// can be allocated with [`std::alloc::GlobalAlloc`].
 ///
 /// In principle, "unused [`Ram`]" should mean [`Ram`] that can be
 /// used by programs other than this one. In reality, implementations
-/// of [`GlobalAlloc`] often won't---at least immediately---give
-/// memory back to the operating system when [`std::alloc::dealloc`]
-/// is called, reserving such freed memory for subsequent allocations
-/// by the same program. The perceived bennefit of this behavior is
-/// that when the program calls [`std::alloc::alloc`] later on, it is
-/// possible to reuse the deallocated memory instead of asking the
-/// operating system for new memory (e.g., via `brk()` or `mmap()`)
-/// which can be very slow. Unfortunately, this makes the task of
-/// implementing [`std::alloc::alloc`] a great challenge, and imposes
-/// the overhead of keeping track of such freed memory on all
-/// programs, each of which have access to context sensitive
-/// information about how to partition the unused [`Ram`] which is
-/// inaccesible to any [`GlobalAlloc`] implementation. The behavior of
+/// of [`std::alloc::GlobalAlloc`] often won't---at least
+/// immediately---give memory back to the operating system when
+/// [`std::alloc::dealloc`] is called, reserving such freed memory for
+/// subsequent allocations by the same program. The perceived bennefit
+/// of this behavior is that when the program calls
+/// [`std::alloc::alloc`] later on, it is possible to reuse the
+/// deallocated memory instead of asking the operating system for new
+/// memory (e.g., via `brk()` or `mmap()`) which can be very
+/// slow. Unfortunately, this makes the task of implementing
+/// [`std::alloc::alloc`] a great challenge, and imposes the overhead
+/// of keeping track of such freed memory on all programs, each of
+/// which have access to context sensitive information about how to
+/// partition the unused [`Ram`] which is inaccesible to any
+/// [`std::alloc::GlobalAlloc`] implementation. The behavior of
 /// [`std::alloc::alloc`] reusing deallocated [`Ram`] for efficiency
 /// should not be relied upon; it should be expected that
 /// [`UnusedRam::<G>::try_partition`] is very slow. This means it is
@@ -35,6 +37,7 @@ use crate::{
 /// small number of times (and then further partition that [`Ram`] if
 /// necessary) than it is to partition out small slices of unused
 /// [`Ram`] a large number of times.
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct UnusedRam<G: GlobalAlloc> {
     global_alloc: G,
     layout: Layout,
@@ -49,15 +52,18 @@ impl<G: GlobalAlloc> UnusedRam<G> {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum UnusedRamPartitionErrror {
     ZeroSizedLayout,
     GlobalAllocFailed,
 }
 
 /// Partitions the computer's unused random acces memory into a slice
-/// of [`Ram`] and the rest of the [`UnusedRam`].
-impl<G: GlobalAlloc> TryPartition<Ram, UnusedRam<G>, UnusedRamPartitionErrror> for UnusedRam<G> {
-    fn try_partition(self) -> Result<Partitioned<Ram, UnusedRam<G>>, UnusedRamPartitionErrror> {
+/// of [`Ram`] and the rest of the [`UnusedRam`], where "unused" is to
+/// be understood as the memory that is allocatable via
+/// [`GlobalAlloc::alloc`] via `G`.
+impl<G: GlobalAlloc> TryPartition<Ram, UnusedRamPartitionErrror> for UnusedRam<G> {
+    fn try_partition(self) -> Result<Partitioned<Ram, Self>, UnusedRamPartitionErrror> {
         if self.layout.size() == 0 {
             Err(UnusedRamPartitionErrror::ZeroSizedLayout)
         } else {
@@ -86,11 +92,10 @@ impl<G: GlobalAlloc> TryPartition<Ram, UnusedRam<G>, UnusedRamPartitionErrror> f
 ///
 /// Safety: the [`Ram`] must have been originally partitioned from the
 /// same [`UnusedRam`].
-impl<G: GlobalAlloc> TryMergeUnsafe<Ram, UnusedRam<G>, UnusedRam<G>, ()> for UnusedRam<G> {
-    unsafe fn try_merge(p: Partitioned<Ram, UnusedRam<G>>) -> Result<UnusedRam<G>, ()> {
-        p.transform(|slice, ram| {
-            std::alloc::dealloc(slice.start_ptr(), ram.layout);
-            Ok(ram)
-        })
+impl<G: GlobalAlloc> TryMergeUnsafe<Ram, Infallible> for UnusedRam<G> {
+    unsafe fn try_merge(p: Partitioned<Ram, Self>) -> Result<Self, Infallible> {
+        let (ram, unused_ram) = p.as_tuple();
+        std::alloc::dealloc(ram.start_ptr(), unused_ram.layout);
+        Ok(unused_ram)
     }
 }

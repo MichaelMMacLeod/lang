@@ -1,12 +1,36 @@
 use crate::partition::{Partitioned, TryPartition};
 
-pub trait Version: Sized {
+pub trait Version: Sized + PartialOrd + Copy {
     fn first() -> Self;
     fn try_next(self) -> Option<Self>;
     fn next(self) -> Self;
 }
 
-impl<T: From<usize> + Into<usize>> Version for T {
+// This is adapted from 'new_key_type!' in the 'slotmap' crate.
+macro_rules! define_usize_version {
+    ( $(#[$outer:meta])* $vis:vis struct $name:ident; $($others:tt)* ) => {
+        $(#[$outer])*
+        #[derive(Copy, Clone, Default,
+                 PartialEq, Eq, PartialOrd, Ord,
+                 Hash, Debug)]
+        #[repr(transparent)]
+        $vis struct $name(usize);
+
+        impl From<usize> for $name {
+            fn from(value: usize) -> Self {
+                $name(value)
+            }
+        }
+
+        impl From<$name> for usize {
+            fn from(value: $name) -> Self {
+                value.0
+            }
+        }
+    }
+}
+
+impl<T: Copy + PartialOrd + From<usize> + Into<usize>> Version for T {
     fn first() -> Self {
         0.into()
     }
@@ -20,6 +44,7 @@ impl<T: From<usize> + Into<usize>> Version for T {
     }
 }
 
+#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Versioned<V: Version, S> {
     version: V,
     storage: S,
@@ -33,6 +58,10 @@ impl<V: Version, S> Versioned<V, S> {
         }
     }
 
+    pub fn version(&self) -> &V {
+        &self.version
+    }
+
     pub fn storage(&self) -> &S {
         &self.storage
     }
@@ -42,20 +71,58 @@ impl<V: Version, S> Versioned<V, S> {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum VersionedPartitionError<E> {
     NoNextVersion,
     StoragePartitionError(E),
 }
 
-// S: TryPartition<A, E>
-// TryPartition<A, Versioned<V, VersionedPartitionError<E>>, E> for Versioned<V, S>
-
-impl<A, E, S: TryPartition<A, S, E>, V: Version>
-    TryPartition<A, Versioned<V, S>, VersionedPartitionError<E>> for Versioned<V, S>
-{
-    fn try_partition(self) -> Result<Partitioned<A, Versioned<V, S>>, VersionedPartitionError<E>> {
-        todo!()
+impl<E> From<E> for VersionedPartitionError<E> {
+    fn from(value: E) -> Self {
+        Self::StoragePartitionError(value)
     }
 }
 
-// impl<E, V, S: TryPartition<V, S, VersionedPartitionError<E>>> TryPartition<R, Versioned<V, S>,
+impl<A, E, S: TryPartition<A, E>, V: Version> TryPartition<A, VersionedPartitionError<E>>
+    for Versioned<V, S>
+{
+    fn try_partition(self) -> Result<Partitioned<A, Versioned<V, S>>, VersionedPartitionError<E>> {
+        self.storage.try_partition()?.transform(|a, storage| {
+            self.version
+                .try_next()
+                .ok_or(VersionedPartitionError::NoNextVersion)
+                .map(|version| Partitioned::new(a, Self { storage, version }))
+        })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::alloc::{Layout, System};
+
+    use crate::unused_ram::UnusedRam;
+
+    use super::*;
+
+    #[test]
+    fn version0() {
+        define_usize_version! {
+            struct V;
+        }
+        let v0: Versioned<V, _> = Versioned::new(UnusedRam::new(
+            System,
+            Layout::from_size_align(16, 64).unwrap(),
+        ));
+        let v0v = *v0.version();
+
+        let (ram1, v1) = v0.try_partition().unwrap().as_tuple();
+        let v1v = *v1.version();
+        assert!(v0v < v1v);
+
+        let (ram2, v2) = v1.try_partition().unwrap().as_tuple();
+        let v2v = *v2.version();
+        assert!(v1v < v2v);
+
+        // v2.try_merge(ram1);
+    }
+}
