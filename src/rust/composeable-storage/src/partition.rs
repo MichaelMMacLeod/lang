@@ -24,9 +24,11 @@ impl<D, S> Partitioned<D, S> {
     pub fn storage(&self) -> &S {
         &self.storage
     }
+}
 
-    pub fn as_tuple(self) -> (D, S) {
-        (self.data, self.storage)
+impl<D, S> From<Partitioned<D, S>> for (D, S) {
+    fn from(value: Partitioned<D, S>) -> Self {
+        (value.data, value.storage)
     }
 }
 

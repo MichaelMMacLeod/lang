@@ -91,7 +91,7 @@ impl<A, S: TryPartition<A>, V: Version> TryPartition<Versioned<V, A>> for Versio
     type TryPartitionError = VersionedPartitionError<S::TryPartitionError>;
 
     fn try_partition(self) -> Result<Partitioned<Versioned<V, A>, Self>, Self::TryPartitionError> {
-        let (data, storage): (A, S) = self.storage.try_partition()?.as_tuple();
+        let (data, storage): (A, S) = self.storage.try_partition()?.into();
         self.version
             .try_next()
             .ok_or(VersionedPartitionError::NoNextVersion)
@@ -170,11 +170,11 @@ mod test {
         ));
         let unused_ram_0_version_a = *unused_ram_0.version();
 
-        let (ram_1, unused_ram_1) = unused_ram_0.try_partition().unwrap().as_tuple();
+        let (ram_1, unused_ram_1) = unused_ram_0.try_partition().unwrap().into();
         let unused_ram_1_version_a = *unused_ram_1.version();
         assert!(unused_ram_0_version_a < unused_ram_1_version_a);
 
-        let (ram_2, unused_ram_2) = unused_ram_1.try_partition().unwrap().as_tuple();
+        let (ram_2, unused_ram_2) = unused_ram_1.try_partition().unwrap().into();
         let unused_ram_2_version_a = *unused_ram_2.version();
         assert!(unused_ram_1_version_a < unused_ram_2_version_a);
 
