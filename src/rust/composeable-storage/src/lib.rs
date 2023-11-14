@@ -7,3 +7,4 @@ pub mod affix;
 pub mod bytes;
 pub mod version;
 mod all_macro;
+pub mod bounds;

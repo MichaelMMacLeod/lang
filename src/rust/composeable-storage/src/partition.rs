@@ -1,3 +1,7 @@
+pub trait Partition<Data>: Sized {
+    fn partition(self) -> Partitioned<Data, Self>;
+}
+
 pub trait TryPartition<Data>: Sized {
     type TryPartitionError;
     fn try_partition(self) -> Result<Partitioned<Data, Self>, Self::TryPartitionError>;

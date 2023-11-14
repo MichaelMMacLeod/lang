@@ -19,8 +19,9 @@ impl From<Bytes> for usize {
 }
 
 pub struct AlignedOffsetBytes {
-    bytes: usize,
     alignment: Alignment,
+    offset: Bytes,
+    bytes: Bytes,
 }
 
 enum AlignedOffsetBytesPartitionError {
