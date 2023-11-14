@@ -167,6 +167,7 @@
             cargo miri setup
           '';
           buildInputs = with pkgs; [
+            jq
             nightly
             (writeShellScriptBin "devshells.current.programs" ''
               exit 0
