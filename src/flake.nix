@@ -126,35 +126,35 @@
                 a seperate devshell."
             '')
             (writeShellScriptBin "check-with-optimizations" ''
-              cargo check --release $@
+              cargo check --release "$@"
             '')
             (writeShellScriptBin "build-with-optimizations" ''
-              cargo build --release $@
+              cargo build --release "$@"
             '')
             (writeShellScriptBin "run-with-optimizations" ''
-              cargo run --release $@
+              cargo run --release "$@"
             '')
             (writeShellScriptBin "test-with-optimizations" ''
-              cargo test --release $@
+              cargo test --release "$@"
             '')
             (writeShellScriptBin "document-with-optimizations" ''
-              cargo doc --release $@
+              cargo doc --release "$@"
             '')
             (writeShellScriptBin "check-on-save" ''
-              cargo watch --shell 'cargo check $@'
+              cargo watch --shell "cargo check $@"
             '')
             (writeShellScriptBin "build-on-save" ''
-              cargo watch --shell 'cargo build $@'
+              cargo watch --shell "cargo build $@"
             '')
             (writeShellScriptBin "run-on-save" ''
-              cargo watch --shell 'cargo run $@'
+              cargo watch --shell "cargo run $@"
             '')
             (writeShellScriptBin "test-on-save" ''
-              cargo watch --shell 'cargo test $@'
+              cargo watch --shell "cargo test $@"
             '')
             (writeShellScriptBin "document-on-save" ''
               cargo doc --open
-              cargo watch --shell 'cargo doc $@'
+              cargo watch --shell "cargo doc $@"
             '')
             (writeShellScriptBin "test-with-miri" ''
               nix develop .#miri -c cargo-miri-test
@@ -173,7 +173,7 @@
               exit 0
             '')
             (writeShellScriptBin "cargo-miri-test" ''
-              cargo miri test
+              cargo miri test "$@"
             '')
           ];
         };
