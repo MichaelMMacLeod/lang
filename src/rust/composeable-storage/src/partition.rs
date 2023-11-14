@@ -1,11 +1,8 @@
-use crate::merge::TryMergeUnsafe;
-
 pub trait TryPartition<Data>: Sized {
     type TryPartitionError;
     fn try_partition(self) -> Result<Partitioned<Data, Self>, Self::TryPartitionError>;
 }
 
-#[must_use]
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Partitioned<Data, Storage> {
     data: Data,
@@ -29,11 +26,5 @@ impl<D, S> Partitioned<D, S> {
 impl<D, S> From<Partitioned<D, S>> for (D, S) {
     fn from(value: Partitioned<D, S>) -> Self {
         (value.data, value.storage)
-    }
-}
-
-impl<D, S: TryMergeUnsafe<D>> Partitioned<D, S> {
-    pub unsafe fn try_merge_unsafe(self) -> Result<S, S::TryMergeUnsafeError> {
-        self.storage.try_merge_unsafe(self.data)
     }
 }

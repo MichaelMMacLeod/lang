@@ -4,8 +4,6 @@ pub mod alignment;
 pub mod unused_ram;
 pub mod ram;
 pub mod affix;
-pub mod affixed_ram;
-pub mod aligned;
 pub mod bytes;
 pub mod version;
 mod all_macro;

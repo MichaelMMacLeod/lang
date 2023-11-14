@@ -30,13 +30,6 @@ impl<P, M, S> Affixed<P, M, S> {
     pub fn suffix(&self) -> &S {
         &self.suffix
     }
-
-    pub fn transform<T, F>(self, f: F) -> T
-    where
-        F: FnOnce(P, M, S) -> T,
-    {
-        f(self.prefix, self.middle, self.suffix)
-    }
 }
 
 pub type AffixedLayouts = Affixed<Layout, Layout, Layout>;
