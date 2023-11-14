@@ -23,13 +23,12 @@ use crate::{
 /// for subsequent allocations. The perceived benefit of this behavior
 /// is that if [`GlobalAlloc::alloc`] is called later on, it may be
 /// possible to avoid asking the operating system for more RAM via
-/// `brk()` or `mmap()` (on POSIX-compliant operating systems) which
-/// can be very slow. Unfortunately, this imposes the overhead of
-/// keeping track of such freed memory on all processes with a global
-/// allocator. Given that each process almost certainly has more
-/// information about the way it partitions the unused RAM than the
-/// global allocator, it makes sense to parameterize this type on a
-/// simple global allocator which doesn't hold on to any deallocated
+/// which can be very slow. Unfortunately, this imposes the overhead
+/// of keeping track of such freed memory on all processes with a
+/// global allocator. Given that each process almost certainly has
+/// more information about the way it partitions the unused RAM than
+/// the global allocator, it makes sense to parameterize this type on
+/// a simple global allocator which doesn't hold on to any deallocated
 /// ram. The behavior of [`GlobalAlloc::alloc`] reusing deallocated
 /// RAM for efficiency should not be relied upon; it should be
 /// expected that [`UnusedRam::<G>::try_partition`] is very slow. This
