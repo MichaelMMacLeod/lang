@@ -8,7 +8,6 @@ pub trait TryMerge<Data>: Sized {
 }
 
 pub trait MergeUnsafe<Data>: Sized {
-    type MergeUnsafeError;
     unsafe fn merge_unsafe(self, data: Data) -> Self;
 }
 

@@ -1,21 +1,31 @@
+use std::ops::Deref;
+
 use num_traits::{Zero, Unsigned};
 
 use crate::{
     merge::TryMerge,
-    partition::{Partition, Partitioned, TryPartition},
+    partition::{Partition, Partitioned, TryPartition}, bytes::Bytes,
 };
 
 pub trait Boundable: Copy + PartialOrd + Zero {}
 impl<T: PartialOrd + Zero + Copy> Boundable for T {}
 
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct AtOrAbove<T: Boundable>(pub T);
+pub struct AtOrAbove<T>(pub T);
+
+impl<T> Deref for AtOrAbove<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct AtOrBelow<T: Boundable>(pub T);
+pub struct AtOrBelow<T>(pub T);
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)] // no Default
-pub struct AtOrInside<T: Boundable> {
+pub struct AtOrInside<T> {
     // invariant: at_or_above <= at_or_below
     at_or_above: AtOrAbove<T>,
     at_or_below: AtOrBelow<T>,

@@ -8,13 +8,13 @@ all! {
     #[cfg(doc)]
     use crate::unused_ram::UnusedRam;
     use crate::partition::TryPartition;
-    use crate::merge::TryMergeUnsafe;
+    use crate::merge::MergeUnsafe;
 }
 
 /// An aligned slice of the computer's random access memory. This can
 /// be created via [`UnusedRam::<G>::try_partition`]. All RAM should
 /// eventually be merged back into the [`UnusedRam`] via
-/// [`UnusedRam::<G>::try_merge_unsafe`].
+/// [`UnusedRam::<G>::merge_unsafe`].
 ///
 /// # Examples
 ///
@@ -40,7 +40,7 @@ all! {
 /// // Merge the slice of RAM back into the unused RAM.
 /// // Don't forget to do this; it's a memory leak if
 /// // you dont!
-/// unsafe { unused_ram.try_merge_unsafe(ram).unwrap() };
+/// unsafe { unused_ram.merge_unsafe(ram) };
 /// ```
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Ram {

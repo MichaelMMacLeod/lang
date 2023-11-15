@@ -1,12 +1,14 @@
 use std::{
     alloc::{GlobalAlloc, Layout},
-    convert::Infallible,
+    num::NonZeroUsize,
     ptr::NonNull,
 };
 
 use crate::{
     alignment::Alignment,
-    merge::TryMergeUnsafe,
+    bounds::AtOrAbove,
+    bytes::Bytes,
+    merge::MergeUnsafe,
     partition::{Partitioned, TryPartition},
     ram::Ram,
 };
@@ -39,49 +41,64 @@ use crate::{
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct UnusedRam<G: GlobalAlloc> {
     global_alloc: G,
+
+    // invariant: layout.size() > 0
     layout: Layout,
 }
 
 impl<G: GlobalAlloc> UnusedRam<G> {
-    pub fn new(global_alloc: G, layout: Layout) -> Self {
-        Self {
-            global_alloc,
-            layout,
-        }
+    /// Returns the unused slices of ram managed by a specific
+    /// implementation of [`GlobalAlloc`] which are no less than the
+    /// given size in length and which are all aligned to
+    /// `alignment`. Returns [`None`] if `size` becomes larger than
+    /// [`isize::MAX`] when rounded up to `alignment`.
+    pub fn try_new(
+        global_alloc: G,
+        size: AtOrAbove<Bytes<NonZeroUsize>>,
+        alignment: Alignment,
+    ) -> Option<Self> {
+        Layout::from_size_align(size.usize(), alignment.into())
+            .ok()
+            .map(|layout| Self {
+                global_alloc,
+                layout,
+            })
     }
+
+    // pub fn try_new_unitified(
+    //     global_alloc: G,
+    //     size: bytes,
+    //     alignment: Alignment,
+    // ) -> Option<Self> {
+    //     todo!()
+    // }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub enum UnusedRamPartitionErrror {
-    ZeroSizedLayout,
-    GlobalAllocFailed,
-}
+#[derive(Clone, Copy, Debug)]
+pub struct GlobalAllocFailed;
 
 /// Partitions the computer's unused RAM into a slice of [`Ram`] and
 /// the rest of the [`UnusedRam`].
 impl<G: GlobalAlloc> TryPartition<Ram> for UnusedRam<G> {
-    type TryPartitionError = UnusedRamPartitionErrror;
+    type TryPartitionError = GlobalAllocFailed;
 
-    fn try_partition(self) -> Result<Partitioned<Ram, Self>, UnusedRamPartitionErrror> {
-        if self.layout.size() == 0 {
-            Err(UnusedRamPartitionErrror::ZeroSizedLayout)
-        } else {
-            let ptr = unsafe {
-                // Safety: https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html#safety-1
-                // Since we know layout is not zero-sized, this should be safe.
-                std::alloc::GlobalAlloc::alloc(&self.global_alloc, self.layout)
-            };
+    fn try_partition(self) -> Result<Partitioned<Ram, Self>, Self::TryPartitionError> {
+        let ptr = unsafe {
+            // Safety: https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html#safety-1
+            // Since we know layout is not zero-sized (from the invariant on our struct),
+            // this should be safe.
+            std::alloc::GlobalAlloc::alloc(&self.global_alloc, self.layout)
+        };
 
-            NonNull::new(ptr)
-                .ok_or(UnusedRamPartitionErrror::GlobalAllocFailed)
-                .map(|ptr| {
-                    let slice_ptr = NonNull::slice_from_raw_parts(ptr, self.layout.size());
-                    // Safety: layout.align() returns a positive integer.
-                    let alignment = unsafe { Alignment::new_unchecked(self.layout.align()) };
-                    let slice = Ram::new(slice_ptr, alignment);
-                    Partitioned::new(slice, self)
-                })
-        }
+        NonNull::new(ptr).ok_or(GlobalAllocFailed).map(|ptr| {
+            let slice_ptr = NonNull::slice_from_raw_parts(ptr, self.layout.size());
+
+            // Safety: layout.align() returns a positive integer.
+            let alignment = unsafe { Alignment::new_unchecked(self.layout.align()) };
+
+            let slice = Ram::new(slice_ptr, alignment);
+            Partitioned::new(slice, self)
+        })
     }
 }
 
@@ -90,11 +107,9 @@ impl<G: GlobalAlloc> TryPartition<Ram> for UnusedRam<G> {
 ///
 /// Safety: the [`Ram`] must have been originally partitioned from the
 /// same [`UnusedRam`] and must not have already been merged.
-impl<G: GlobalAlloc> TryMergeUnsafe<Ram> for UnusedRam<G> {
-    type TryMergeUnsafeError = Infallible;
-
-    unsafe fn try_merge_unsafe(self, ram: Ram) -> Result<Self, Self::TryMergeUnsafeError> {
+impl<G: GlobalAlloc> MergeUnsafe<Ram> for UnusedRam<G> {
+    unsafe fn merge_unsafe(self, ram: Ram) -> Self {
         std::alloc::GlobalAlloc::dealloc(&self.global_alloc, ram.start_ptr(), self.layout);
-        Ok(self)
+        self
     }
 }
