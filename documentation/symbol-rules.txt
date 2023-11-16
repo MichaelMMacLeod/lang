@@ -1,0 +1,40 @@
+(symbol->bytes Hello)
+-- ???
+All this operation does is reinterpret the utf-8 encoded string
+"Hello" as bytes. Because all we are able to display are symbols
+and compound symbols, we can't display this directly.
+
+(bytes->symbol )
+
+; only printed as this; actually stored as 5 bytes in mem
+
+(bytes->symbol )
+
+(grapheme-cluster Hello 0)
+-->
+H
+
+(grapheme-cluster Hello 1)
+-->
+e
+
+(grapheme-cluster Hello 2)
+-->
+l
+
+... etc
+
+(for o 0b$(0 .. o ..) -> (binary-literal ))
+
+
+(for n 0x$( ..) -> (hexadecimal n ..))
+
+(for n $($(n ..)_ ..) -> $(n .. ..))
+
+(for n 0x$n -> (hexadecimal n))
+
+0x
+
+0xHelloWorld
+-->
+(hexadecimal HelloWorld)
