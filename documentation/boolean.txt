@@ -47,10 +47,10 @@
   (for b (exactly-one-false false true  b ..) -> (exactly-one-false false b ..))
   (for b (exactly-one-false true  false b ..) -> (exactly-one-false false b ..))
 
-  (for t   (if true  then t)        -> t)
-  (for t   (if false then t)        -> true)
-  (for t e (if true  then t else e) -> t)
-  (for t e (if false then t else e) -> e)
+  (for (if true  then true)  -> true)
+  (for (if false then true)  -> true)
+  (for (if false then false) -> true)
+  (for (if true  then false) -> false)
 
   ; I will now claim that it is possible to define only 'not-all-true'
   ; and then define every single other operation above in terms of it,
