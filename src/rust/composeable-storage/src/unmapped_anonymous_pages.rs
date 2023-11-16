@@ -9,7 +9,7 @@ use crate::{
     anonymous_pages::AnonymousPages,
     merge::TryMergeUnsafe,
     partition::{Partitioned, TryPartition},
-    units::information::{page_size_bytes, Bytes, Pages},
+    units::{page_size_bytes, Bytes, Pages},
 };
 
 pub struct UnmappedAnonymousPages {
