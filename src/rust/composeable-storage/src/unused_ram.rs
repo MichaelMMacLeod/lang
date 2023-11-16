@@ -6,11 +6,10 @@ use std::{
 
 use crate::{
     alignment::Alignment,
-    bounds::AtOrAbove,
-    bytes::Bytes,
+    // bytes::Bytes,
     merge::MergeUnsafe,
     partition::{Partitioned, TryPartition},
-    ram::Ram,
+    ram::Ram, units::information::Bytes,
 };
 
 /// Represents all of the unused slices of RAM which can be returned
@@ -54,10 +53,10 @@ impl<G: GlobalAlloc> UnusedRam<G> {
     /// [`isize::MAX`] when rounded up to `alignment`.
     pub fn try_new(
         global_alloc: G,
-        size: AtOrAbove<Bytes<NonZeroUsize>>,
+        size: NonZeroUsize,
         alignment: Alignment,
     ) -> Option<Self> {
-        Layout::from_size_align(size.usize(), alignment.into())
+        Layout::from_size_align(size.into(), alignment.into())
             .ok()
             .map(|layout| Self {
                 global_alloc,
