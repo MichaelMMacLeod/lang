@@ -28,10 +28,16 @@
           "${c2}(nix develop .#${name}) ${c1}\\u@\\h:${c1b}\\w${c0}\\n\\$ ";
         prelude = devShellName: ''
           export PS1='${makePromptString devShellName}'
+
           export DEVSHELL_NAME='${devShellName}'
           if [ -x ./devshells.current.add-gc-root ]; then
             ./devshells.current.add-gc-root
           fi
+
+          # Fix glitchy blank VSCodium screen after updates.
+          # See https://github.com/NixOS/nixpkgs/issues/259929.
+          rm -rf "$HOME/.config/VSCodium/GPUCache"
+
           devshells.current.programs
         '';
         stable = pkgs.rust-bin.stable.latest.default;
