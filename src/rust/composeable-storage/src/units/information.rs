@@ -6,31 +6,11 @@ pub struct Bytes<T> {
     pub count: T,
 }
 
-/// Represents a certain number of L1 (data) cache lines.
-#[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct L1CacheLines<T> {
-    pub count: T,
-}
-
-/// Represents a certain number of L2 cache lines.
-#[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct L2CacheLines<T> {
-    pub count: T,
-}
-
-/// Represents a certain number of L3 cache lines.
-#[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct L3CacheLines<T> {
-    pub count: T,
-}
-
-/// Represents a certain number of normal pages.
+/// Represents a certain number of normal pages (these are usually 4KiB)
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Pages<T> {
     pub count: T,
 }
-
-pub struct Overflow;
 
 pub(crate) fn page_size_bytes() -> Bytes<NonZeroUsize> {
     use std::sync::OnceLock;
@@ -76,6 +56,8 @@ pub(crate) fn page_size_bytes() -> Bytes<NonZeroUsize> {
     Bytes { count }
 }
 
+pub struct Overflow;
+
 impl TryFrom<Pages<NonZeroUsize>> for Bytes<NonZeroUsize> {
     type Error = Overflow;
 
@@ -87,10 +69,4 @@ impl TryFrom<Pages<NonZeroUsize>> for Bytes<NonZeroUsize> {
             .ok_or(Overflow)
             .map(|b| Bytes { count: b })
     }
-}
-
-/// Represents a certain number of huge pages.
-#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct HugePages<T> {
-    pub count: T,
 }
