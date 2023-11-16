@@ -1,5 +1,7 @@
 use std::num::NonZeroUsize;
 
+use crate::arithmetic_errors::Overflow;
+
 /// Represents a certain number of bytes.
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Bytes<T> {
@@ -55,8 +57,6 @@ pub(crate) fn page_size_bytes() -> Bytes<NonZeroUsize> {
     });
     Bytes { count }
 }
-
-pub struct Overflow;
 
 impl TryFrom<Pages<NonZeroUsize>> for Bytes<NonZeroUsize> {
     type Error = Overflow;

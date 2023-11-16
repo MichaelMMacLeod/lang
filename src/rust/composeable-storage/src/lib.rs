@@ -10,3 +10,4 @@ pub mod units;
 pub mod unmapped_anonymous_pages;
 pub mod unused_ram;
 pub mod version;
+pub mod arithmetic_errors;

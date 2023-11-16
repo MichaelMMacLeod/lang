@@ -1,3 +1,10 @@
+use num_traits::{CheckedAdd, CheckedSub, PrimInt, Zero};
+
+use crate::{
+    partition::{Partition, Partitioned, TryPartition},
+    arithmetic_errors::Overflow,
+};
+
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct AtOrAbove<T>(T);
 
@@ -6,136 +13,106 @@ pub struct AtOrBelow<T>(T);
 
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct AtOrBetween<T: PartialOrd> {
-    // invariant: at_or_above <= at_or_below
+    // Invariant: at_or_above <= at_or_below
     at_or_above: T,
     at_or_below: T,
 }
 
+impl<T: PartialOrd> AtOrBetween<T> {
+    pub fn try_new(at_or_above: T, at_or_below: T) -> Option<Self> {
+        (at_or_above <= at_or_below).then(|| Self {
+            at_or_above,
+            at_or_below,
+        })
+    }
+}
 
-// use std::ops::Deref;
+#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub struct OffsetAtOrAbove<T: PartialOrd + Zero> {
+    // Invariant: offset >= 0
+    offset: T,
+    at_or_above: T,
+}
 
-// use num_traits::{Zero, Unsigned};
+impl<T: PartialOrd + Zero> OffsetAtOrAbove<T> {
+    pub fn try_new(offset: T, at_or_above: T) -> Option<Self> {
+        (offset >= T::zero()).then(|| Self {
+            offset,
+            at_or_above,
+        })
+    }
+}
 
-// use crate::{
-//     merge::TryMerge,
-//     partition::{Partition, Partitioned, TryPartition}, bytes::Bytes,
-// };
+#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub struct OffsetAtOrBelow<T: PartialOrd + Zero> {
+    // Invariant: offset >= 0
+    offset: T,
+    at_or_below: T,
+}
 
-// pub trait Boundable: Copy + PartialOrd + Zero {}
-// impl<T: PartialOrd + Zero + Copy> Boundable for T {}
+impl<T: PartialOrd + Zero> OffsetAtOrBelow<T> {
+    pub fn try_new(offset: T, at_or_below: T) -> Option<Self> {
+        (offset >= T::zero()).then(|| Self {
+            offset,
+            at_or_below,
+        })
+    }
+}
 
-// #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-// pub struct AtOrAbove<T>(pub T);
+#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub struct OffsetAtOrBetween<T: PartialOrd + Zero + CheckedSub> {
+    // Invariant offset >= 0
+    // Invariant at_or_above <= at_or_below
+    // Invariant at_or_below.checked_sub(&at_or_above)? <= offset
+    offset: T,
+    at_or_above: T,
+    at_or_below: T,
+}
 
-// impl<T> Deref for AtOrAbove<T> {
-//     type Target = T;
+impl<T: PartialOrd + Zero + CheckedSub> OffsetAtOrBetween<T> {
+    pub fn try_new(offset: T, at_or_above: T, at_or_below: T) -> Option<Self> {
+        (offset >= T::zero()
+            && at_or_above <= at_or_below
+            && (at_or_below.checked_sub(&at_or_above)? <= offset))
+            .then(|| Self {
+                offset,
+                at_or_above,
+                at_or_below,
+            })
+    }
+}
 
-//     fn deref(&self) -> &Self::Target {
-//         &self.0
-//     }
-// }
+impl<T: PartialOrd + Zero + CheckedAdd + Clone> TryPartition<AtOrBetween<T>>
+    for OffsetAtOrAbove<T>
+{
+    type TryPartitionError = Overflow;
 
-// #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-// pub struct AtOrBelow<T>(pub T);
+    fn try_partition(self) -> Result<Partitioned<AtOrBetween<T>, Self>, Self::TryPartitionError> {
+        self.offset
+            .checked_add(&self.at_or_above)
+            .ok_or(Overflow)
+            .map(|v| {
+                let data = AtOrBetween {
+                    at_or_above: self.at_or_above,
+                    at_or_below: v.clone(),
+                };
+                let storage = OffsetAtOrAbove {
+                    offset: T::zero(),
+                    at_or_above: v,
+                };
+                Partitioned::new(data, storage)
+            })
+    }
+}
 
-// #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)] // no Default
-// pub struct AtOrInside<T> {
-//     // invariant: at_or_above <= at_or_below
-//     at_or_above: AtOrAbove<T>,
-//     at_or_below: AtOrBelow<T>,
-// }
-
-// impl<T: Boundable> AtOrInside<T> {
-//     pub fn try_new(at_or_above: AtOrAbove<T>, at_or_below: AtOrBelow<T>) -> Option<Self> {
-//         (at_or_above.0 <= at_or_below.0).then(|| Self {
-//             at_or_above,
-//             at_or_below,
-//         })
-//     }
-// }
-
-// impl<T: Boundable> From<AtOrInside<T>> for (AtOrAbove<T>, AtOrBelow<T>) {
-//     fn from(value: AtOrInside<T>) -> Self {
-//         (value.at_or_above, value.at_or_below)
-//     }
-// }
-
-// pub trait Offsettable: Boundable + Unsigned {}
-// impl<O: Boundable + Unsigned> Offsettable for O {}
-
-// #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-// pub struct Offset<O: Offsettable>(pub O);
-
-// #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-// pub struct OffsetAtOrAbove<O: Offsettable> {
-//     // invariant: offset >= at_or_above
-//     offset: Offset<O>,
-//     at_or_above: AtOrAbove<O>,
-// }
-
-// impl<O: Offsettable> OffsetAtOrAbove<O> {
-//     pub fn try_new(offset: Offset<O>, at_or_above: AtOrAbove<O>) -> Option<Self> {
-//         (offset.0 >= at_or_above.0).then(|| Self {
-//             offset,
-//             at_or_above,
-//         })
-//     }
-// }
-
-// impl<O: Offsettable> From<OffsetAtOrAbove<O>> for (Offset<O>, AtOrAbove<O>) {
-//     fn from(value: OffsetAtOrAbove<O>) -> Self {
-//         (value.offset, value.at_or_above)
-//     }
-// }
-
-// // #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-// // pub struct OffsetAtOrBelow<T: Boundable> {
-// //     // invariant: offset <= at_or_below
-// //     offset: T,
-// //     at_or_below: T,
-// // }
-
-// // impl<T: Boundable> OffsetAtOrBelow<T> {
-// //     pub fn try_new(offset: T, at_or_below: T) -> Option<Self> {
-// //         (offset <= at_or_below).then(|| Self {
-// //             offset,
-// //             at_or_below,
-// //         })
-// //     }
-// // }
-
-// // impl<T: Boundable> From<OffsetAtOrBelow<T>> for (T, AtOrBelow<T>) {
-// //     fn from(value: OffsetAtOrBelow<T>) -> Self {
-// //         (value.offset, AtOrBelow(value.at_or_below))
-// //     }
-// // }
-
-// // impl<T: PartialOrd + Zero + Copy> Partition<AtOrInside<T>> for OffsetAtOrAbove<T> {
-// //     fn partition(self) -> Partitioned<AtOrInside<T>, Self> {
-// //         let data = AtOrInside {
-// //             at_or_above: self.at_or_above,
-// //             at_or_below: self.offset,
-// //         };
-// //         let mut zero = self.offset.clone();
-// //         zero.set_zero();
-// //         let storage = OffsetAtOrAbove {
-// //             at_or_above: self.offset,
-// //             offset: zero,
-// //         };
-// //         Partitioned::new(data, storage)
-// //     }
-// // }
-
-// // #[cfg(test)]
-// // mod test {
-// //     use crate::partition::Partition;
-
-// //     use super::OffsetAtOrAbove;
-
-// //     #[test]
-// //     fn partition1() {
-// //         let aoo1 = OffsetAtOrAbove::try_new(64, 0).unwrap();
-// //         let (aoi, aoo2) = aoo1.partition().into();
-// //         let (at_or_above, at_or_below) = aoi.into();
-// //     }
-// // }
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn offset_at_or_above1() {
+        let x = OffsetAtOrAbove::try_new(16, 8).unwrap();
+        let (y, x) = x.try_partition().unwrap().into();
+        assert_eq!(y, AtOrBetween::try_new(8, 24).unwrap());
+        assert_eq!(x, OffsetAtOrAbove::try_new(0, 24).unwrap());
+    }
+}
