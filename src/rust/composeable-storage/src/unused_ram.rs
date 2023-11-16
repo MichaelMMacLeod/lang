@@ -9,7 +9,7 @@ use crate::{
     // bytes::Bytes,
     merge::MergeUnsafe,
     partition::{Partitioned, TryPartition},
-    ram::Ram, units::information::Bytes,
+    ram::Ram,
 };
 
 /// Represents all of the unused slices of RAM which can be returned

@@ -35,9 +35,6 @@ pub struct Overflow;
 pub(crate) fn page_size_bytes() -> Bytes<NonZeroUsize> {
     use std::sync::OnceLock;
 
-    // invariant: DEFAULT_NONZERO_PAGE_SIZE > 0
-    const DEFAULT_NONZERO_PAGE_SIZE: usize = 4096;
-
     static PAGE_SIZE: OnceLock<NonZeroUsize> = OnceLock::new();
     let count = *PAGE_SIZE.get_or_init(|| {
         #[cfg(unix)]

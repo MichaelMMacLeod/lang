@@ -1,4 +1,4 @@
-use std::{ffi::c_void, io::Error, num::NonZeroUsize, ops::Deref};
+use std::{ffi::c_void, io::Error, num::NonZeroUsize};
 
 use rustix::{
     io::Errno,

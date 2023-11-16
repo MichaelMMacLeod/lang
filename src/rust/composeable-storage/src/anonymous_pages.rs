@@ -1,9 +1,6 @@
 use std::{ffi::c_void, num::NonZeroUsize, ops::Deref};
 
-use crate::{
-    alignment::Alignment,
-    units::information::{page_size_bytes, Bytes},
-};
+use crate::units::information::{page_size_bytes, Bytes};
 
 pub struct AnonymousPages {
     // We use c_void instead of u8 because we need to pass c_void to munmap, not u8.
