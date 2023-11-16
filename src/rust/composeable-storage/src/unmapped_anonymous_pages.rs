@@ -71,7 +71,7 @@ mod test {
 
     #[test]
     fn unmapped1() {
-        let pages_per_partition_usize = 1310720;
+        let pages_per_partition_usize = 128;
         let pages_per_partition = NonZeroUsize::new(pages_per_partition_usize).unwrap();
 
         let unmapped_anonymous_pages = UnmappedAnonymousPages::try_new_normal(Pages {
@@ -87,6 +87,7 @@ mod test {
         );
 
         let start_ptr = anonymous_pages.start_ptr() as *mut u8;
+
         unsafe {
             start_ptr.write_bytes(42, count);
         }
