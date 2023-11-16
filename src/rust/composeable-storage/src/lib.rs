@@ -3,7 +3,6 @@ pub mod alignment;
 mod all_macro;
 pub mod anonymous_pages;
 pub mod bounds;
-pub mod bytes;
 pub mod merge;
 pub mod partition;
 pub mod ram;
