@@ -103,6 +103,10 @@ impl Alignment {
     pub fn log2(self) -> u32 {
         self.as_nonzero().trailing_zeros()
     }
+
+    pub fn max(self, other: Self) -> Self {
+        unsafe { Self::new_unchecked(self.as_usize().max(other.as_usize())) }
+    }
 }
 
 impl fmt::Debug for Alignment {
