@@ -1,12 +1,8 @@
 use std::ops::{BitAnd, Not};
 
-use num_traits::{CheckedAdd, Unsigned, WrappingAdd};
+use num_traits::{CheckedAdd, Unsigned};
 
-use crate::{
-    alignment::Alignment,
-    arithmetic_errors::Overflow,
-    merge::{TryMerge, TryMergeInto},
-};
+use crate::{alignment::Alignment, arithmetic_errors::Overflow, merge::TryMergeInto};
 
 pub trait AlignedLengthType:
     Clone

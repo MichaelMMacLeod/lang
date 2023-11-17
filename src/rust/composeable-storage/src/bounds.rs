@@ -1,8 +1,8 @@
-use num_traits::{CheckedAdd, CheckedSub, PrimInt, Zero};
+use num_traits::{CheckedAdd, CheckedSub, Zero};
 
 use crate::{
     arithmetic_errors::Overflow,
-    partition::{Partition, Partitioned, TryPartition, TryPartitionInto},
+    partition::{Partitioned, TryPartition, TryPartitionInto},
 };
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
