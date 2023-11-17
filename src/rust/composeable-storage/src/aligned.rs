@@ -2,7 +2,7 @@ use std::ops::{BitAnd, Not};
 
 use num_traits::{CheckedAdd, Unsigned};
 
-use crate::{alignment::Alignment, arithmetic_errors::Overflow, merge::TryMergeInto};
+use crate::{alignment::Alignment, arithmetic_errors::Overflow, merge::TryMergeTransform};
 
 pub trait AlignedLengthType:
     Clone
@@ -36,12 +36,16 @@ impl<T: AlignedLengthType> AlignedLength<T> {
         Self { alignment, length }
     }
 
-    pub fn alignment(&self) -> &Alignment {
-        &self.alignment
+    pub fn alignment(&self) -> Alignment {
+        self.alignment
     }
 
-    pub fn length(&self) -> &T {
+    pub fn unaligned_length_ref(&self) -> &T {
         &self.length
+    }
+
+    pub fn unaligned_length(self) -> T {
+        self.length
     }
 
     /// Returns the length rounded up to the nearest multiple of the
@@ -53,6 +57,12 @@ impl<T: AlignedLengthType> AlignedLength<T> {
             .ok()
             .and_then(|a| self.length.checked_add(&a).map(|l| l & !a))
             .ok_or(Overflow)
+    }
+}
+
+impl<T: AlignedLengthType> From<AlignedLength<T>> for (Alignment, T) {
+    fn from(value: AlignedLength<T>) -> Self {
+        (value.alignment, value.length)
     }
 }
 
@@ -73,30 +83,39 @@ impl<T: AlignedLengthType> OffsetAlignedLength<T> {
         })
     }
 
-    pub fn offset(&self) -> &T {
+    pub fn offset_ref(&self) -> &T {
         &self.offset
     }
 
-    pub fn alignment(&self) -> &Alignment {
-        &self.alignment
+    pub fn alignment(&self) -> Alignment {
+        self.alignment
     }
 
-    pub fn length(&self) -> &T {
+    pub fn length_ref(&self) -> &T {
         &self.length
     }
 }
 
-impl<T: AlignedLengthType> TryMergeInto<AlignedLength<T>, OffsetAlignedLength<T>>
+impl<T: AlignedLengthType> From<OffsetAlignedLength<T>> for (T, AlignedLength<T>) {
+    fn from(value: OffsetAlignedLength<T>) -> Self {
+        (
+            value.offset,
+            AlignedLength::new(value.alignment, value.length),
+        )
+    }
+}
+
+impl<T: AlignedLengthType> TryMergeTransform<AlignedLength<T>, OffsetAlignedLength<T>>
     for AlignedLength<T>
 {
-    type TryMergeIntoError = Overflow;
+    type TryMergeTransformError = Overflow;
 
     /// This is semantically the same as
     /// [`std::alloc::Layout::extend`].
-    fn try_merge_into(
+    fn try_merge_transform(
         self,
         data: AlignedLength<T>,
-    ) -> Result<OffsetAlignedLength<T>, Self::TryMergeIntoError> {
+    ) -> Result<OffsetAlignedLength<T>, Self::TryMergeTransformError> {
         let alignment = self.alignment.max(data.alignment);
         let offset = AlignedLength::new(alignment, self.length).try_aligned_length()?;
         let length = offset.checked_add(&data.length).ok_or(Overflow)?;
@@ -112,7 +131,7 @@ impl<T: AlignedLengthType> TryMergeInto<AlignedLength<T>, OffsetAlignedLength<T>
 mod test {
     use crate::{
         aligned::OffsetAlignedLength, alignment::Alignment, arithmetic_errors::Overflow,
-        merge::TryMergeInto,
+        merge::TryMergeTransform,
     };
 
     use super::AlignedLength;
@@ -137,21 +156,21 @@ mod test {
         let a1 = AlignedLength::new(Alignment::new(8).unwrap(), 1usize);
         let a2 = AlignedLength::new(Alignment::new(64).unwrap(), 32usize);
         assert_eq!(
-            a1.try_merge_into(a2),
+            a1.try_merge_transform(a2),
             Ok(OffsetAlignedLength::try_new(64, Alignment::new(64).unwrap(), 96).unwrap())
         );
 
         let a1 = AlignedLength::new(Alignment::new(64).unwrap(), 32usize);
         let a2 = AlignedLength::new(Alignment::new(8).unwrap(), 1usize);
         assert_eq!(
-            a1.try_merge_into(a2),
+            a1.try_merge_transform(a2),
             Ok(OffsetAlignedLength::try_new(64, Alignment::new(64).unwrap(), 65).unwrap())
         );
 
         let a1 = AlignedLength::new(Alignment::new(128).unwrap(), 64usize);
         let a2 = AlignedLength::new(Alignment::new(128).unwrap(), 64usize);
         assert_eq!(
-            a1.try_merge_into(a2),
+            a1.try_merge_transform(a2),
             Ok(OffsetAlignedLength::try_new(128, Alignment::new(128).unwrap(), 128 + 64).unwrap())
         );
     }

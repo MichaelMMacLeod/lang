@@ -16,20 +16,23 @@ pub trait TryMergeUnsafe<Data>: Sized {
     unsafe fn try_merge_unsafe(self, data: Data) -> Result<Self, Self::TryMergeUnsafeError>;
 }
 
-pub trait MergeInto<Data, New>: Sized {
-    fn merge_into(self, data: Data) -> New;
+pub trait MergeTransform<Data, New>: Sized {
+    fn merge_transform(self, data: Data) -> New;
 }
 
-pub trait TryMergeInto<Data, New>: Sized {
-    type TryMergeIntoError;
-    fn try_merge_into(self, data: Data) -> Result<New, Self::TryMergeIntoError>;
+pub trait TryMergeTransform<Data, New>: Sized {
+    type TryMergeTransformError;
+    fn try_merge_transform(self, data: Data) -> Result<New, Self::TryMergeTransformError>;
 }
 
-pub trait MergeIntoUnsafe<Data, New>: Sized {
-    unsafe fn merge_into(self, data: Data) -> New;
+pub trait MergeTransformUnsafe<Data, New>: Sized {
+    unsafe fn merge_transform(self, data: Data) -> New;
 }
 
-pub trait TryMergeIntoUnsafe<Data, New>: Sized {
-    type TryMergeIntoUnsafeError;
-    unsafe fn try_merge_into(self, data: Data) -> Result<New, Self::TryMergeIntoUnsafeError>;
+pub trait TryMergeTransformUnsafe<Data, New>: Sized {
+    type TryMergeTransformUnsafeError;
+    unsafe fn try_merge_transform(
+        self,
+        data: Data,
+    ) -> Result<New, Self::TryMergeTransformUnsafeError>;
 }

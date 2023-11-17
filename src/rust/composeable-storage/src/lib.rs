@@ -12,3 +12,4 @@ pub mod unused_ram;
 pub mod version;
 pub mod arithmetic_errors;
 pub mod aligned;
+pub mod affix2;
