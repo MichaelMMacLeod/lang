@@ -2,7 +2,7 @@ use num_traits::{CheckedAdd, CheckedSub, Zero};
 
 use crate::{
     arithmetic_errors::Overflow,
-    partition::{Partitioned, TryPartition, TryPartitionInto},
+    partition::{Partitioned, TryPartition, TryPartitionTransform},
 };
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -91,12 +91,12 @@ impl<T: PartialOrd + Zero + CheckedSub> OffsetAtOrBetween<T> {
     }
 }
 
-impl<T: PartialOrd + Zero + CheckedAdd + Clone> TryPartitionInto<AtOrBetween<T>, AtOrAbove<T>>
+impl<T: PartialOrd + Zero + CheckedAdd + Clone> TryPartitionTransform<AtOrBetween<T>, AtOrAbove<T>>
     for OffsetAtOrAbove<T>
 {
     type TryPartitionIntoError = Overflow;
 
-    fn try_partition_into(
+    fn try_partition_transform(
         self,
     ) -> Result<Partitioned<AtOrBetween<T>, AtOrAbove<T>>, Self::TryPartitionIntoError> {
         self.offset
@@ -119,7 +119,7 @@ impl<T: PartialOrd + Zero + CheckedAdd + Clone> TryPartition<AtOrBetween<T>>
     type TryPartitionError = Overflow;
 
     fn try_partition(self) -> Result<Partitioned<AtOrBetween<T>, Self>, Self::TryPartitionError> {
-        let (at_or_between, at_or_above) = self.try_partition_into()?.into();
+        let (at_or_between, at_or_above) = self.try_partition_transform()?.into();
         Ok(Partitioned::new(at_or_between, at_or_above.into()))
     }
 }
@@ -131,7 +131,7 @@ mod test {
     fn offset_at_or_above1() {
         let x = OffsetAtOrAbove::try_new(16, 8).unwrap();
         {
-            let (y, x) = x.try_partition_into().unwrap().into();
+            let (y, x) = x.try_partition_transform().unwrap().into();
             assert_eq!(y, AtOrBetween::try_new(8, 24).unwrap());
             assert_eq!(x, AtOrAbove(24));
         }

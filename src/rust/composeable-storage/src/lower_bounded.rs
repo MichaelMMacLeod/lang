@@ -1,5 +1,5 @@
 use std::{
-    alloc::{GlobalAlloc, Layout},
+    alloc::{GlobalAlloc, Layout, LayoutError},
     ptr::NonNull,
 };
 
@@ -7,6 +7,7 @@ use crate::{
     aligned::AlignedLength,
     aligned_slice::AlignedSlice,
     alignment::Alignment,
+    arithmetic_errors::Overflow,
     merge::{MergeUnsafe, TryMerge, TryMergeTransform},
     partition::{Partitioned, TryPartition},
     units::Bytes,
@@ -91,7 +92,27 @@ impl<G: GlobalAlloc> MergeUnsafe<AlignedSlice> for LowerBounded<Bytes<usize>, G>
     }
 }
 
-impl<G: GlobalAlloc> TryMerge<AlignedLength<Bytes<usize>>> for LowerBounded<Bytes<usize>, G> {}
+impl<G: GlobalAlloc> TryMergeTransform<AlignedLength<Bytes<usize>>>
+    for G
+{
+    type TryMergeTransformError = Overflow;
+    type New = LowerBounded<Bytes<usize>, G>;
+
+    fn try_merge_transform(
+        self,
+        data: AlignedLength<Bytes<usize>>,
+    ) -> Result<LowerBounded<Bytes<usize>, G>, Self::TryMergeTransformError> {
+        let size_bytes = data.unaligned_length();
+        let align = data.alignment().as_usize();
+        Layout::from_size_align(size_bytes.count, align)
+            .map_err(|_| Overflow)
+            .map(|_| LowerBounded {
+                alignment: data.alignment(),
+                length: size_bytes,
+                storage: self,
+            })
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -102,8 +123,11 @@ mod test {
 
     #[test]
     fn global1() {
+        let alignment = Alignment::new(64).unwrap();
         let bytes = Bytes { count: 128 };
-        let g = LowerBounded::try_new_global(Alignment::new(64).unwrap(), bytes, System).unwrap();
+        let g = System
+            .try_merge_transform(AlignedLength::new(alignment, bytes))
+            .unwrap();
         let (slice, g) = g.try_partition().unwrap().into();
         unsafe { slice.start_ptr().write_bytes(42, bytes.count) };
         for &byte in unsafe { slice.as_ref() } {

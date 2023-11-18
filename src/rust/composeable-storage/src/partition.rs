@@ -7,13 +7,14 @@ pub trait TryPartition<Data>: Sized {
     fn try_partition(self) -> Result<Partitioned<Data, Self>, Self::TryPartitionError>;
 }
 
-pub trait PartitionInto<Data, New>: Sized {
-    fn partition_into(self) -> Partitioned<Data, New>;
+pub trait PartitionTransform<Data, New>: Sized {
+    fn partition_transform(self) -> Partitioned<Data, New>;
 }
 
-pub trait TryPartitionInto<Data, New>: Sized {
+pub trait TryPartitionTransform<Data, New>: Sized {
     type TryPartitionIntoError;
-    fn try_partition_into(self) -> Result<Partitioned<Data, New>, Self::TryPartitionIntoError>;
+    fn try_partition_transform(self)
+        -> Result<Partitioned<Data, New>, Self::TryPartitionIntoError>;
 }
 
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]

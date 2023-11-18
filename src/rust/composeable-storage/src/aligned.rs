@@ -105,10 +105,11 @@ impl<T: AlignedLengthType> From<OffsetAlignedLength<T>> for (T, AlignedLength<T>
     }
 }
 
-impl<T: AlignedLengthType> TryMergeTransform<AlignedLength<T>, OffsetAlignedLength<T>>
+impl<T: AlignedLengthType> TryMergeTransform<AlignedLength<T>>
     for AlignedLength<T>
 {
     type TryMergeTransformError = Overflow;
+    type New = OffsetAlignedLength<T>;
 
     /// This is semantically the same as
     /// [`std::alloc::Layout::extend`].

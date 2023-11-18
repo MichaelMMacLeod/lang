@@ -1,15 +1,14 @@
 use std::{
     num::NonZeroUsize,
-    ops::{Add, BitAnd, Not},
+    ops::{Add, BitAnd, Div, Mul, Neg, Not, Rem, Sub},
 };
 
-use num_derive::Num;
-use num_traits::{CheckedAdd, Unsigned, Num};
+use num_traits::{CheckedAdd, Num, One, Signed, Unsigned, Zero};
 
 use crate::arithmetic_errors::Overflow;
 
 /// Represents a certain number of bytes.
-#[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Num)]
+#[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Bytes<T> {
     pub count: T,
 }
@@ -34,7 +33,7 @@ impl<T: Not> Not for Bytes<T> {
     type Output = Bytes<T::Output>;
 
     fn not(self) -> Self::Output {
-        Self { count: !self.count }
+        Bytes { count: !self.count }
     }
 }
 
@@ -42,21 +41,121 @@ impl<T: BitAnd> BitAnd for Bytes<T> {
     type Output = Bytes<T::Output>;
 
     fn bitand(self, rhs: Self) -> Self::Output {
-        Self {
+        Bytes {
             count: self.count & rhs.count,
         }
     }
 }
 
+impl<T: Rem> Rem for Bytes<T> {
+    type Output = Bytes<T::Output>;
+
+    fn rem(self, rhs: Self) -> Self::Output {
+        Bytes {
+            count: self.count.rem(rhs.count),
+        }
+    }
+}
+
+impl<T: Div> Div for Bytes<T> {
+    type Output = Bytes<T::Output>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        Bytes {
+            count: self.count.div(rhs.count),
+        }
+    }
+}
+
+impl<T: Sub> Sub for Bytes<T> {
+    type Output = Bytes<T::Output>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Bytes {
+            count: self.count.sub(rhs.count),
+        }
+    }
+}
+
+impl<T: Neg> Neg for Bytes<T> {
+    type Output = Bytes<T::Output>;
+
+    fn neg(self) -> Self::Output {
+        Bytes {
+            count: self.count.neg(),
+        }
+    }
+}
+
+impl<T: Mul> Mul for Bytes<T> {
+    type Output = Bytes<T::Output>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Bytes {
+            count: self.count.mul(rhs.count),
+        }
+    }
+}
+
+impl<T: One> One for Bytes<T> {
+    fn one() -> Self {
+        Bytes { count: T::one() }
+    }
+}
+
+impl<T: Zero> Zero for Bytes<T> {
+    fn zero() -> Self {
+        Bytes { count: T::zero() }
+    }
+
+    fn is_zero(&self) -> bool {
+        self.count.is_zero()
+    }
+}
+
 impl<T: Num> Num for Bytes<T> {
-    type FromStrRadixErr;
+    type FromStrRadixErr = T::FromStrRadixErr;
 
     fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
-        todo!()
+        T::from_str_radix(str, radix).map(|count| Self { count })
     }
 }
 
 impl<T: Unsigned> Unsigned for Bytes<T> {}
+
+impl<T: Signed> Signed for Bytes<T> {
+    fn abs(&self) -> Self {
+        Bytes {
+            count: self.count.abs(),
+        }
+    }
+
+    fn abs_sub(&self, other: &Self) -> Self {
+        Bytes {
+            count: self.count.abs_sub(&other.count),
+        }
+    }
+
+    fn signum(&self) -> Self {
+        Bytes {
+            count: self.count.signum(),
+        }
+    }
+
+    fn is_positive(&self) -> bool {
+        self.count.is_positive()
+    }
+
+    fn is_negative(&self) -> bool {
+        self.count.is_negative()
+    }
+}
+
+impl<T> From<T> for Bytes<T> {
+    fn from(value: T) -> Self {
+        Self { count: value }
+    }
+}
 
 /// Represents a certain number of normal pages (these are usually 4KiB)
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
