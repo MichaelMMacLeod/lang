@@ -9,7 +9,7 @@ use crate::{
     // bytes::Bytes,
     merge::MergeUnsafe,
     partition::{Partitioned, TryPartition},
-    ram::Ram,
+    aligned_slice::AlignedSlice,
 };
 
 /// Represents all of the unused slices of RAM which can be returned
@@ -78,10 +78,10 @@ pub struct GlobalAllocFailed;
 
 /// Partitions the computer's unused RAM into a slice of [`Ram`] and
 /// the rest of the [`UnusedRam`].
-impl<G: GlobalAlloc> TryPartition<Ram> for UnusedRam<G> {
+impl<G: GlobalAlloc> TryPartition<AlignedSlice> for UnusedRam<G> {
     type TryPartitionError = GlobalAllocFailed;
 
-    fn try_partition(self) -> Result<Partitioned<Ram, Self>, Self::TryPartitionError> {
+    fn try_partition(self) -> Result<Partitioned<AlignedSlice, Self>, Self::TryPartitionError> {
         let ptr = unsafe {
             // Safety: https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html#safety-1
             // Since we know layout is not zero-sized (from the invariant on our struct),
@@ -95,7 +95,7 @@ impl<G: GlobalAlloc> TryPartition<Ram> for UnusedRam<G> {
             // Safety: layout.align() returns a positive integer.
             let alignment = unsafe { Alignment::new_unchecked(self.layout.align()) };
 
-            let slice = Ram::new(slice_ptr, alignment);
+            let slice = AlignedSlice::new(slice_ptr, alignment);
             Partitioned::new(slice, self)
         })
     }
@@ -106,8 +106,8 @@ impl<G: GlobalAlloc> TryPartition<Ram> for UnusedRam<G> {
 ///
 /// Safety: the [`Ram`] must have been originally partitioned from the
 /// same [`UnusedRam`] and must not have already been merged.
-impl<G: GlobalAlloc> MergeUnsafe<Ram> for UnusedRam<G> {
-    unsafe fn merge_unsafe(self, ram: Ram) -> Self {
+impl<G: GlobalAlloc> MergeUnsafe<AlignedSlice> for UnusedRam<G> {
+    unsafe fn merge_unsafe(self, ram: AlignedSlice) -> Self {
         std::alloc::GlobalAlloc::dealloc(&self.global_alloc, ram.start_ptr(), self.layout);
         self
     }

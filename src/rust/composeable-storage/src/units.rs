@@ -1,12 +1,62 @@
-use std::num::NonZeroUsize;
+use std::{
+    num::NonZeroUsize,
+    ops::{Add, BitAnd, Not},
+};
+
+use num_derive::Num;
+use num_traits::{CheckedAdd, Unsigned, Num};
 
 use crate::arithmetic_errors::Overflow;
 
 /// Represents a certain number of bytes.
-#[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Num)]
 pub struct Bytes<T> {
     pub count: T,
 }
+
+impl<T: Add> Add for Bytes<T> {
+    type Output = Bytes<T::Output>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Bytes {
+            count: self.count + rhs.count,
+        }
+    }
+}
+
+impl<T: CheckedAdd> CheckedAdd for Bytes<T> {
+    fn checked_add(&self, v: &Self) -> Option<Self> {
+        self.count.checked_add(&v.count).map(|count| Self { count })
+    }
+}
+
+impl<T: Not> Not for Bytes<T> {
+    type Output = Bytes<T::Output>;
+
+    fn not(self) -> Self::Output {
+        Self { count: !self.count }
+    }
+}
+
+impl<T: BitAnd> BitAnd for Bytes<T> {
+    type Output = Bytes<T::Output>;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Self {
+            count: self.count & rhs.count,
+        }
+    }
+}
+
+impl<T: Num> Num for Bytes<T> {
+    type FromStrRadixErr;
+
+    fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
+        todo!()
+    }
+}
+
+impl<T: Unsigned> Unsigned for Bytes<T> {}
 
 /// Represents a certain number of normal pages (these are usually 4KiB)
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]

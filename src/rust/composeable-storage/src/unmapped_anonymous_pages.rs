@@ -69,6 +69,8 @@ impl TryMergeUnsafe<AnonymousPages> for UnmappedAnonymousPages {
 mod test {
     use super::*;
 
+    // Miri doesn't know about 'mmap64' yet so it breaks on this test; disable it.
+    #[cfg(not(miri))]
     #[test]
     fn unmapped1() {
         let pages_per_partition_usize = 128;
