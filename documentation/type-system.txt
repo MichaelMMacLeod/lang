@@ -1,3 +1,13 @@
+(apply (fn (x) (* 2 x)) 100)
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+
 Use 'new' to create a subterm S of term T. The result is a proof about
 whether or not S is actually a subterm of T. For example, we can try
 and make a boolean:
