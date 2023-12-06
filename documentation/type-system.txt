@@ -1,3 +1,98 @@
+Function type
+
+  Let 'u' be a universe. Then given the following:
+  
+    (: a u)
+  
+    (: b u)
+  
+  We construct:
+  
+    (: (-> a b) u)
+
+Function application
+
+  Let 'u' be a universe. Then given the following:
+
+    (: a u)
+
+    (: b u)
+
+    (: f (-> a b))
+
+    (: v a)
+
+  We construct:
+
+    (: (f v) b)
+
+Function composition
+
+  Let 'u' be a universe. Then given the following:
+
+    (: a u)
+
+    (: b u)
+
+    (: c u)
+
+    (: f (-> a b))
+
+    (: g (-> b c))
+
+  We construct:
+
+    (: (compose f g) (-> a (-> b c)))
+
+Let 'u' be a universe. Then given the following judgments:
+
+  1. (: a u)
+
+  2. (: b u)
+
+  3. (: f (-> a b))
+
+  4. (: v a)
+
+We can construct the following judgment:
+
+  5. (: (f v) b)
+
+
+C |- f : A1 -> B, C |- v : A2, C |- (= A1 A2) : ????
+--------------------------- apply
+C |- f v : B
+
+(for f a1 b
+     v a2
+     e
+     u
+  (apply (: f (-> a1 b))
+         (: v a2))
+  ->
+
+  Let 'u' be a universe. Then given the following judgments:
+
+    1. (: a1 u)
+    
+    2. (: a2 u)
+    
+    3. (: b u)
+    
+    4. (: f (-> a1 b))
+    
+    5. (: v a2)
+
+    6. (: e (-> a1 (-> a2 equal)))
+  
+  We may construct the following judgment:
+  
+    7. (: (f v) b)
+
+)
+
+
+
 (apply (fn (x) (* 2 x)) 100)
 
 
