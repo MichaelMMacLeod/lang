@@ -65,6 +65,10 @@ where
     }
 }
 
+fn test_affixer_1() {
+    // let a = Affixer::
+}
+
 // use crate::{
 //     aligned::{AlignedLength, AlignedLengthType},
 //     arithmetic_errors::Overflow,
