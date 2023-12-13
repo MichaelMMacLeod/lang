@@ -25,6 +25,7 @@ use std::hash::Hash;
 pub enum Term {
     Symbol(Symbol),
     Compound(Compound),
+    Rule(Rule),
     Env(Env),
     Delimiter(Delimiter),
 }
@@ -68,6 +69,7 @@ impl Storage {
                     print!(")");
                 }
             },
+            Term::Rule(_) => print!("<rule>"),
             Term::Env(_) => print!("<env>"),
             Term::Delimiter(_) => print!("<delimiter>"),
         }
