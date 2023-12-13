@@ -1,0 +1,47 @@
+From Appendix 2 of HOTT, we learn that a "Type Former" for a type "T"
+is:
+
+  1. One "formation" rule
+
+  2. Zero or more "introduction" rules
+
+  3. One or more "elimination" rules
+
+  4. Zero or more "computation" rules
+
+  5. ??? uniqueness principles
+
+A "formation" rule for type "T" defines how to create judgments of the
+form "T : U" for some type "U". Typically "U" is a universe. An
+example is the formation rule for type "A -> B": the type of
+non-dependent functions from "A" to "B". This formation rule states
+that in any context where it is derivable that "A : U" and "B : U" for
+some universe "U", we can conclude that in the same context it is also
+derivable that "A -> B : U". The point of writing down a formation
+rule instead of "declaring that T is a type" is that if "T" contains
+other types (like how "A -> B" contains "A" and "B"), we need to know
+where those types come from. Writing down a formation rule lets us
+know exactly that; in this example, our formation rule for "A -> B"
+tells us that "A" and "B" both come from the same universe "U".
+
+A "introduction" rule for type "T" defines how to create judgments of
+the form "V : T" for some type "V". This is similar to a formation
+rule for "T" except that here "T" appears on the right hand side of
+the ":" whereas in a formation rule "T" appears on the left hand
+side. 
+
+Having zero introduction rules is necessary when implementing the
+empty type, a type for which it is impossible to construct judgments
+of the form "V : Empty" for some "V".
+
+A "formation" rule for type "T" declares which universes "T"
+inhabits. For example, the formation rule for function types specifies
+that to conclude "A -> B : U" we must know that "A : U" and "B : U",
+which is to say that the type "A -> B" inhabits all universes where
+"A" and "B" are values of that universe. Notice that this rule doesn't
+tell us anything about the judgment "V : T" (where "T" appears on the
+right-hand-side of the ":"); it only tells us about judgments of the
+form "T : U" (where "T" appears on the left-hand-side).
+
+An "introduction" rule for type "T" declares which values inhabit
+"T". 
