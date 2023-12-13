@@ -21,6 +21,7 @@ fn lex_symbol(input: &[u8]) -> IResult<&[u8], Lexed> {
         b'(' => false,
         b')' => false,
         b' ' => false,
+        b'\n' => false,
         _ => true,
     })(input)?;
     Ok((i, Lexed::Symbol(Symbol::new(o.to_vec()))))
@@ -41,7 +42,7 @@ fn lex_right(input: &[u8]) -> IResult<&[u8], Lexed> {
 pub fn lex(input: &[u8]) -> IResult<&[u8], Vec<Lexed>> {
     use nom::character::complete::char;
     many0(preceded(
-        many0(char(' ')),
+        many0(alt((char(' '), char('\n')))),
         alt((lex_symbol, lex_left, lex_right)),
     ))(input)
 }
