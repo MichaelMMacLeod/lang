@@ -48,7 +48,7 @@ mod test {
         let mut s = Storage::new();
         let k = parse(
             &mut s,
-            lex(b"(for a b (swap\n(pair a\nb)) -> (pair b a))").unwrap().1,
+            lex("(for a b (swap\n(pair a\nb)) -> (pair b a))").unwrap().1,
         );
         s.println(k);
     }

@@ -8,15 +8,15 @@ use crate::storage::{Storage, Term};
 
 #[derive(Hash, PartialEq, Eq, Debug)]
 pub struct Symbol {
-    data: Vec<u8>,
+    data: String,
 }
 
 impl Symbol {
-    pub fn new(data: Vec<u8>) -> Self {
+    pub fn new(data: String) -> Self {
         Self { data }
     }
 
-    pub fn data(&self) -> &Vec<u8> {
+    pub fn data(&self) -> &String {
         &self.data
     }
 }

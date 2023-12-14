@@ -58,7 +58,7 @@ impl Storage {
 
     pub fn print(&self, key: StorageKey) {
         match self.data.get(key).unwrap() {
-            Term::Symbol(s) => print!("{}", String::from_utf8_lossy(s.data())),
+            Term::Symbol(s) => print!("{}", s.data()),
             Term::Compound(c) => {
                 let keys = c.keys();
                 if keys.is_empty() {
