@@ -43,6 +43,10 @@ impl Storage {
         }
     }
 
+    pub fn get(&self, k: StorageKey) -> Option<&Term> {
+        self.data.get(k)
+    }
+
     pub fn insert(&mut self, t: Term) -> StorageKey {
         self.data.insert(t)
     }

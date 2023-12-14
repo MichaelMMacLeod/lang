@@ -1,3 +1,46 @@
+((x ..) 0 y ..)
+
+()
+
+
+((x ..) 0 y ..)
+
+((a b c) d e f 0 h i j)
+
+error - no match!
+
+x: ((a b c) d e f)
+y: (h i j)
+
+result - ((x ..) ..)
+
+(x .. 0 y ..)
+
+(a b c 0 d e f)
+
+x: (a b c)
+y: (d e f)
+
+
+((1) (2 3) (4 5 6))
+
+
+
+((x ..) ..) -> (left x .. .. right)
+pattern:
+(compound
+  (many (compound
+          (many (variable x)
+            none))))
+result:
+(compound
+  (symbol left)
+  (expand
+    (expand
+      (variable x)))
+  (symbol right))
+
+
 (for x ((x ..) ..) -> (left x .. .. right))
 pattern:
 (compound
