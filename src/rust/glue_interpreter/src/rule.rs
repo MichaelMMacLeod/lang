@@ -1,6 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::storage::{Storage, StorageKey, Term};
+use crate::{
+    compound::Compound,
+    storage::{Storage, StorageKey, Term},
+};
 
 #[derive(Hash, PartialEq, Eq, Debug)]
 pub struct Rule {}
@@ -33,7 +36,7 @@ struct Many {
 
 // TODO:
 // - verify that every variable is not used more than once
-// - verify that in "T ..", T must contain at least one variable
+// - verify that in "T ..", T must contain at least one variable (?)
 
 fn parse_rule_pattern_single(
     storage: &Storage,
@@ -187,6 +190,197 @@ fn pattern_match_multi(
     }
 }
 
+#[derive(Hash, PartialEq, Eq, Debug, Clone)]
+enum ResultSinglePattern {
+    Symbol(StorageKey),
+    Variable(String),
+    Compound(Vec<ResultPattern>),
+}
+
+#[derive(Hash, PartialEq, Eq, Debug, Clone)]
+enum ResultPattern {
+    Single(Box<ResultSinglePattern>),
+    Append(Box<ResultPattern>),
+}
+
+fn parse_rule_result_single(
+    storage: &Storage,
+    variables: &HashSet<String>,
+    result: StorageKey,
+) -> ResultSinglePattern {
+    match storage.get(result).unwrap() {
+        Term::Symbol(s) => {
+            if variables.get(s.data()).is_some() {
+                ResultSinglePattern::Variable(s.data().clone())
+            } else {
+                ResultSinglePattern::Symbol(result)
+            }
+        }
+        Term::Compound(c) => {
+            ResultSinglePattern::Compound(parse_rule_result_multi(storage, variables, c.keys()))
+        }
+        _ => panic!("invalid rule result"),
+    }
+}
+
+fn is_dot_dots(storage: &Storage, k: StorageKey) -> bool {
+    if let Term::Symbol(s) = storage.get(k).unwrap() {
+        s.data() == ".."
+    } else {
+        false
+    }
+}
+
+fn parse_rule_result_multi(
+    storage: &Storage,
+    variables: &HashSet<String>,
+    keys: &[StorageKey],
+) -> Vec<ResultPattern> {
+    match keys.len() {
+        0 => vec![],
+        1 => vec![ResultPattern::Single(Box::new(parse_rule_result_single(
+            storage, variables, keys[0],
+        )))],
+        _ => {
+            let mut keys = keys;
+
+            let mut parsed: Option<ResultPattern> = None;
+
+            let is_variable = if let Term::Symbol(s) = storage.get(keys[0]).unwrap() {
+                variables.contains(s.data())
+            } else {
+                false
+            };
+
+            while is_variable && keys.len() >= 2 && is_dot_dots(storage, keys[1]) {
+                parsed = Some(ResultPattern::Append(Box::new(parsed.unwrap_or_else(
+                    || {
+                        ResultPattern::Single(Box::new(parse_rule_result_single(
+                            storage, variables, keys[0],
+                        )))
+                    },
+                ))));
+                keys = &keys[1..];
+            }
+
+            let mut result: Vec<ResultPattern> = Vec::new();
+
+            if let Some(p) = parsed {
+                result.push(p);
+            } else {
+                result.push(ResultPattern::Single(Box::new(parse_rule_result_single(
+                    storage, variables, keys[0],
+                ))));
+            }
+
+            result.extend(parse_rule_result_multi(storage, variables, &keys[1..]));
+
+            result
+        }
+    }
+}
+
+fn create_match_result_single(
+    storage: &mut Storage,
+    matches: &HashMap<String, Match>,
+    pattern: &ResultSinglePattern,
+) -> StorageKey {
+    match pattern {
+        ResultSinglePattern::Symbol(s) => *s,
+        ResultSinglePattern::Variable(v) => {
+            if let Match::Leaf(l) = matches[v] {
+                l
+            } else {
+                panic!("bad result pattern");
+            }
+        }
+        ResultSinglePattern::Compound(c) => {
+            let keys: Vec<StorageKey> = create_match_result_multi(storage, matches, c);
+            storage.insert(Term::Compound(Compound::new(keys)))
+        }
+    }
+}
+
+fn create_match_result_multi(
+    storage: &mut Storage,
+    matches: &HashMap<String, Match>,
+    patterns: &[ResultPattern],
+) -> Vec<StorageKey> {
+    let mut result = Vec::new();
+
+    for pattern in patterns {
+        match pattern {
+            ResultPattern::Single(s) => {
+                result.push(create_match_result_single(storage, matches, s));
+            }
+            ResultPattern::Append(a) => {
+                let matches = narrow_to_captured_variables(matches, a);
+                let matches = split_branches(&matches);
+                result.extend(matches.into_iter().flat_map(|matches| {
+                    create_match_result_multi(storage, &matches, &[a.as_ref().clone()])
+                }))
+            }
+        }
+    }
+
+    result
+}
+
+fn is_captured_variable(var: &String, pattern: &ResultPattern) -> bool {
+    match pattern {
+        ResultPattern::Single(s) => match s.as_ref() {
+            ResultSinglePattern::Symbol(_) => false,
+            ResultSinglePattern::Variable(v) => var == v,
+            ResultSinglePattern::Compound(c) => c.iter().any(|p| is_captured_variable(var, p)),
+        },
+        ResultPattern::Append(a) => is_captured_variable(var, a),
+    }
+}
+
+fn narrow_to_captured_variables(
+    matches: &HashMap<String, Match>,
+    pattern: &ResultPattern,
+) -> HashMap<String, Match> {
+    let mut result = HashMap::new();
+    result.extend(
+        matches
+            .iter()
+            .filter(|(k, v)| is_captured_variable(k, pattern))
+            .map(|(k, v)| (k.clone(), v.clone())),
+    );
+    result
+}
+
+fn split_branches(matches: &HashMap<String, Match>) -> Vec<HashMap<String, Match>> {
+    let mut result: Vec<HashMap<String, Match>> = Vec::new();
+
+    let mut num_branches: Option<usize> = None;
+
+    for (k, v) in matches {
+        match v {
+            Match::Leaf(_) => panic!("can't split leaf branches"),
+            Match::Branches(b) => {
+                if let None = num_branches {
+                    num_branches = Some(b.len());
+                }
+                assert_eq!(num_branches.unwrap(), b.len());
+
+                if result.len() == 0 {
+                    for _ in 0..b.len() {
+                        result.push(HashMap::new());
+                    }
+                }
+
+                for (h, m) in result.iter_mut().zip(b) {
+                    h.insert(k.clone(), m.clone());
+                }
+            }
+        }
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod test {
     use crate::{lexer::lex, parser::parse};
@@ -210,8 +404,39 @@ mod test {
         let mut vs = HashSet::new();
         vs.insert("xs".into());
         let pattern = parse_rule_pattern_single(&s, k, &vs);
-        let value_k = parse(&mut s, lex("(flatten (list (list a b c) (list d e) (list)))").unwrap().1);
+        let value_k = parse(
+            &mut s,
+            lex("(flatten (list (list a b c) (list d e) (list)))")
+                .unwrap()
+                .1,
+        );
         let m = pattern_match_single(&s, &pattern, value_k);
         dbg!(m);
+    }
+
+    #[test]
+    fn create_match_result_single1() {
+        let mut s = Storage::new();
+
+        let mut variables = HashSet::new();
+        variables.insert("xs".into());
+
+        let pattern_k = parse(&mut s, lex("(flatten (list (list xs ..) ..))").unwrap().1);
+        let pattern = parse_rule_pattern_single(&s, pattern_k, &variables);
+
+        let result_k = parse(&mut s, lex("(list xs .. ..)").unwrap().1);
+        let result = parse_rule_result_single(&s, &variables, result_k);
+
+        let value_k = parse(
+            &mut s,
+            lex("(flatten (list (list a b c) (list d e) (list)))")
+                .unwrap()
+                .1,
+        );
+        let m = pattern_match_single(&s, &pattern, value_k).unwrap();
+
+        let r = create_match_result_single(&mut s, &m, &result);
+
+        s.println(r);
     }
 }
