@@ -161,15 +161,11 @@ fn pattern_match_multi(
                 let mut branches: HashMap<String, Vec<Match>> = HashMap::new();
                 for var in sp_matches[0].keys() {
                     for ht in sp_matches.iter() {
-                        for (var2, m) in ht {
-                            if var == var2 {
-                                branches
-                                    .entry(var.clone())
-                                    .and_modify(|bs| bs.push(m.clone()))
-                                    .or_insert(vec![m.clone()]);
-                            } else {
-                                break;
-                            }
+                        if let Some(m) = ht.get(var) {
+                            branches
+                                .entry(var.clone())
+                                .and_modify(|bs| bs.push(m.clone()))
+                                .or_insert(vec![m.clone()]);
                         }
                     }
                 }
