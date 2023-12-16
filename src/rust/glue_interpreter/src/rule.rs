@@ -45,7 +45,6 @@ fn compile_rule(storage: &Storage, rule: StorageKey) -> Rule {
 
 fn apply_rule(rule: &Rule, storage: &mut Storage, term: StorageKey) -> Option<StorageKey> {
     pattern_match_single(storage, &rule.pattern, term).map(|m| {
-        dbg!(&m);
         create_match_result_single(storage, &m, &rule.result)
     })
 }
@@ -477,7 +476,6 @@ mod test {
         // "(for xs (flatten (list (list xs ..) ..)) -> (list xs .. ..))"
         let rule_k = parse(&mut s, lex("(for x y ((x y) ..) -> ((y x) ..))").unwrap().1);
         let rule = compile_rule(&s, rule_k);
-        dbg!(&rule);
 
         // (flatten (list (list a b c) (list d e) (list)))
         let term_k = parse(
