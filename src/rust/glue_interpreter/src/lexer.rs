@@ -9,7 +9,7 @@ use nom::{
 
 use crate::symbol::Symbol;
 
-#[derive(Hash, PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Lexed {
     Left,
     Right,

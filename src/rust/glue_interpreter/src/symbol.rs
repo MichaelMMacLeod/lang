@@ -6,7 +6,7 @@ use nom::{
 
 use crate::storage::{Storage, Term};
 
-#[derive(Hash, PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Symbol {
     data: String,
 }

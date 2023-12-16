@@ -1,6 +1,6 @@
 use crate::{
     compound::Compound,
-    lexer::Lexed,
+    lexer::{lex, Lexed},
     storage::{self, Storage, StorageKey, Term},
 };
 
@@ -37,6 +37,10 @@ pub fn parse<I: IntoIterator<Item = Lexed>>(storage: &mut Storage, lexed: I) -> 
     panic!("Expected ')'");
 }
 
+pub fn read(storage: &mut Storage, input: &str) -> Option<StorageKey> {
+    Some(parse(storage, lex(input).ok()?.1))
+}
+
 #[cfg(test)]
 mod test {
     use crate::lexer::lex;
@@ -48,7 +52,9 @@ mod test {
         let mut s = Storage::new();
         let k = parse(
             &mut s,
-            lex("(for a b (swap\n(pair a\nb)) -> (pair b a))").unwrap().1,
+            lex("(for a b (swap\n(pair a\nb)) -> (pair b a))")
+                .unwrap()
+                .1,
         );
         s.println(k);
     }

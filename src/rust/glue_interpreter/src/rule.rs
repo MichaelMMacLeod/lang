@@ -5,7 +5,7 @@ use crate::{
     storage::{Storage, StorageKey, Term},
 };
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Rule {
     variables: HashSet<String>,
     pattern: SinglePattern,
@@ -13,7 +13,7 @@ pub struct Rule {
 }
 
 // ('for' <vars> ... <pattern> '->' <result>)
-fn compile_rule(storage: &Storage, rule: StorageKey) -> Rule {
+pub fn compile_rule(storage: &Storage, rule: StorageKey) -> Rule {
     match storage.get(rule).unwrap() {
         Term::Compound(c) => {
             let keys = c.keys();
@@ -43,33 +43,33 @@ fn compile_rule(storage: &Storage, rule: StorageKey) -> Rule {
     }
 }
 
-fn apply_rule(rule: &Rule, storage: &mut Storage, term: StorageKey) -> Option<StorageKey> {
+pub fn apply_rule(rule: &Rule, storage: &mut Storage, term: StorageKey) -> Option<StorageKey> {
     pattern_match_single(storage, &rule.pattern, term).map(|m| {
         create_match_result_single(storage, &m, &rule.result)
     })
 }
 
-#[derive(Hash, PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 enum SinglePattern {
     Compound(Box<MultiPattern>),
     Variable(String),
     Symbol(String),
 }
 
-#[derive(Hash, PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 enum MultiPattern {
     Nothing,
     One(Box<One>),
     Many(Box<Many>),
 }
 
-#[derive(Hash, PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 struct One {
     sp: SinglePattern,
     mp: MultiPattern,
 }
 
-#[derive(Hash, PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 struct Many {
     sp: SinglePattern,
     mp: MultiPattern,
@@ -409,6 +409,26 @@ fn split_branches(matches: &HashMap<String, Match>) -> Vec<HashMap<String, Match
 
     result
 }
+
+// fn patterns_are_overlapping(p1: &SinglePattern, p2: &SinglePattern) -> bool {
+//     match (p1, p2) {
+//         (SinglePattern::Compound(c1), SinglePattern::Compound(c2)) => match (c1, c2) {
+//             (MultiPattern::Nothing, MultiPattern::Nothing) => todo!(),
+//             (MultiPattern::Nothing, MultiPattern::One(_)) => todo!(),
+//             (MultiPattern::Nothing, MultiPattern::Many(_)) => todo!(),
+//             (MultiPattern::One(_), MultiPattern::Nothing) => todo!(),
+//             (MultiPattern::One(_), MultiPattern::One(_)) => todo!(),
+//             (MultiPattern::One(_), MultiPattern::Many(_)) => todo!(),
+//             (MultiPattern::Many(_), MultiPattern::Nothing) => todo!(),
+//             (MultiPattern::Many(_), MultiPattern::One(_)) => todo!(),
+//             (MultiPattern::Many(_), MultiPattern::Many(_)) => todo!(),
+//         },
+//         (SinglePattern::Symbol(s1), SinglePattern::Symbol(s2)) => s1 != s2,
+//         (SinglePattern::Variable(_), _) => true,
+//         (_, SinglePattern::Variable(_)) => true,
+//         _ => false,
+//     }
+// }
 
 #[cfg(test)]
 mod test {

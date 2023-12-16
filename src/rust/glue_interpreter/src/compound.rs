@@ -5,7 +5,7 @@ use crate::{
     symbol::Symbol,
 };
 
-#[derive(Hash)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Compound {
     data: Vec<StorageKey>,
 }
