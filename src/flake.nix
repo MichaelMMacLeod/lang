@@ -57,7 +57,7 @@
             (vscode-with-extensions.override {
               vscode = vscodium;
               vscodeExtensions = with vscode-extensions;
-                [ rust-lang.rust-analyzer ];
+                [ rust-lang.rust-analyzer vadimcn.vscode-lldb ];
             })
             wxmaxima
             (writeShellScriptBin "devshells.current.programs" ''
