@@ -21,7 +21,6 @@ use std::hash::Hash;
 // let
 // letrec
 
-#[derive(Hash)]
 pub enum Term {
     Symbol(Symbol),
     Compound(Compound),

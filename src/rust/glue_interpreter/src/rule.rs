@@ -5,8 +5,50 @@ use crate::{
     storage::{Storage, StorageKey, Term},
 };
 
-#[derive(Hash, PartialEq, Eq, Debug)]
-pub struct Rule {}
+#[derive(PartialEq, Eq, Debug)]
+pub struct Rule {
+    variables: HashSet<String>,
+    pattern: SinglePattern,
+    result: SingleResult,
+}
+
+// ('for' <vars> ... <pattern> '->' <result>)
+fn compile_rule(storage: &Storage, rule: StorageKey) -> Rule {
+    match storage.get(rule).unwrap() {
+        Term::Compound(c) => {
+            let keys = c.keys();
+            assert!(keys.len() >= 4);
+            match storage.get(keys[0]).unwrap() {
+                Term::Symbol(s) => {
+                    assert_eq!(s.data(), "for");
+                }
+                _ => panic!("invalid rule 'for' symbol"),
+            };
+            let variables = keys[1..keys.len() - 3]
+                .iter()
+                .map(|v| match storage.get(*v).unwrap() {
+                    Term::Symbol(s) => s.data().clone(),
+                    _ => panic!("invalid variable"),
+                })
+                .collect::<HashSet<_>>();
+            let pattern = parse_rule_pattern_single(storage, keys[keys.len() - 3], &variables);
+            let result = parse_rule_result_single(storage, &variables, keys[keys.len() - 1]);
+            Rule {
+                variables,
+                pattern,
+                result,
+            }
+        }
+        _ => panic!("invalid rule"),
+    }
+}
+
+fn apply_rule(rule: &Rule, storage: &mut Storage, term: StorageKey) -> Option<StorageKey> {
+    pattern_match_single(storage, &rule.pattern, term).map(|m| {
+        dbg!(&m);
+        create_match_result_single(storage, &m, &rule.result)
+    })
+}
 
 #[derive(Hash, PartialEq, Eq, Debug)]
 enum SinglePattern {
@@ -187,33 +229,33 @@ fn pattern_match_multi(
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
-enum ResultSinglePattern {
+enum SingleResult {
     Symbol(StorageKey),
     Variable(String),
-    Compound(Vec<ResultPattern>),
+    Compound(Vec<Result>),
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
-enum ResultPattern {
-    Single(Box<ResultSinglePattern>),
-    Append(Box<ResultPattern>),
+enum Result {
+    Single(Box<SingleResult>),
+    Append(Box<Result>),
 }
 
 fn parse_rule_result_single(
     storage: &Storage,
     variables: &HashSet<String>,
     result: StorageKey,
-) -> ResultSinglePattern {
+) -> SingleResult {
     match storage.get(result).unwrap() {
         Term::Symbol(s) => {
             if variables.get(s.data()).is_some() {
-                ResultSinglePattern::Variable(s.data().clone())
+                SingleResult::Variable(s.data().clone())
             } else {
-                ResultSinglePattern::Symbol(result)
+                SingleResult::Symbol(result)
             }
         }
         Term::Compound(c) => {
-            ResultSinglePattern::Compound(parse_rule_result_multi(storage, variables, c.keys()))
+            SingleResult::Compound(parse_rule_result_multi(storage, variables, c.keys()))
         }
         _ => panic!("invalid rule result"),
     }
@@ -231,40 +273,32 @@ fn parse_rule_result_multi(
     storage: &Storage,
     variables: &HashSet<String>,
     keys: &[StorageKey],
-) -> Vec<ResultPattern> {
+) -> Vec<Result> {
     match keys.len() {
         0 => vec![],
-        1 => vec![ResultPattern::Single(Box::new(parse_rule_result_single(
+        1 => vec![Result::Single(Box::new(parse_rule_result_single(
             storage, variables, keys[0],
         )))],
         _ => {
             let mut keys = keys;
 
-            let mut parsed: Option<ResultPattern> = None;
+            let mut parsed: Option<Result> = None;
 
-            let is_variable = if let Term::Symbol(s) = storage.get(keys[0]).unwrap() {
-                variables.contains(s.data())
-            } else {
-                false
-            };
-
-            while is_variable && keys.len() >= 2 && is_dot_dots(storage, keys[1]) {
-                parsed = Some(ResultPattern::Append(Box::new(parsed.unwrap_or_else(
-                    || {
-                        ResultPattern::Single(Box::new(parse_rule_result_single(
-                            storage, variables, keys[0],
-                        )))
-                    },
-                ))));
+            while keys.len() >= 2 && is_dot_dots(storage, keys[1]) {
+                parsed = Some(Result::Append(Box::new(parsed.unwrap_or_else(|| {
+                    Result::Single(Box::new(parse_rule_result_single(
+                        storage, variables, keys[0],
+                    )))
+                }))));
                 keys = &keys[1..];
             }
 
-            let mut result: Vec<ResultPattern> = Vec::new();
+            let mut result: Vec<Result> = Vec::new();
 
             if let Some(p) = parsed {
                 result.push(p);
             } else {
-                result.push(ResultPattern::Single(Box::new(parse_rule_result_single(
+                result.push(Result::Single(Box::new(parse_rule_result_single(
                     storage, variables, keys[0],
                 ))));
             }
@@ -279,18 +313,18 @@ fn parse_rule_result_multi(
 fn create_match_result_single(
     storage: &mut Storage,
     matches: &HashMap<String, Match>,
-    pattern: &ResultSinglePattern,
+    result: &SingleResult,
 ) -> StorageKey {
-    match pattern {
-        ResultSinglePattern::Symbol(s) => *s,
-        ResultSinglePattern::Variable(v) => {
+    match result {
+        SingleResult::Symbol(s) => *s,
+        SingleResult::Variable(v) => {
             if let Match::Leaf(l) = matches[v] {
                 l
             } else {
                 panic!("bad result pattern");
             }
         }
-        ResultSinglePattern::Compound(c) => {
+        SingleResult::Compound(c) => {
             let keys: Vec<StorageKey> = create_match_result_multi(storage, matches, c);
             storage.insert(Term::Compound(Compound::new(keys)))
         }
@@ -300,16 +334,16 @@ fn create_match_result_single(
 fn create_match_result_multi(
     storage: &mut Storage,
     matches: &HashMap<String, Match>,
-    patterns: &[ResultPattern],
+    results: &[Result],
 ) -> Vec<StorageKey> {
     let mut result = Vec::new();
 
-    for pattern in patterns {
+    for pattern in results {
         match pattern {
-            ResultPattern::Single(s) => {
+            Result::Single(s) => {
                 result.push(create_match_result_single(storage, matches, s));
             }
-            ResultPattern::Append(a) => {
+            Result::Append(a) => {
                 let matches = narrow_to_captured_variables(matches, a);
                 let matches = split_branches(&matches);
                 result.extend(matches.into_iter().flat_map(|matches| {
@@ -322,20 +356,20 @@ fn create_match_result_multi(
     result
 }
 
-fn is_captured_variable(var: &String, pattern: &ResultPattern) -> bool {
+fn is_captured_variable(var: &String, pattern: &Result) -> bool {
     match pattern {
-        ResultPattern::Single(s) => match s.as_ref() {
-            ResultSinglePattern::Symbol(_) => false,
-            ResultSinglePattern::Variable(v) => var == v,
-            ResultSinglePattern::Compound(c) => c.iter().any(|p| is_captured_variable(var, p)),
+        Result::Single(s) => match s.as_ref() {
+            SingleResult::Symbol(_) => false,
+            SingleResult::Variable(v) => var == v,
+            SingleResult::Compound(c) => c.iter().any(|p| is_captured_variable(var, p)),
         },
-        ResultPattern::Append(a) => is_captured_variable(var, a),
+        Result::Append(a) => is_captured_variable(var, a),
     }
 }
 
 fn narrow_to_captured_variables(
     matches: &HashMap<String, Match>,
-    pattern: &ResultPattern,
+    pattern: &Result,
 ) -> HashMap<String, Match> {
     let mut result = HashMap::new();
     result.extend(
@@ -434,5 +468,27 @@ mod test {
         let r = create_match_result_single(&mut s, &m, &result);
 
         s.println(r);
+    }
+
+    #[test]
+    fn apply_rule1() {
+        let mut s = Storage::new();
+
+        // "(for xs (flatten (list (list xs ..) ..)) -> (list xs .. ..))"
+        let rule_k = parse(&mut s, lex("(for x y ((x y) ..) -> ((y x) ..))").unwrap().1);
+        let rule = compile_rule(&s, rule_k);
+        dbg!(&rule);
+
+        // (flatten (list (list a b c) (list d e) (list)))
+        let term_k = parse(
+            &mut s,
+            lex("((1 2) (3 4) (5 6) (7 8) (9 10) (11 12) (13 14))")
+                .unwrap()
+                .1,
+        );
+
+        let result_k = apply_rule(&rule, &mut s, term_k).unwrap();
+
+        s.println(result_k);
     }
 }
