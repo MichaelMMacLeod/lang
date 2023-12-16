@@ -6,13 +6,26 @@ use crate::{
 };
 
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub struct Rule {
+pub struct ComputationRule {
     variables: HashSet<String>,
     pattern: SinglePattern,
     result: SingleResult,
 }
 
-// ('for' <vars> ... <pattern> '->' <result>)
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct FixedPointRule {
+    variables: HashSet<String>,
+    pattern: SinglePattern,
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub enum Rule {
+    Computation(ComputationRule),
+    FixedPointRule(FixedPointRule),
+}
+
+// ('for' <vars> ... <pattern> '->' <result>)  - computation
+// ('for' <vars> ... <pattern> '->' <pattern>) - fixed
 pub fn compile_rule(storage: &Storage, rule: StorageKey) -> Rule {
     match storage.get(rule).unwrap() {
         Term::Compound(c) => {
@@ -31,12 +44,18 @@ pub fn compile_rule(storage: &Storage, rule: StorageKey) -> Rule {
                     _ => panic!("invalid variable"),
                 })
                 .collect::<HashSet<_>>();
-            let pattern = parse_rule_pattern_single(storage, keys[keys.len() - 3], &variables);
-            let result = parse_rule_result_single(storage, &variables, keys[keys.len() - 1]);
-            Rule {
-                variables,
-                pattern,
-                result,
+            let pattern_key = keys[keys.len() - 3];
+            let result_key = keys[keys.len() - 1];
+            let pattern = parse_rule_pattern_single(storage, pattern_key, &variables);
+            if storage.terms_are_equal(pattern_key, result_key) {
+                Rule::FixedPointRule(FixedPointRule { variables, pattern })
+            } else {
+                let result = parse_rule_result_single(storage, &variables, result_key);
+                Rule::Computation(ComputationRule {
+                    variables,
+                    pattern,
+                    result,
+                })
             }
         }
         _ => panic!("invalid rule"),
@@ -44,9 +63,13 @@ pub fn compile_rule(storage: &Storage, rule: StorageKey) -> Rule {
 }
 
 pub fn apply_rule(rule: &Rule, storage: &mut Storage, term: StorageKey) -> Option<StorageKey> {
-    pattern_match_single(storage, &rule.pattern, term).map(|m| {
-        create_match_result_single(storage, &m, &rule.result)
-    })
+    match rule {
+        Rule::Computation(rule) => pattern_match_single(storage, &rule.pattern, term)
+            .map(|m| create_match_result_single(storage, &m, &rule.result)),
+        Rule::FixedPointRule(rule) => {
+            pattern_match_single(storage, &rule.pattern, term).map(|_| term)
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]

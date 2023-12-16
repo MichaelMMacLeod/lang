@@ -5,7 +5,13 @@ use std::{
 
 use slotmap::{new_key_type, SlotMap};
 
-use crate::{compound::Compound, delimiter::Delimiter, env::Env, rule::Rule, symbol::Symbol};
+use crate::{
+    compound::Compound,
+    delimiter::Delimiter,
+    env::Env,
+    rule::{ComputationRule, Rule},
+    symbol::Symbol,
+};
 
 use std::hash::Hash;
 
@@ -71,10 +77,24 @@ impl Storage {
                     self.print(*keys.last().unwrap());
                     print!(")");
                 }
-            },
+            }
             Term::Rule(_) => print!("<rule>"),
             Term::Env(_) => print!("<env>"),
             Term::Delimiter(_) => print!("<delimiter>"),
+        }
+    }
+
+    pub fn terms_are_equal(&self, t1: StorageKey, t2: StorageKey) -> bool {
+        match (self.get(t1).unwrap(), self.get(t2).unwrap()) {
+            (Term::Symbol(s1), Term::Symbol(s2)) => s1.data() == s2.data(),
+            (Term::Compound(c1), Term::Compound(c2)) => c1
+                .keys()
+                .iter()
+                .zip(c2.keys().iter())
+                .all(|(t1, t2)| self.terms_are_equal(*t1, *t2)),
+            (Term::Symbol(_), _) => false,
+            (Term::Compound(_), _) => false,
+            _ => todo!(),
         }
     }
 }
