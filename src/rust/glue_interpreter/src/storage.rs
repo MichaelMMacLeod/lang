@@ -9,23 +9,11 @@ use crate::{
     compound::Compound,
     delimiter::Delimiter,
     env::Env,
-    rule::{ComputationRule, Rule},
+    rule::{ComputationRule, Rule, compile_rule},
     symbol::Symbol,
 };
 
 use std::hash::Hash;
-
-// for
-// seq
-// env
-// env-union
-// this-env
-// frame
-// delimit
-// delimiter
-// abort
-// let
-// letrec
 
 pub enum Term {
     Symbol(Symbol),
@@ -110,4 +98,35 @@ impl Storage {
     pub fn is_fixed(&self, k: &StorageKey) -> bool {
         self.fixed_point_terms.contains(k)
     }
+
+    // pub fn apply_primitive_rule(&mut self, env: &Env, term: StorageKey) -> Option<StorageKey> {
+    //     match self.get(term).unwrap() {
+    //         Term::Compound(c) => c
+    //             .keys()
+    //             .first()
+    //             .map(|k| {
+    //                 if let Term::Symbol(s) = self.get(*k).unwrap() {
+    //                     match s.data().as_str() {
+    //                         "for" => compile_rule(&self, term),
+    //                         "sequence" => todo!(),
+    //                         "environment" => todo!(),
+    //                         "environment-union" => todo!(),
+    //                         "current-environment" => todo!(),
+    //                         "frame" => todo!(),
+    //                         "new-delimiter" => todo!(),
+    //                         "delimit" => todo!(),
+    //                         "abort" => todo!(),
+    //                         "capture" => todo!(),
+    //                         "let" => todo!(),
+    //                         "letrec" => todo!(),
+    //                         _ => None,
+    //                     }
+    //                 } else {
+    //                     None
+    //                 }
+    //             })
+    //             .flatten(),
+    //         _ => None,
+    //     }
+    // }
 }

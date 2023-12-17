@@ -1,0 +1,119 @@
+(let <factorial>
+  (let (for x -> (+ 10 15))
+    (factorial x)))
+-->
+(factorial x)
+-->
+(sequence x ....)
+-->
+(sequence (+ 10 15) ....) ; inner let rule may be deallocated now
+
+
+(for x -> (+ x x))
+(for x -> (identify x (+ x x)))
+
+(for x y -> (identify x y (* x x (+ y x y))))
+
+(for var pat res
+  (identifying-for var .. pat -> res) ->
+  (for var .. pat -> (identify var .. res)))
+
+(identifying-for x x -> (+ x x))
+-->
+(for x x -> (identify x (+ x x)))
+
+(let (for action (twice action) -> (sequence action (sequence (unique action)))))
+
+
+
+(twice (print "Hello, world!"))
+
+
+(identify <T1> <T2>)
+
+  Identifies all parts of <T2> that are equal to <T1> with <T1>.
+
+(let (for x -> (* 2 3))
+  (identify x
+    (+ x x)))
+-->
+(identify x
+  (+ x x))
+-->
+(+ #0=x #0#)
+-->
+(+ #0=(* 2 3) #0#)
+-->
+(+ #0=6 #0#)
+-->
+12
+
+
+(sequence <T> <S> <F>)
+
+  Reduces <T>. If <T> [s]uccessfully reduces to a fixed point, the
+  result is <S>. If <T> [f]ails to reduce to a fixed point, the result
+  is <F>.
+
+(let (for x -> 10)
+  (sequence x
+    (sequence y x-and-y x-not-y)
+    not-x))
+-->
+(sequence x
+  (sequence y x-and-y x-not-y)
+  not-x)
+-->
+(sequence 10
+  (sequence y x-and-y x-not-y)
+  not-x)
+-->
+(sequence y x-and-y x-not-y)
+-->
+x-not-y
+
+(sequence T T T)
+
+(apply (for v v -> (sequence v v v)) T)
+
+(let (for x -> (* 2 3))
+  (+ x x))
+-->
+(+ x x)
+-->
+(+ (* 2 3) x)
+-->
+(+ 6 x)
+-->
+(+ 6 (* 2 3))
+-->
+(+ 6 6)
+-->
+12
+
+(let (for x -> (* 2 3))
+  (apply (for v v -> (+ v v)) x))
+-->
+(apply (for v v -> (+ v v)) x)
+-->
+(+ #0=x #0#)
+-->
+(+ #0=(* 2 3) #0#)
+-->
+(+ #0=6 #0#)
+-->
+12
+
+(let (for x -> (* 2 3))
+  (sequence x
+    (+ x x)))
+-->
+(sequence x
+  (+ x x))
+-->
+(sequence #0=x
+  (+ #0# #0#))
+-->
+(sequence )
+
+
