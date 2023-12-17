@@ -448,4 +448,65 @@ mod test {
 
         reduce_to_fixed_point(&env, &mut s, term).unwrap();
     }
+
+    #[test]
+    fn booleans() {
+        let mut s = Storage::new();
+
+        let mut rule = |rule_text| {
+            let r = read(&mut s, rule_text).unwrap();
+            compile_rule(&mut s, r)
+        };
+
+        let env = Env {
+            rules: vec![
+                rule("(for true  -> true)"),
+                rule("(for false -> false)"),
+
+                rule("(for (is-false false) -> true)"),
+                rule("(for (is-false true)  -> false)"),
+
+                rule("(for   (all-true)            -> true)"),
+                rule("(for b (all-true false b ..) -> false)"),
+                rule("(for b (all-true true  b ..) -> (all-true b ..))"),
+
+                rule("(for   (all-false)            -> true)"),
+                rule("(for b (all-false true  b ..) -> false)"),
+                rule("(for b (all-false false b ..) -> (all-false b ..))"),
+
+                rule("(for   (at-least-one-true)            -> false)"),
+                rule("(for b (at-least-one-true true  b ..) -> true)"),
+                rule("(for b (at-least-one-true false b ..) -> (at-least-one-true b ..))"),
+
+                rule("(for   (at-least-one-false)            -> false)"),
+                rule("(for b (at-least-one-false false b ..) -> true)"),
+                rule("(for b (at-least-one-false true  b ..) -> (at-least-one-false b ..))"),
+
+                rule("(for   (exactly-one-true)                  -> false)"),
+                rule("(for   (exactly-one-true false)            -> false)"),
+                rule("(for   (exactly-one-true true)             -> true)"),
+                rule("(for b (exactly-one-true true  true  b ..) -> false)"),
+                rule("(for b (exactly-one-true false false b ..) -> (exactly-one-true      b ..))"),
+                rule("(for b (exactly-one-true true  false b ..) -> (exactly-one-true true b ..))"),
+                rule("(for b (exactly-one-true false true  b ..) -> (exactly-one-true true b ..))"),
+
+                rule("(for   (exactly-one-false)                  -> false)"),
+                rule("(for   (exactly-one-false true)             -> false)"),
+                rule("(for   (exactly-one-false false)            -> true)"),
+                rule("(for b (exactly-one-false false false b ..) -> false)"),
+                rule("(for b (exactly-one-false true  true  b ..) -> (exactly-one-false       b ..))"),
+                rule("(for b (exactly-one-false false true  b ..) -> (exactly-one-false false b ..))"),
+                rule("(for b (exactly-one-false true  false b ..) -> (exactly-one-false false b ..))"),
+
+                rule("(for (if true  then true)  -> true)"),
+                rule("(for (if false then true)  -> true)"),
+                rule("(for (if false then false) -> true)"),
+                rule("(for (if true  then false) -> false)"),
+            ],
+        };
+
+        let term = read(&mut s, "(exactly-one-false false true (at-least-one-true false true))").unwrap();
+
+        reduce_to_fixed_point(&env, &mut s, term).unwrap();
+    }
 }
