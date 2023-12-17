@@ -140,10 +140,10 @@ mod test {
             let r = read(&mut s, "(for 0 -> 0)").unwrap();
             compile_rule(&mut s, r)
         };
-        let rule2 = {
-            let r = read(&mut s, "(for n (succ n) -> (succ n))").unwrap();
-            compile_rule(&mut s, r)
-        };
+        // let rule2 = {
+        //     let r = read(&mut s, "(for n (succ n) -> (succ n))").unwrap();
+        //     compile_rule(&mut s, r)
+        // };
         let rule3 = {
             let r = read(&mut s, "(for n (plus n 0) -> n)").unwrap();
             compile_rule(&mut s, r)
@@ -160,8 +160,20 @@ mod test {
             let r = read(&mut s, "(for 2 -> (succ 1))").unwrap();
             compile_rule(&mut s, r)
         };
-        let rule7 = {
+        let rule7a = {
             let r = read(&mut s, "(for 3 -> (succ 2))").unwrap();
+            compile_rule(&mut s, r)
+        };
+        let rule7b = {
+            let r = read(&mut s, "(for 4 -> (succ 3))").unwrap();
+            compile_rule(&mut s, r)
+        };
+        let rule7c = {
+            let r = read(&mut s, "(for 5 -> (succ 4))").unwrap();
+            compile_rule(&mut s, r)
+        };
+        let rule7d = {
+            let r = read(&mut s, "(for 6 -> (succ 5))").unwrap();
             compile_rule(&mut s, r)
         };
         let rule8 = {
@@ -179,15 +191,16 @@ mod test {
 
         let env = Env {
             rules: vec![
-                rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8, rule9
+                rule1,
+                //  rule2, 
+                rule3, rule4, rule5, rule6, rule7a, rule7b, rule7c, rule7d, rule8, rule9,
             ],
         };
 
-        let term = read(&mut s, "(multiply 2 3)").unwrap();
+        let term = read(&mut s, "(plus 3 6)").unwrap();
 
         reduce_to_fixed_point(&env, &mut s, term).unwrap();
     }
-
 
     #[test]
     fn apply_matching_rule3() {
@@ -205,8 +218,16 @@ mod test {
             let r = read(&mut s, "(for n (plus n .. 0) -> (plus n ..))").unwrap();
             compile_rule(&mut s, r)
         };
+        let rule3a = {
+            let r = read(&mut s, "(for n (plus n) -> n)").unwrap();
+            compile_rule(&mut s, r)
+        };
         let rule4 = {
-            let r = read(&mut s, "(for n0 n m (plus n0 n .. (succ m)) -> (plus (succ n0) n .. m))").unwrap();
+            let r = read(
+                &mut s,
+                "(for n0 n m (plus n0 n .. (succ m)) -> (plus (succ n0) n .. m))",
+            )
+            .unwrap();
             compile_rule(&mut s, r)
         };
         let rule5 = {
@@ -236,11 +257,156 @@ mod test {
 
         let env = Env {
             rules: vec![
-                rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8, rule9
+                rule1, rule2, rule3, rule3a, rule4, rule5, rule6, rule7, rule8, rule9,
             ],
         };
 
-        let term = read(&mut s, "(plus 3 3 3)").unwrap();
+        let term = read(&mut s, "(multiply 2 (plus 3 3 3))").unwrap();
+
+        reduce_to_fixed_point(&env, &mut s, term).unwrap();
+    }
+
+    #[test]
+    fn apply_matching_rule4() {
+        let mut s = Storage::new();
+
+        let mut rule = |rule_text| {
+            let r = read(&mut s, rule_text).unwrap();
+            compile_rule(&mut s, r)
+        };
+
+        let env = Env {
+            rules: vec![
+                rule("(for 0 -> 0)"),
+                rule("(for n (succ n) -> (succ n))"),
+                rule("(for 1 -> (succ 0))"),
+                rule("(for 2 -> (succ 1))"),
+                rule("(for 3 -> (succ 2))"),
+                rule("(for 4 -> (succ 3))"),
+                rule("(for 5 -> (succ 4))"),
+                rule("(for 6 -> (succ 5))"),
+                rule("(for n (+ n 0) -> n)"),
+                rule("(for n m (+ n (succ m)) -> (+ (succ n) m))"),
+                rule("(for (fibs 0) -> 0)"),
+                rule("(for (fibs (succ 0)) -> (succ 0))"),
+                rule("(for n (fibs (succ (succ n))) -> (+ (fibs n) (fibs (succ n))))"),
+                // rule("(for n (+ 1 n) -> (+ 1 n))"),
+                // rule("(for n (+ n 0) -> n)"),
+                // rule("(for n m (+ n (+ 1 m)) -> (+ (+ 1 n) m))"),
+            ],
+        };
+
+        let term = read(&mut s, "(fibs 6)").unwrap();
+
+        reduce_to_fixed_point(&env, &mut s, term).unwrap();
+    }
+
+    #[test]
+    fn apply_matching_rule5() {
+        let mut s = Storage::new();
+
+        let mut rule = |rule_text| {
+            let r = read(&mut s, rule_text).unwrap();
+            compile_rule(&mut s, r)
+        };
+
+        let env = Env {
+            rules: vec![
+                // Digits
+                rule("(for 0 -> 0)"),
+                rule("(for 1 -> 1)"),
+                rule("(for 2 -> 2)"),
+                rule("(for 3 -> 3)"),
+                rule("(for 4 -> 4)"),
+                rule("(for 5 -> 5)"),
+                rule("(for 6 -> 6)"),
+                rule("(for 7 -> 7)"),
+                rule("(for 8 -> 8)"),
+                rule("(for 9 -> 9)"),
+                // Bits
+                // rule("(for n m (bits n m) -> (bits n m))"),
+                // Converting 0-9 to bits
+                rule("(for (to-bits 0) -> 0)"),
+                rule("(for (to-bits 1) -> 1)"),
+                rule("(for (to-bits 2) -> (bits 0 1))"),
+                rule("(for (to-bits 3) -> (bits 1 1))"),
+                rule("(for (to-bits 4) -> (bits 0 (bits 0 1)))"),
+                rule("(for (to-bits 5) -> (bits 1 (bits 0 1)))"),
+                rule("(for (to-bits 6) -> (bits 0 (bits 1 1)))"),
+                rule("(for (to-bits 7) -> (bits 1 (bits 1 1)))"),
+                rule("(for (to-bits 8) -> (bits 0 (bits 0 (bits 0 1))))"),
+                rule("(for (to-bits 9) -> (bits 1 (bits 0 (bits 0 1))))"),
+                // Converting 0-9 bits to 0-9
+                rule("(for (from-bits 0) -> 0)"),
+                rule("(for (from-bits 1) -> 1)"),
+                rule("(for (from-bits (bits 0 1)) -> 2)"),
+                rule("(for (from-bits (bits 1 1)) -> 3)"),
+                rule("(for (from-bits (bits 0 (bits 0 1))) -> 4)"),
+                rule("(for (from-bits (bits 1 (bits 0 1))) -> 5)"),
+                rule("(for (from-bits (bits 0 (bits 1 1))) -> 6)"),
+                rule("(for (from-bits (bits 1 (bits 1 1))) -> 7)"),
+                rule("(for (from-bits (bits 0 (bits 0 (bits 0 1)))) -> 8)"),
+                rule("(for (from-bits (bits 1 (bits 0 (bits 0 1)))) -> 9)"),
+                // Storing result & carry using two bits
+                rule("(for c r (result (bits r c)) -> r)"),
+                rule("(for c r (carry (bits r c)) -> c)"),
+                // Bit addition (with carry in and carry out)
+                rule("(for (+ 0 0 0) -> (bits 0 0))"),
+                rule("(for (+ 0 0 1) -> (bits 1 0))"),
+                rule("(for (+ 0 1 0) -> (bits 0 1))"),
+                rule("(for (+ 0 1 1) -> (bits 0 1))"),
+                rule("(for (+ 1 0 0) -> (bits 1 0))"),
+                rule("(for (+ 1 0 1) -> (bits 0 1))"),
+                rule("(for (+ 1 1 0) -> (bits 0 1))"),
+                rule("(for (+ 1 1 1) -> (bits 1 1))"),
+                // Addition
+                rule(
+                    "(for n0 n m0 m c
+                        (+ (bits n0 n)
+                           (bits m0 m)
+                           c) 
+                        -> 
+                        (bits (result (+ n0 m0 c)) 
+                              (+ n m (carry (+ n0 m0 c)))))",
+                ),
+                // Generic operations on two binary numbers (with carry) base cases
+                rule(
+                    "(for n0 n c f
+                        (f (bits n0 n) 0 c) 
+                        -> 
+                        (f (bits n0 n) (bits 0 0) c))",
+                ),
+                rule(
+                    "(for n0 n c f
+                        (f (bits n0 n) 1 c) 
+                        -> 
+                        (f (bits n0 n) (bits 1 0) c))",
+                ),
+                rule(
+                    "(for n0 n c f
+                        (f 0 (bits n0 n) c) 
+                        -> 
+                        (f (bits n0 n) (bits 0 0) c))",
+                ),
+                rule(
+                    "(for n0 n c f
+                        (f 1 (bits n0 n) c) 
+                        -> 
+                        (f (bits n0 n) (bits 1 0) c))",
+                ),
+                // Bit multiplication (with carry in and carry out)
+                rule("(for (* 0 0 0) -> (bits 0 0))"),
+                rule("(for (* 0 0 1) -> (bits 1 0))"),
+                rule("(for (* 0 1 0) -> (bits 0 0))"),
+                rule("(for (* 0 1 1) -> (bits 1 0))"),
+                rule("(for (* 1 0 0) -> (bits 0 0))"),
+                rule("(for (* 1 0 1) -> (bits 1 0))"),
+                rule("(for (* 1 1 0) -> (bits 0 0))"),
+                rule("(for (* 1 1 1) -> (bits 1 1))"),
+            ],
+        };
+
+        let term = read(&mut s, "(from-bits (+ (to-bits 3) (to-bits 6) 0))").unwrap();
 
         reduce_to_fixed_point(&env, &mut s, term).unwrap();
     }
