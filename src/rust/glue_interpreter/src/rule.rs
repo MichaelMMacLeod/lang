@@ -217,10 +217,29 @@ fn pattern_match_multi(
         }
         MultiPattern::Many(many) => {
             let Many { sp, mp } = many.as_ref();
-            let sp_matches = ks
-                .iter()
-                .map_while(|k| pattern_match_single(storage, sp, *k))
-                .collect::<Vec<_>>();
+            let sp_matches = {
+                let mut ks = ks;
+                let mut result: Vec<HashMap<String, Match>> = Vec::new();
+                while let Some(k) = ks.first() {
+                    if let Some(ht) = pattern_match_multi(storage, mp, ks) {
+                        break;
+                    } else if let Some(ht) = pattern_match_single(storage, sp, *k) {
+                        result.push(ht);
+                        ks = &ks[1..];
+                    } else {
+                        break;
+                    }
+                }
+                result
+            };
+
+            // let sp_matches = ks
+            //     .iter()
+            //     .map_while(|k| {
+            //         // let mp_matches = pattern_match_multi(storage, mp, ks)
+            //         pattern_match_single(storage, sp, *k)
+            //     })
+            //     .collect::<Vec<_>>();
             let combined_sp_matches = if !sp_matches.is_empty() {
                 let mut branches: HashMap<String, Vec<Match>> = HashMap::new();
                 for var in sp_matches[0].keys() {
