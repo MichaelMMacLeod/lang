@@ -1,6 +1,7 @@
 use std::{
     collections::{hash_map::DefaultHasher, HashMap, HashSet},
     hash::Hasher,
+    num::NonZeroUsize,
 };
 
 use slotmap::{new_key_type, SlotMap};
@@ -9,12 +10,13 @@ use crate::{
     compound::Compound,
     delimiter::Delimiter,
     env::Env,
-    rule::{ComputationRule, Rule, compile_rule},
+    rule::{compile_rule, ComputationRule, Rule},
     symbol::Symbol,
 };
 
 use std::hash::Hash;
 
+#[derive(Clone)]
 pub enum Term {
     Symbol(Symbol),
     Compound(Compound),
@@ -30,6 +32,11 @@ pub struct Storage {
     fixed_point_terms: HashSet<StorageKey>,
 }
 
+enum KeyUsageCount {
+    Once,
+    MoreThanOnce { graph_syntax_label: usize },
+}
+
 impl Storage {
     pub fn new() -> Self {
         Self {
@@ -42,16 +49,33 @@ impl Storage {
         self.data.get(k)
     }
 
+    // Replaces term at k with new_term, returning old term.
+    pub fn replace(&mut self, k: StorageKey, new_term: Term) -> Term {
+        let old_term = self.data.get_mut(k).unwrap();
+        std::mem::replace(old_term, new_term)
+    }
+
     pub fn insert(&mut self, t: Term) -> StorageKey {
         self.data.insert(t)
     }
 
     pub fn println(&self, key: StorageKey) {
-        self.print(key);
+        let labels = self.label_keys_used_more_than_once(key);
+        let mut already_labeled = HashSet::new();
+        self.print(key, &labels, &mut already_labeled);
         println!();
     }
 
-    pub fn print(&self, key: StorageKey) {
+    pub fn print(&self, key: StorageKey, labels: &HashMap<StorageKey, usize>, already_labeled: &mut HashSet<StorageKey>) {
+        if let Some(graph_syntax_label) = labels.get(&key) {
+            if already_labeled.contains(&key) {
+                print!("#{graph_syntax_label}");
+                return;
+            } else {
+                print!("#{graph_syntax_label}=");
+                already_labeled.insert(key);
+            }
+        }
         match self.data.get(key).unwrap() {
             Term::Symbol(s) => print!("{}", s.data()),
             Term::Compound(c) => {
@@ -61,10 +85,10 @@ impl Storage {
                 } else {
                     print!("(");
                     for k in keys.iter().take(keys.len() - 1) {
-                        self.print(*k);
+                        self.print(*k, labels, already_labeled);
                         print!(" ");
                     }
-                    self.print(*keys.last().unwrap());
+                    self.print(*keys.last().unwrap(), labels, already_labeled);
                     print!(")");
                 }
             }
@@ -72,6 +96,51 @@ impl Storage {
             Term::Env(_) => print!("<env>"),
             Term::Delimiter(_) => print!("<delimiter>"),
         }
+    }
+
+    fn label_keys_used_more_than_once(&self, term: StorageKey) -> HashMap<StorageKey, usize> {
+        let mut labels = HashMap::new();
+        self.keys_used_more_than_once(term, &mut labels);
+        labels
+            .into_iter()
+            .filter_map(|(k, v)| {
+                if let KeyUsageCount::MoreThanOnce { graph_syntax_label } = v {
+                    Some((k, graph_syntax_label))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    fn keys_used_more_than_once(
+        &self,
+        term: StorageKey,
+        result: &mut HashMap<StorageKey, KeyUsageCount>,
+    ) {
+        let graph_syntax_label = result
+            .iter()
+            .filter_map(|(k, v)| {
+                if let KeyUsageCount::MoreThanOnce { .. } = v {
+                    Some(1)
+                } else {
+                    None
+                }
+            })
+            .sum();
+        result
+            .entry(term)
+            .and_modify(|u| {
+                if let KeyUsageCount::Once = u {
+                    *u = KeyUsageCount::MoreThanOnce { graph_syntax_label }
+                }
+            })
+            .or_insert(KeyUsageCount::Once);
+        if let Term::Compound(c) = self.get(term).unwrap() {
+            for &term in c.keys() {
+                self.keys_used_more_than_once(term, result);
+            }
+        };
     }
 
     pub fn terms_are_equal(&self, t1: StorageKey, t2: StorageKey) -> bool {

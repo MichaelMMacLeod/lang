@@ -523,15 +523,16 @@ mod test {
         let env = Env {
             rules: vec![
                 rule("(for 0 -> 0)"),
-                rule("(for n (succ n) -> (succ n))"),
+                rule("(for n (S n) -> (S n))"),
                 rule("(for n (n + 0) -> n)"),
-                rule("(for n m (n + (succ m)) -> ((succ n) + m))"),
-                rule("(for 5 -> (succ (succ (succ (succ (succ 0))))))"),
+                rule("(for n m (n + (S m)) -> ((S n) + m))"),
+                rule("(for 2 -> (S (S 0)))"),
                 rule("(for n (n * 2) -> (n + n))"),
+                rule("(for n (double n) -> (n + n))"),
             ],
         };
 
-        let term = read(&mut s, "((5 + 5) * 2)").unwrap();
+        let term = read(&mut s, "((double 2) * 2)").unwrap();
 
         reduce_to_fixed_point(&env, &mut s, term).unwrap();
     }

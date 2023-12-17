@@ -65,7 +65,12 @@ pub fn compile_rule(storage: &Storage, rule: StorageKey) -> Rule {
 pub fn apply_rule(rule: &Rule, storage: &mut Storage, term: StorageKey) -> Option<StorageKey> {
     match rule {
         Rule::Computation(rule) => pattern_match_single(storage, &rule.pattern, term)
-            .map(|m| create_match_result_single(storage, &m, &rule.result)),
+            .map(|m| {
+                let result = create_match_result_single(storage, &m, &rule.result);
+                let new_term = storage.get(result).unwrap();
+                storage.replace(term, new_term.clone());
+                result
+            }),
         Rule::FixedPointRule(rule) => {
             pattern_match_single(storage, &rule.pattern, term).map(|_| {
                 storage.mark_as_fixed(term);
