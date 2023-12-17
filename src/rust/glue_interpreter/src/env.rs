@@ -427,4 +427,25 @@ mod test {
 
         reduce_to_fixed_point(&env, &mut s, term).unwrap();
     }
+
+    #[test]
+    fn apply_matching_rule6() {
+        let mut s = Storage::new();
+
+        let mut rule = |rule_text| {
+            let r = read(&mut s, rule_text).unwrap();
+            compile_rule(&mut s, r)
+        };
+
+        let env = Env {
+            rules: vec![
+                rule("(for x y ($x = (x ..) $y = (y ..)) -> ($x = (x ..) $y = (y ..)))"),
+                rule("(for x y (x .. <--x|y--> y ..) -> ($x = (x ..) $y = (y ..)))"),
+            ],
+        };
+
+        let term = read(&mut s, "(0 1 2 3 <--x|y--> 4 5 6 7 8 9)").unwrap();
+
+        reduce_to_fixed_point(&env, &mut s, term).unwrap();
+    }
 }
