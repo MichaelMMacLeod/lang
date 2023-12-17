@@ -37,15 +37,41 @@ pub fn compile_env(storage: &Storage, env: StorageKey) -> Option<Env> {
     }
 }
 
+pub fn apply_matching_rule_toplevel(
+    env: &Env,
+    storage: &mut Storage,
+    term: StorageKey,
+) -> Option<StorageKey> {
+    if storage.is_fixed(&term) {
+        Some(term)
+    } else {
+        let result = apply_matching_rule(env, storage, term);
+        if storage.is_fixed(&term) {
+            Some(term)
+        } else {
+            result
+        }
+    }
+}
+
 pub fn apply_matching_rule(
     env: &Env,
     storage: &mut Storage,
-    fixed_points: &mut HashSet<StorageKey>,
     term: StorageKey,
 ) -> Option<StorageKey> {
     env.rules
         .iter()
-        .filter_map(|rule| apply_rule(rule, storage, term))
+        .filter_map(|rule| {
+            if let Some(k) = apply_rule(rule, storage, term) {
+                if k == term {
+                    None
+                } else {
+                    Some(k)
+                }
+            } else {
+                None
+            }
+        })
         .next()
         .or_else(|| match storage.get(term).unwrap() {
             Term::Compound(c) => {
@@ -53,15 +79,10 @@ pub fn apply_matching_rule(
                 let mut success = false;
                 let mut new_keys: Vec<StorageKey> = Vec::new();
                 for k in c.keys() {
-                    if !success && !fixed_points.contains(k) {
-                        if let Some(result) = apply_matching_rule(env, storage, fixed_points, *k) {
-                            if result == *k {
-                                fixed_points.insert(result);
-                                new_keys.push(*k);
-                            } else {
-                                success = true;
-                                new_keys.push(result);
-                            }
+                    if !success {
+                        if let Some(result) = apply_matching_rule(env, storage, *k) {
+                            success = true;
+                            new_keys.push(result);
                         } else {
                             new_keys.push(*k);
                         }
@@ -84,9 +105,8 @@ pub fn reduce_to_fixed_point(
     storage: &mut Storage,
     mut term: StorageKey,
 ) -> Option<StorageKey> {
-    let mut fixed_points: HashSet<StorageKey> = HashSet::new();
     storage.println(term);
-    while let Some(term2) = apply_matching_rule(env, storage, &mut fixed_points, term) {
+    while let Some(term2) = apply_matching_rule_toplevel(env, storage, term) {
         if term2 == term {
             return Some(term);
         }
@@ -191,8 +211,7 @@ mod test {
 
         let env = Env {
             rules: vec![
-                rule1,
-                //  rule2, 
+                rule1, //  rule2,
                 rule3, rule4, rule5, rule6, rule7a, rule7b, rule7c, rule7d, rule8, rule9,
             ],
         };
@@ -290,13 +309,11 @@ mod test {
                 rule("(for (fibs 0) -> 0)"),
                 rule("(for (fibs (succ 0)) -> (succ 0))"),
                 rule("(for n (fibs (succ (succ n))) -> (+ (fibs n) (fibs (succ n))))"),
-                // rule("(for n (+ 1 n) -> (+ 1 n))"),
-                // rule("(for n (+ n 0) -> n)"),
-                // rule("(for n m (+ n (+ 1 m)) -> (+ (+ 1 n) m))"),
             ],
         };
 
         let term = read(&mut s, "(fibs 6)").unwrap();
+        // let term = read(&mut s, "0").unwrap();
 
         reduce_to_fixed_point(&env, &mut s, term).unwrap();
     }
@@ -324,7 +341,7 @@ mod test {
                 rule("(for 8 -> 8)"),
                 rule("(for 9 -> 9)"),
                 // Bits
-                // rule("(for n m (bits n m) -> (bits n m))"),
+                rule("(for n m (bits n m) -> (bits n m))"),
                 // Converting 0-9 to bits
                 rule("(for (to-bits 0) -> 0)"),
                 rule("(for (to-bits 1) -> 1)"),

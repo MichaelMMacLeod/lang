@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::DefaultHasher, HashMap},
+    collections::{hash_map::DefaultHasher, HashMap, HashSet},
     hash::Hasher,
 };
 
@@ -39,12 +39,14 @@ new_key_type! { pub struct StorageKey; }
 
 pub struct Storage {
     data: SlotMap<StorageKey, Term>,
+    fixed_point_terms: HashSet<StorageKey>,
 }
 
 impl Storage {
     pub fn new() -> Self {
         Self {
             data: SlotMap::with_key(),
+            fixed_point_terms: HashSet::new(),
         }
     }
 
@@ -99,5 +101,13 @@ impl Storage {
             (Term::Compound(_), _) => false,
             _ => todo!(),
         }
+    }
+
+    pub fn mark_as_fixed(&mut self, k: StorageKey) {
+        self.fixed_point_terms.insert(k);
+    }
+
+    pub fn is_fixed(&self, k: &StorageKey) -> bool {
+        self.fixed_point_terms.contains(k)
     }
 }

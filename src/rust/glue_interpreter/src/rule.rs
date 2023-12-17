@@ -67,7 +67,10 @@ pub fn apply_rule(rule: &Rule, storage: &mut Storage, term: StorageKey) -> Optio
         Rule::Computation(rule) => pattern_match_single(storage, &rule.pattern, term)
             .map(|m| create_match_result_single(storage, &m, &rule.result)),
         Rule::FixedPointRule(rule) => {
-            pattern_match_single(storage, &rule.pattern, term).map(|_| term)
+            pattern_match_single(storage, &rule.pattern, term).map(|_| {
+                storage.mark_as_fixed(term);
+                term
+            })
         }
     }
 }
