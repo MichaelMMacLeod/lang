@@ -56,6 +56,6 @@ mod test {
                 .unwrap()
                 .1,
         );
-        s.println(k);
+        s.println(k, false);
     }
 }

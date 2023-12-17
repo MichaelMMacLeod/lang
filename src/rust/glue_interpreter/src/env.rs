@@ -73,30 +73,29 @@ pub fn apply_matching_rule(
             }
         })
         .next()
-        .or_else(|| match storage.get(term).unwrap() {
-            Term::Compound(c) => {
-                let c = c.clone();
-                let mut success = false;
-                let mut new_keys: Vec<StorageKey> = Vec::new();
-                for k in c.keys() {
-                    if !success {
-                        if let Some(result) = apply_matching_rule(env, storage, *k) {
-                            success = true;
-                            new_keys.push(result);
-                        } else {
-                            new_keys.push(*k);
-                        }
+        .or_else(|| {
+            if let Some(keys) = match storage.get(term).unwrap() {
+                Term::Compound(c) => Some(c.keys().iter().copied().collect::<Vec<_>>()),
+                _ => None,
+            } {
+                if let Some((index, replacement)) = {
+                    keys.into_iter().enumerate().find_map(|(index, key)| {
+                        apply_matching_rule(env, storage, key)
+                            .map(|replacement| (index, replacement))
+                    })
+                } {
+                    if let Term::Compound(c) = storage.get_mut(term).unwrap() {
+                        // c.keys_mut()[index] = replacement;
+                        Some(term)
                     } else {
-                        new_keys.push(*k);
+                        unreachable!();
                     }
-                }
-                if success {
-                    Some(storage.insert(Term::Compound(Compound::new(new_keys))))
                 } else {
                     None
                 }
+            } else {
+                None
             }
-            _ => None,
         })
 }
 
@@ -104,14 +103,19 @@ pub fn reduce_to_fixed_point(
     env: &Env,
     storage: &mut Storage,
     mut term: StorageKey,
+    graph_syntax: bool,
 ) -> Option<StorageKey> {
-    storage.println(term);
+    let mut step = 0;
+    print!("{step}.\t");
+    storage.println(term, graph_syntax);
     while let Some(term2) = apply_matching_rule_toplevel(env, storage, term) {
-        if term2 == term {
-            return Some(term);
+        if storage.is_fixed(&term2) {
+            return Some(term2);
         }
         term = term2;
-        storage.println(term);
+        step += 1;
+        print!("{step}.\t");
+        storage.println(term, graph_syntax);
     }
     return None;
 }
@@ -121,6 +125,32 @@ mod test {
     use crate::{parser::read, rule::compile_rule};
 
     use super::*;
+
+    #[test]
+    fn identification() {
+        let mut s = Storage::new();
+
+        let mut rule = |rule_text| {
+            let r = read(&mut s, rule_text).unwrap();
+            compile_rule(&mut s, r)
+        };
+
+        let env = Env {
+            rules: vec![
+                rule("(for 0 -> 0)"),
+                rule("(for n (S n) -> (S n))"),
+                rule("(for n (n + 0) -> n)"),
+                rule("(for n m (n + (S m)) -> ((S n) + m))"),
+                rule("(for 2 -> (S (S 0)))"),
+                rule("(for n (n * 2) -> (n + n))"),
+                rule("(for n (double n) -> (n + n))"),
+            ],
+        };
+
+        let term = read(&mut s, "((double 2) * 2)").unwrap();
+
+        reduce_to_fixed_point(&env, &mut s, term, false).unwrap();
+    }
 
     #[test]
     fn apply_matching_rule1() {
@@ -149,7 +179,7 @@ mod test {
 
         let term = read(&mut s, "(+ (+ x x) x)").unwrap();
 
-        reduce_to_fixed_point(&env, &mut s, term).unwrap();
+        reduce_to_fixed_point(&env, &mut s, term, false).unwrap();
     }
 
     #[test]
@@ -160,10 +190,10 @@ mod test {
             let r = read(&mut s, "(for 0 -> 0)").unwrap();
             compile_rule(&mut s, r)
         };
-        // let rule2 = {
-        //     let r = read(&mut s, "(for n (succ n) -> (succ n))").unwrap();
-        //     compile_rule(&mut s, r)
-        // };
+        let rule2 = {
+            let r = read(&mut s, "(for n (succ n) -> (succ n))").unwrap();
+            compile_rule(&mut s, r)
+        };
         let rule3 = {
             let r = read(&mut s, "(for n (plus n 0) -> n)").unwrap();
             compile_rule(&mut s, r)
@@ -211,14 +241,14 @@ mod test {
 
         let env = Env {
             rules: vec![
-                rule1, //  rule2,
-                rule3, rule4, rule5, rule6, rule7a, rule7b, rule7c, rule7d, rule8, rule9,
+                rule1, rule2, rule3, rule4, rule5, rule6, rule7a, rule7b, rule7c, rule7d, rule8,
+                rule9,
             ],
         };
 
         let term = read(&mut s, "(plus 3 6)").unwrap();
 
-        reduce_to_fixed_point(&env, &mut s, term).unwrap();
+        reduce_to_fixed_point(&env, &mut s, term, false).unwrap();
     }
 
     #[test]
@@ -282,7 +312,7 @@ mod test {
 
         let term = read(&mut s, "(multiply 2 (plus 3 3 3))").unwrap();
 
-        reduce_to_fixed_point(&env, &mut s, term).unwrap();
+        reduce_to_fixed_point(&env, &mut s, term, false).unwrap();
     }
 
     #[test]
@@ -315,7 +345,7 @@ mod test {
         let term = read(&mut s, "(fibs 6)").unwrap();
         // let term = read(&mut s, "0").unwrap();
 
-        reduce_to_fixed_point(&env, &mut s, term).unwrap();
+        reduce_to_fixed_point(&env, &mut s, term, true).unwrap();
     }
 
     #[test]
@@ -425,7 +455,7 @@ mod test {
 
         let term = read(&mut s, "(from-bits (+ (to-bits 3) (to-bits 6) 0))").unwrap();
 
-        reduce_to_fixed_point(&env, &mut s, term).unwrap();
+        reduce_to_fixed_point(&env, &mut s, term, false).unwrap();
     }
 
     #[test]
@@ -446,7 +476,7 @@ mod test {
 
         let term = read(&mut s, "(0 1 2 3 <--x|y--> 4 5 6 7 8 9)").unwrap();
 
-        reduce_to_fixed_point(&env, &mut s, term).unwrap();
+        reduce_to_fixed_point(&env, &mut s, term, false).unwrap();
     }
 
     #[test]
@@ -505,35 +535,12 @@ mod test {
             ],
         };
 
-        let term = read(&mut s, "(exactly-one-false false true (at-least-one-true false true))").unwrap();
+        let term = read(
+            &mut s,
+            "(exactly-one-false false true (at-least-one-true false true))",
+        )
+        .unwrap();
 
-        reduce_to_fixed_point(&env, &mut s, term).unwrap();
-    }
-
-
-    #[test]
-    fn identification() {
-        let mut s = Storage::new();
-
-        let mut rule = |rule_text| {
-            let r = read(&mut s, rule_text).unwrap();
-            compile_rule(&mut s, r)
-        };
-
-        let env = Env {
-            rules: vec![
-                rule("(for 0 -> 0)"),
-                rule("(for n (S n) -> (S n))"),
-                rule("(for n (n + 0) -> n)"),
-                rule("(for n m (n + (S m)) -> ((S n) + m))"),
-                rule("(for 2 -> (S (S 0)))"),
-                rule("(for n (n * 2) -> (n + n))"),
-                rule("(for n (double n) -> (n + n))"),
-            ],
-        };
-
-        let term = read(&mut s, "((double 2) * 2)").unwrap();
-
-        reduce_to_fixed_point(&env, &mut s, term).unwrap();
+        reduce_to_fixed_point(&env, &mut s, term, false).unwrap();
     }
 }

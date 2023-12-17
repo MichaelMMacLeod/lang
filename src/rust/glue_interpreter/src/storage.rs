@@ -49,6 +49,10 @@ impl Storage {
         self.data.get(k)
     }
 
+    pub fn get_mut(&mut self, k: StorageKey) -> Option<&mut Term> {
+        self.data.get_mut(k)
+    }
+
     // Replaces term at k with new_term, returning old term.
     pub fn replace(&mut self, k: StorageKey, new_term: Term) -> Term {
         let old_term = self.data.get_mut(k).unwrap();
@@ -59,21 +63,29 @@ impl Storage {
         self.data.insert(t)
     }
 
-    pub fn println(&self, key: StorageKey) {
+    pub fn println(&self, key: StorageKey, graph_syntax: bool) {
         let labels = self.label_keys_used_more_than_once(key);
         let mut already_labeled = HashSet::new();
-        self.print(key, &labels, &mut already_labeled);
+        self.print(key, &labels, &mut already_labeled, graph_syntax);
         println!();
     }
 
-    pub fn print(&self, key: StorageKey, labels: &HashMap<StorageKey, usize>, already_labeled: &mut HashSet<StorageKey>) {
-        if let Some(graph_syntax_label) = labels.get(&key) {
-            if already_labeled.contains(&key) {
-                print!("#{graph_syntax_label}");
-                return;
-            } else {
-                print!("#{graph_syntax_label}=");
-                already_labeled.insert(key);
+    pub fn print(
+        &self,
+        key: StorageKey,
+        labels: &HashMap<StorageKey, usize>,
+        already_labeled: &mut HashSet<StorageKey>,
+        graph_syntax: bool,
+    ) {
+        if graph_syntax {
+            if let Some(graph_syntax_label) = labels.get(&key) {
+                if already_labeled.contains(&key) {
+                    print!("#{graph_syntax_label}");
+                    return;
+                } else {
+                    print!("#{graph_syntax_label}=");
+                    already_labeled.insert(key);
+                }
             }
         }
         match self.data.get(key).unwrap() {
@@ -85,10 +97,10 @@ impl Storage {
                 } else {
                     print!("(");
                     for k in keys.iter().take(keys.len() - 1) {
-                        self.print(*k, labels, already_labeled);
+                        self.print(*k, labels, already_labeled, graph_syntax);
                         print!(" ");
                     }
-                    self.print(*keys.last().unwrap(), labels, already_labeled);
+                    self.print(*keys.last().unwrap(), labels, already_labeled, graph_syntax);
                     print!(")");
                 }
             }

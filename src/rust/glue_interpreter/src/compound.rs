@@ -18,4 +18,8 @@ impl Compound {
     pub fn keys(&self) -> &[StorageKey] {
         &self.data
     }
+
+    pub fn keys_mut(&mut self) -> &mut [StorageKey] {
+        &mut self.data
+    }
 }

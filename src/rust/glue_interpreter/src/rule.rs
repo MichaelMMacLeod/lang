@@ -536,7 +536,7 @@ mod test {
 
         let r = create_match_result_single(&mut s, &m, &result);
 
-        s.println(r);
+        s.println(r, false);
     }
 
     #[test]
@@ -557,6 +557,6 @@ mod test {
 
         let result_k = apply_rule(&rule, &mut s, term_k).unwrap();
 
-        s.println(result_k);
+        s.println(result_k, false);
     }
 }
