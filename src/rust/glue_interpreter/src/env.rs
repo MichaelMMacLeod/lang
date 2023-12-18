@@ -12,6 +12,10 @@ pub struct Env {
     rules: Vec<Rule>,
 }
 
+impl Env {
+    pub fn new(rules: Vec<Rule>) -> Self { Self { rules } }
+}
+
 // (env <rule> ...) -> <env>
 pub fn compile_env(storage: &Storage, env: StorageKey) -> Option<Env> {
     match storage.get(env).unwrap() {
