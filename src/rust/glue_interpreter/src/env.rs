@@ -13,7 +13,9 @@ pub struct Env {
 }
 
 impl Env {
-    pub fn new(rules: Vec<Rule>) -> Self { Self { rules } }
+    pub fn new(rules: Vec<Rule>) -> Self {
+        Self { rules }
+    }
 }
 
 // (env <rule> ...) -> <env>
@@ -77,29 +79,14 @@ pub fn apply_matching_rule(
             }
         })
         .next()
-        .or_else(|| {
-            if let Some(keys) = match storage.get(term).unwrap() {
-                Term::Compound(c) => Some(c.keys().iter().copied().collect::<Vec<_>>()),
-                _ => None,
-            } {
-                if let Some((index, replacement)) = {
-                    keys.into_iter().enumerate().find_map(|(index, key)| {
-                        apply_matching_rule(env, storage, key)
-                            .map(|replacement| (index, replacement))
-                    })
-                } {
-                    if let Term::Compound(c) = storage.get_mut(term).unwrap() {
-                        // c.keys_mut()[index] = replacement;
-                        Some(term)
-                    } else {
-                        unreachable!();
-                    }
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
+        .or_else(|| match storage.get(term).unwrap() {
+            Term::Compound(c) => c
+                .keys()
+                .to_vec()
+                .into_iter()
+                .find_map(|key| apply_matching_rule(env, storage, key))
+                .map(|_| term),
+            _ => None,
         })
 }
 

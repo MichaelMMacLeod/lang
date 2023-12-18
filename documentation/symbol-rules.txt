@@ -1,3 +1,18 @@
+
+
+(for d0 d1 d2 d (base10 d0 .. {d1 d2 d ..}) -> (base10 d0 .. d1 {d2 d ..}))
+
+(for key value {key .. = value ..} -> {key .. =} {value})
+
+(foo acc=10)
+-->
+(foo acc= 10)
+
+123
+1 * 100 +
+2 * 10 +
+
+
 (symbol->bytes Hello)
 -- ???
 All this operation does is reinterpret the utf-8 encoded string
