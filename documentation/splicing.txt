@@ -1,0 +1,2 @@
+(for v (list v ..) -> (list v ..))
+(for v f (map f (list v ..)) -> (list (f v) ..))

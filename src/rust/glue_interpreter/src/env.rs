@@ -43,11 +43,7 @@ impl Env {
 //     }
 // }
 
-pub fn reduce_once(
-    env: &Env,
-    storage: &mut Storage,
-    term: StorageKey,
-) -> Option<Reduction> {
+pub fn reduce_once(env: &Env, storage: &mut Storage, term: StorageKey) -> Option<Reduction> {
     if let result @ Some(Reduction::Fixpoint | Reduction::Reduced) =
         apply_matching_rule(env, storage, term)
     {
@@ -57,7 +53,11 @@ pub fn reduce_once(
     }
 }
 
-pub fn apply_matching_rule(env: &Env, storage: &mut Storage, term: StorageKey) -> Option<Reduction> {
+pub fn apply_matching_rule(
+    env: &Env,
+    storage: &mut Storage,
+    term: StorageKey,
+) -> Option<Reduction> {
     env.rules
         .iter()
         .filter_map(|rule| apply_rule(rule, storage, term))
@@ -240,6 +240,34 @@ mod test {
             ],
             "(heads+tails (list (list 1 2 3 4 5) (list a b c d e) (list ! @ # $ %)))",
             "(result: heads = (list 1 a !) , tails = (list (list 2 3 4 5) (list b c d e) (list @ # $ %)))",
+        );
+    }
+
+    #[test]
+    fn radix_sort() {
+        test_reduction(
+            &[
+                "(for zero one n nb nr other
+                   (sort (zero .. <--0 (n .. nb | 0 nr ..) other .. 1--> one ..)) ->
+                   (sort (zero .. (n .. | nb 0 nr ..) <--0 other .. 1--> one ..)))",
+                "(for zero one n nb nr other
+                   (sort (zero .. <--0 (n .. nb | 1 nr ..) other .. 1--> one ..)) ->
+                   (sort (zero .. <--0 other .. 1--> (n .. | nb 1 nr ..) one ..)))",
+                "(for zero0 zero one
+                   (sort (zero0 zero .. <--0 1--> one ..)) ->
+                   (append (sort (<--0 zero0 zero .. 1-->))
+                           (sort (<--0 one .. 1-->))))",
+                "(for zero one0 one
+                   (sort (zero .. <--0 1--> one0 one ..)) ->
+                   (append (sort (<--0 zero .. 1-->))
+                           (sort (<--0 one0 one .. 1-->))))",
+                "(for n (sort (<--0 (| n ..) .. 1-->)) -> (list (n ..) ..))",
+                "(for x y (append (list x ..) (list y ..)) -> (list x .. y ..))",
+                "(for x (list x ..) -> (list x ..))",
+                "(for n m (radix-sort (n .. m) ..) -> (sort (<--0 (n .. | m) .. 1-->)))"
+            ],
+            "(radix-sort (1 1 1) (1 1 0) (1 0 1) (1 0 0) (0 1 1) (0 1 0) (0 0 1) (0 0 0))",
+            "0",
         );
     }
 }
