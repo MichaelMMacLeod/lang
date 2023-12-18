@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::{
     compound::Compound,
-    rule::{apply_rule, ComputationRule, Rule, TermClassification},
+    rule::{apply_rule, ComputationRule, Reduction, Rule},
     storage::{Storage, StorageKey, Term},
 };
 
@@ -47,9 +47,9 @@ pub fn apply_matching_rule_toplevel(
     env: &Env,
     storage: &mut Storage,
     term: StorageKey,
-) -> TermClassification {
+) -> Option<Reduction> {
     if storage.is_fixed(&term) {
-        TermClassification::Fixpoint
+        Some(Reduction::Fixpoint)
     } else {
         apply_matching_rule(env, storage, term)
     }
@@ -59,29 +59,21 @@ pub fn apply_matching_rule(
     env: &Env,
     storage: &mut Storage,
     term: StorageKey,
-) -> TermClassification {
+) -> Option<Reduction> {
     env.rules
         .iter()
-        .map(|rule| apply_rule(rule, storage, term))
-        .filter(|tc| match tc {
-            TermClassification::Reducible => true,
-            _ => false,
-        })
+        .filter_map(|rule| apply_rule(rule, storage, term))
+        .filter(Reduction::is_reduced)
         .next()
         .or_else(|| match storage.get(term).unwrap() {
             Term::Compound(c) => c
                 .keys()
                 .to_vec()
                 .into_iter()
-                .map(|key| apply_matching_rule(env, storage, key))
-                .filter(|tc| match tc {
-                    TermClassification::Reducible => true,
-                    _ => false,
-                })
+                .filter_map(|key| apply_matching_rule(env, storage, key))
                 .next(),
             _ => None,
         })
-        .unwrap_or(TermClassification::Irreducible)
 }
 
 pub fn reduce_to_fixed_point(
@@ -89,13 +81,12 @@ pub fn reduce_to_fixed_point(
     storage: &mut Storage,
     mut term: StorageKey,
     graph_syntax: bool,
-) -> TermClassification {
+) -> Option<Reduction> {
     let mut step = 0;
     loop {
-        use TermClassification::*;
-        let result = apply_matching_rule_toplevel(env, storage, term);
-        if let Irreducible | Fixpoint = result {
-            return result;
+        let reduction = apply_matching_rule_toplevel(env, storage, term);
+        if let Some(Reduction::Fixpoint) | None = reduction {
+            return reduction;
         }
         step += 1;
         print!("{step}.\t");
