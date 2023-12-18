@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::{
     compound::Compound,
-    rule::{apply_rule, ComputationRule, Rule},
+    rule::{apply_rule, ComputationRule, Rule, TermClassification},
     storage::{Storage, StorageKey, Term},
 };
 
@@ -47,16 +47,11 @@ pub fn apply_matching_rule_toplevel(
     env: &Env,
     storage: &mut Storage,
     term: StorageKey,
-) -> Option<StorageKey> {
+) -> TermClassification {
     if storage.is_fixed(&term) {
-        Some(term)
+        TermClassification::Fixpoint
     } else {
-        let result = apply_matching_rule(env, storage, term);
-        if storage.is_fixed(&term) {
-            Some(term)
-        } else {
-            result
-        }
+        apply_matching_rule(env, storage, term)
     }
 }
 
@@ -64,30 +59,23 @@ pub fn apply_matching_rule(
     env: &Env,
     storage: &mut Storage,
     term: StorageKey,
-) -> Option<StorageKey> {
+) -> TermClassification {
     env.rules
         .iter()
-        .filter_map(|rule| {
-            if let Some(k) = apply_rule(rule, storage, term) {
-                if k == term {
-                    None
-                } else {
-                    Some(k)
-                }
-            } else {
-                None
-            }
-        })
+        .map(|rule| apply_rule(rule, storage, term))
+        .filter(TermClassification::is_not_irreducible)
         .next()
         .or_else(|| match storage.get(term).unwrap() {
             Term::Compound(c) => c
                 .keys()
                 .to_vec()
                 .into_iter()
-                .find_map(|key| apply_matching_rule(env, storage, key))
-                .map(|_| term),
+                .map(|key| apply_matching_rule(env, storage, key))
+                .filter(TermClassification::is_not_irreducible)
+                .next(),
             _ => None,
         })
+        .unwrap_or(TermClassification::Irreducible)
 }
 
 pub fn reduce_to_fixed_point(
@@ -95,20 +83,20 @@ pub fn reduce_to_fixed_point(
     storage: &mut Storage,
     mut term: StorageKey,
     graph_syntax: bool,
-) -> Option<StorageKey> {
+) -> TermClassification {
     let mut step = 0;
     print!("{step}.\t");
     storage.println(term, graph_syntax);
-    while let Some(term2) = apply_matching_rule_toplevel(env, storage, term) {
-        if storage.is_fixed(&term2) {
-            return Some(term2);
+    loop {
+        use TermClassification::*;
+        let result = apply_matching_rule_toplevel(env, storage, term);
+        if let Irreducible | Fixpoint = result {
+            return result;
         }
-        term = term2;
         step += 1;
         print!("{step}.\t");
         storage.println(term, graph_syntax);
     }
-    return None;
 }
 
 #[cfg(test)]
@@ -116,6 +104,35 @@ mod test {
     use crate::{parser::read, rule::compile_rule};
 
     use super::*;
+    #[test]
+    fn reduce1() {
+        let mut s = Storage::new();
+
+        let mut rule = |rule_text| {
+            let r = read(&mut s, rule_text).unwrap();
+            compile_rule(&mut s, r)
+        };
+
+        let env = Env {
+            rules: vec![
+                rule("(for 0 -> 0)"),
+                rule("(for n (S n) -> (S n))"),
+                rule("(for n (n + 0) -> n)"),
+                rule("(for n m (n + (S m)) -> ((S n) + m))"),
+                rule("(for 2 -> (S (S 0)))"),
+                rule("(for n (n * 2) -> (n + n))"),
+            ],
+        };
+
+        let term = read(&mut s, "((2 * 2) * 2)").unwrap();
+        let expected = read(&mut s, "(S (S (S (S (S (S (S (S 0))))))))").unwrap();
+
+        reduce_to_fixed_point(&env, &mut s, term, false);
+
+        s.println(term, false);
+        s.println(expected, false);
+        assert!(s.terms_are_equal(term, expected));
+    }
 
     #[test]
     fn identification() {
@@ -139,7 +156,7 @@ mod test {
 
         let term = read(&mut s, "((2 * 2) * 2)").unwrap();
 
-        reduce_to_fixed_point(&env, &mut s, term, false).unwrap();
+        reduce_to_fixed_point(&env, &mut s, term, false);
     }
 
     #[test]
@@ -169,7 +186,7 @@ mod test {
 
         let term = read(&mut s, "(+ (+ x x) x)").unwrap();
 
-        reduce_to_fixed_point(&env, &mut s, term, false).unwrap();
+        reduce_to_fixed_point(&env, &mut s, term, false);
     }
 
     #[test]
@@ -238,7 +255,7 @@ mod test {
 
         let term = read(&mut s, "(plus 3 6)").unwrap();
 
-        reduce_to_fixed_point(&env, &mut s, term, false).unwrap();
+        reduce_to_fixed_point(&env, &mut s, term, false);
     }
 
     #[test]
@@ -302,7 +319,7 @@ mod test {
 
         let term = read(&mut s, "(multiply 2 (plus 3 3 3))").unwrap();
 
-        reduce_to_fixed_point(&env, &mut s, term, false).unwrap();
+        reduce_to_fixed_point(&env, &mut s, term, false);
     }
 
     #[test]
@@ -335,7 +352,7 @@ mod test {
         let term = read(&mut s, "(fibs 6)").unwrap();
         // let term = read(&mut s, "0").unwrap();
 
-        reduce_to_fixed_point(&env, &mut s, term, true).unwrap();
+        reduce_to_fixed_point(&env, &mut s, term, true);
     }
 
     #[test]
@@ -445,7 +462,7 @@ mod test {
 
         let term = read(&mut s, "(from-bits (+ (to-bits 3) (to-bits 6) 0))").unwrap();
 
-        reduce_to_fixed_point(&env, &mut s, term, false).unwrap();
+        reduce_to_fixed_point(&env, &mut s, term, false);
     }
 
     #[test]
@@ -466,7 +483,7 @@ mod test {
 
         let term = read(&mut s, "(0 1 2 3 <--x|y--> 4 5 6 7 8 9)").unwrap();
 
-        reduce_to_fixed_point(&env, &mut s, term, false).unwrap();
+        reduce_to_fixed_point(&env, &mut s, term, false);
     }
 
     #[test]
@@ -531,6 +548,6 @@ mod test {
         )
         .unwrap();
 
-        reduce_to_fixed_point(&env, &mut s, term, false).unwrap();
+        reduce_to_fixed_point(&env, &mut s, term, false);
     }
 }

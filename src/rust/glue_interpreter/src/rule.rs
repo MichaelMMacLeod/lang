@@ -62,22 +62,41 @@ pub fn compile_rule(storage: &Storage, rule: StorageKey) -> Rule {
     }
 }
 
-pub fn apply_rule(rule: &Rule, storage: &mut Storage, term: StorageKey) -> Option<StorageKey> {
+pub enum TermClassification {
+    Reducible,
+    Fixpoint,
+    Irreducible,
+}
+
+impl TermClassification {
+    pub fn is_irreducible(&self) -> bool {
+        match self {
+            TermClassification::Irreducible => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_not_irreducible(&self) -> bool {
+        !self.is_irreducible()
+    }
+}
+
+pub fn apply_rule(rule: &Rule, storage: &mut Storage, term: StorageKey) -> TermClassification {
     match rule {
-        Rule::Computation(rule) => pattern_match_single(storage, &rule.pattern, term)
-            .map(|m| {
-                let result = create_match_result_single(storage, &m, &rule.result);
-                let new_term = storage.get(result).unwrap();
-                storage.replace(term, new_term.clone());
-                result
-            }),
+        Rule::Computation(rule) => pattern_match_single(storage, &rule.pattern, term).map(|m| {
+            let result = create_match_result_single(storage, &m, &rule.result);
+            let new_term = storage.get(result).unwrap();
+            storage.replace(term, new_term.clone());
+            TermClassification::Reducible
+        }),
         Rule::FixedPointRule(rule) => {
             pattern_match_single(storage, &rule.pattern, term).map(|_| {
                 storage.mark_as_fixed(term);
-                term
+                TermClassification::Fixpoint
             })
         }
     }
+    .unwrap_or(TermClassification::Irreducible)
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -555,8 +574,8 @@ mod test {
                 .1,
         );
 
-        let result_k = apply_rule(&rule, &mut s, term_k).unwrap();
+        apply_rule(&rule, &mut s, term_k);
 
-        s.println(result_k, false);
+        s.println(term_k, false);
     }
 }

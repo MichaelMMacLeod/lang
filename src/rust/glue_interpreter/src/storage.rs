@@ -180,6 +180,18 @@ impl Storage {
         self.fixed_point_terms.contains(k)
     }
 
+    // Reduces the term at 'k' to a fixed point. After the call to
+    // this function, 'k' points to the reduced term.
+    // pub fn reduce(&mut self, k: StorageKey) {
+    //     match self.get(k).unwrap() {
+    //         Term::Symbol(_) => {},
+    //         Term::Compound(_) => todo!(),
+    //         Term::Rule(_) => todo!(),
+    //         Term::Env(_) => todo!(),
+    //         Term::Delimiter(_) => todo!(),
+    //     }
+    // }
+
     // pub fn apply_primitive_rule(&mut self, env: &Env, term: StorageKey) -> Option<StorageKey> {
     //     match self.get(term).unwrap() {
     //         Term::Compound(c) => c
