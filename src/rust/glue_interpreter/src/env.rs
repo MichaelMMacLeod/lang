@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 
 use crate::{
     compound::Compound,
@@ -18,73 +18,79 @@ impl Env {
     }
 }
 
-// (env <rule> ...) -> <env>
-pub fn compile_env(storage: &Storage, env: StorageKey) -> Option<Env> {
-    match storage.get(env).unwrap() {
-        Term::Compound(c) => {
-            if let Term::Symbol(s) = storage.get(*c.keys().get(0)?)? {
-                if s.data() == "env" {
-                    let rules: Vec<Rule> = c.keys()[1..]
-                        .iter()
-                        .filter_map(|k| match storage.get(*k).unwrap() {
-                            Term::Rule(r) => Some(r.clone()),
-                            _ => None,
-                        })
-                        .collect();
-                    (rules.len() == c.keys().len()).then(|| Env { rules })
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        }
-        _ => None,
-    }
-}
+// // (env <rule> ...) -> <env>
+// pub fn compile_env(storage: &Storage, env: StorageKey) -> Option<Env> {
+//     match storage.get(env).unwrap() {
+//         Term::Compound(c) => {
+//             if let Term::Symbol(s) = storage.get(*c.keys().get(0)?)? {
+//                 if s.data() == "env" {
+//                     let rules: Vec<Rule> = c.keys()[1..]
+//                         .iter()
+//                         .filter_map(|k| match storage.get(*k).unwrap() {
+//                             Term::Rule(r) => Some(r.clone()),
+//                             _ => None,
+//                         })
+//                         .collect();
+//                     (rules.len() == c.keys().len()).then(|| Env { rules })
+//                 } else {
+//                     None
+//                 }
+//             } else {
+//                 None
+//             }
+//         }
+//         _ => None,
+//     }
+// }
 
-pub fn apply_matching_rule_toplevel(
+pub fn reduce_once(
     env: &Env,
     storage: &mut Storage,
     term: StorageKey,
 ) -> Option<Reduction> {
-    if storage.is_fixed(&term) {
-        Some(Reduction::Fixpoint)
-    } else {
+    if let result @ Some(Reduction::Fixpoint | Reduction::Reduced) =
         apply_matching_rule(env, storage, term)
+    {
+        result
+    } else {
+        apply_matching_rule_recursively(env, storage, term)
     }
 }
 
-pub fn apply_matching_rule(
-    env: &Env,
-    storage: &mut Storage,
-    term: StorageKey,
-) -> Option<Reduction> {
+pub fn apply_matching_rule(env: &Env, storage: &mut Storage, term: StorageKey) -> Option<Reduction> {
     env.rules
         .iter()
         .filter_map(|rule| apply_rule(rule, storage, term))
-        .filter(Reduction::is_reduced)
         .next()
-        .or_else(|| match storage.get(term).unwrap() {
-            Term::Compound(c) => c
-                .keys()
-                .to_vec()
-                .into_iter()
-                .filter_map(|key| apply_matching_rule(env, storage, key))
-                .next(),
-            _ => None,
-        })
 }
 
-pub fn reduce_to_fixed_point(
+pub fn apply_matching_rule_recursively(
     env: &Env,
     storage: &mut Storage,
-    mut term: StorageKey,
+    term: StorageKey,
+) -> Option<Reduction> {
+    let mut queue = VecDeque::from([term]);
+    while let Some(term) = queue.pop_front() {
+        match storage.get(term).unwrap() {
+            Term::Compound(c) => queue.extend(c.keys()),
+            _ => {}
+        }
+        if let Some(Reduction::Reduced) = apply_matching_rule(env, storage, term) {
+            return Some(Reduction::Reduced);
+        }
+    }
+    None
+}
+
+pub fn reduce(
+    env: &Env,
+    storage: &mut Storage,
+    term: StorageKey,
     graph_syntax: bool,
 ) -> Option<Reduction> {
     let mut step = 0;
     loop {
-        let reduction = apply_matching_rule_toplevel(env, storage, term);
+        let reduction = reduce_once(env, storage, term);
         if let Some(Reduction::Fixpoint) | None = reduction {
             return reduction;
         }
@@ -121,13 +127,19 @@ mod test {
 
         print!("Reducing ");
         storage.println(input, graph_syntax);
-        reduce_to_fixed_point(&environment, &mut storage, input, graph_syntax);
+        reduce(&environment, &mut storage, input, graph_syntax);
 
         // print!("Reducing ");
         // storage.println(expected, graph_syntax);
         // reduce_to_fixed_point(&environment, &mut storage, expected, graph_syntax);
 
+        assert!(storage.is_fixed(&input));
         assert!(storage.terms_are_equal(input, expected));
+    }
+
+    #[test]
+    fn immediate_fixpoint() {
+        test_reduction(&["(for x -> x)"], "x", "x");
     }
 
     #[test]
@@ -205,25 +217,29 @@ mod test {
     fn heads_and_tails() {
         test_reduction(
             &[
+                "(for r (result: r ..) -> (result: r ..))",
                 "(for v (list v ..) -> (list v ..))",
                 "(for head tail 
                    (heads+tails (list (list head tail ..) ..)) -> 
-                   (heads = (list head ..) , 
+                   (result:
+                    heads = (list head ..) , 
                     tails = (list tail .. ..)))",
             ],
             "(heads+tails (list (list 1 2 3 4 5) (list a b c d e) (list ! @ # $ %)))",
-            "(heads = (list 1 a !) , tails = (list 2 3 4 5 b c d e @ # $ %))",
+            "(result: heads = (list 1 a !) , tails = (list 2 3 4 5 b c d e @ # $ %))",
         );
         test_reduction(
             &[
+                "(for r (result: r ..) -> (result: r ..))",
                 "(for v (list v ..) -> (list v ..))",
                 "(for head tail 
                    (heads+tails (list (list head tail ..) ..)) -> 
-                   (heads = (list head ..) , 
+                   (result:
+                    heads = (list head ..) , 
                     tails = (list (list tail ..) ..)))",
             ],
             "(heads+tails (list (list 1 2 3 4 5) (list a b c d e) (list ! @ # $ %)))",
-            "(heads = (list 1 a !) , tails = (list (list 2 3 4 5) (list b c d e) (list @ # $ %)))",
+            "(result: heads = (list 1 a !) , tails = (list (list 2 3 4 5) (list b c d e) (list @ # $ %)))",
         );
     }
 }

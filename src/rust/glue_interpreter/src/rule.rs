@@ -62,14 +62,14 @@ pub fn compile_rule(storage: &Storage, rule: StorageKey) -> Rule {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Reduction {
     Reduced,
     Fixpoint,
 }
 
 impl Reduction {
-    pub fn is_reduced(&self) -> bool {
+    pub fn is_reduced(self) -> bool {
         match self {
             Reduction::Reduced => true,
             Reduction::Fixpoint => false,
