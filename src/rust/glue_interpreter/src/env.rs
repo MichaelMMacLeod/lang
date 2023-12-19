@@ -69,10 +69,10 @@ pub fn apply_matching_rule_recursively(
     storage: &mut Storage,
     term: StorageKey,
 ) -> Option<Reduction> {
-    let mut queue = VecDeque::from([term]);
-    while let Some(term) = queue.pop_front() {
+    let mut stack = Vec::from([term]);
+    while let Some(term) = stack.pop() {
         match storage.get(term).unwrap() {
-            Term::Compound(c) => queue.extend(c.keys()),
+            Term::Compound(c) => stack.extend(c.keys()),
             _ => {}
         }
         if let Some(Reduction::Reduced) = apply_matching_rule(env, storage, term) {
@@ -176,16 +176,37 @@ mod test {
     fn peano_fibonacci_six_is_eight() {
         test_reduction(
             &[
-                "(for 0 -> 0)",
+                // Peano natural number fixpoints
+                "(for      0  ->    0)",
                 "(for n (S n) -> (S n))",
-                "(for n (n + 0) -> n)",
-                "(for n m (n + (S m)) -> ((S n) + m))",
-                "(for (fibs 0) -> 0)",
-                "(for (fibs (S 0)) -> (S 0))",
-                "(for n (fibs (S (S n))) -> ((fibs n) + (fibs (S n))))",
+                // Some arabic numerals for simplicity
+                "(for 1 -> (S 0))",
+                "(for 2 -> (S 1))",
+                "(for 3 -> (S 2))",
+                "(for 4 -> (S 3))",
+                "(for 5 -> (S 4))",
+                "(for 6 -> (S 5))",
+                "(for 7 -> (S 6))",
+                "(for 8 -> (S 7))",
+                // Addition
+                "(for n   (+ n    0)  ->       n)",
+                "(for n m (+ n (S m)) -> (+ (S n) m))",
+                // Fibonacci
+                "(for   (fib       0)   ->    0)",
+                "(for   (fib    (S 0))  -> (S 0))",
+                "(for n (fib (S (S n))) -> (+ (fib    n) 
+                                              (fib (S n))))",
+                // Boolean fixpoints
+                "(for true  -> true)",
+                "(for false -> false)",
+                // Equality
+                "(for     (equal    0     0)  -> true)",
+                "(for m   (equal (S m)    0)  -> false)",
+                "(for n   (equal    0  (S n)) -> false)",
+                "(for m n (equal (S m) (S n)) -> (equal m n))",
             ],
-            "(fibs (S (S (S (S (S (S 0)))))))",
-            "(S (S (S (S (S (S (S (S 0))))))))",
+            "(equal (fib 6) 8)",
+            "true",
         );
     }
 
@@ -270,9 +291,9 @@ mod test {
                 "(for n (sort (<--0 (n ..) 1-->)) -> (list (n ..)))",
                 "(for x y (append (list x ..) (list y ..)) -> (list x .. y ..))",
                 "(for x (list x ..) -> (list x ..))",
-                "(for n m (radix-sort (n .. m) ..) -> (sort (<--0 (n .. | m) .. 1-->)))"
+                "(for n m (radix-sort (n .. m) ..) -> (sort (<--0 (n .. | m) .. 1-->)))",
             ],
-            "(radix-sort (1 1 1) (1 1 0) (1 0 1) (1 0 0) (0 1 1) (0 1 0) (0 0 1) (0 0 0))",
+            "(radix-sort (1 1 1) (1 1 0) (0 1 1) (0 1 0) (1 0 1) (1 0 0) (0 0 1) (0 0 0))",
             "(list (0 0 0) (1 0 0) (0 1 0) (1 1 0) (0 0 1) (1 0 1) (0 1 1) (1 1 1))",
         );
     }

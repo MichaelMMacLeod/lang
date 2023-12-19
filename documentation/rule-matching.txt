@@ -1,3 +1,63 @@
+
+((for v (v) ->
+   (let (x 10)
+     v)
+ ())
+
+
+
+(let (x 10)
+  (let (x 20)
+    x))
+-->
+((for x (x) ->
+   (let (x 20)
+     x))
+ 10)
+-->
+(<rule> 10)
+-->
+(let (10 20)
+  10)
+-->
+((for 10 (10) -> 10) 20)
+-->
+(<rule> 20)
+-->
+20
+
+
+(for var val body
+  (let (var val)
+    body)
+  ->
+  ((for var (var) -> body) val))
+
+(let (x 10)
+  (* x 2))
+-->
+((for x (x) -> (* x 2)) 10)
+-->
+(<rule> 10)
+-->
+(* 10 2)
+
+
+((for y (y) ->
+   (for y (y) -> 10)) (for x (x) -> x))
+
+((for a b
+   (swap (pair a b))
+   ->
+   (pair b a))
+ (pair Hello world)!)
+-->
+(<rule> (pair Hello world)!)
+-->
+(pair world! Hello)
+
+
+
 ((x ..) 0 y ..)
 
 ()
