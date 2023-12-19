@@ -1,9 +1,4 @@
-use nom::{multi::many0, sequence::delimited, IResult};
-
-use crate::{
-    storage::{Storage, StorageKey},
-    symbol::Symbol,
-};
+use crate::storage::StorageKey;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Compound {

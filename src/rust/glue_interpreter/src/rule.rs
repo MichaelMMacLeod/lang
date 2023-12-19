@@ -226,7 +226,7 @@ fn pattern_match_multi(
                 let mut ks = ks;
                 let mut result: Vec<HashMap<String, Match>> = Vec::new();
                 while let Some(k) = ks.first() {
-                    if let Some(ht) = pattern_match_multi(storage, mp, ks) {
+                    if let Some(_ht) = pattern_match_multi(storage, mp, ks) {
                         break;
                     } else if let Some(ht) = pattern_match_single(storage, sp, *k) {
                         result.push(ht);
@@ -421,7 +421,7 @@ fn narrow_to_captured_variables(
     result.extend(
         matches
             .iter()
-            .filter(|(k, v)| is_captured_variable(k, pattern))
+            .filter(|(k, _v)| is_captured_variable(k, pattern))
             .map(|(k, v)| (k.clone(), v.clone())),
     );
     result

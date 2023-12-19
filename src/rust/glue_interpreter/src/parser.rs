@@ -1,7 +1,7 @@
 use crate::{
     compound::Compound,
     lexer::{lex, Lexed},
-    storage::{self, Storage, StorageKey, Term},
+    storage::{Storage, StorageKey, Term},
 };
 
 pub fn parse<I: IntoIterator<Item = Lexed>>(storage: &mut Storage, lexed: I) -> StorageKey {

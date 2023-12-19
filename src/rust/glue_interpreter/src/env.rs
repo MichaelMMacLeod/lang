@@ -1,10 +1,4 @@
-use std::collections::{HashSet, VecDeque};
-
-use crate::{
-    compound::Compound,
-    rule::{ComputationRule, Reduction, Rule},
-    storage::{Storage, StorageKey, Term},
-};
+use crate::rule::Rule;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Env {
@@ -53,8 +47,7 @@ impl Env {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::{parser::read, rule::compile_rule};
+    use crate::{parser::read, rule::compile_rule, storage::Storage};
 
     fn test_reduction(rules: &[&str], input: &str, expected: &str) {
         let mut storage = Storage::new();

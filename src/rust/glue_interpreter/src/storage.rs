@@ -1,18 +1,13 @@
-use std::{
-    collections::{hash_map::DefaultHasher, HashMap, HashSet},
-    hash::Hasher,
-    num::NonZeroUsize,
-};
+use std::collections::{HashMap, HashSet};
 
 use slotmap::{new_key_type, SlotMap};
 
 use crate::{
     compound::Compound,
     delimiter::Delimiter,
-    env::{self, Env},
+    env::Env,
     rule::{
-        compile_rule, create_match_result_single, pattern_match_single,
-        ComputationRule, Match, Reduction, Rule, SingleResult,
+        create_match_result_single, pattern_match_single, Match, Reduction, Rule, SingleResult,
     },
     symbol::Symbol,
 };
@@ -152,7 +147,7 @@ impl Storage {
         None
     }
 
-    fn reduce_once_using_builtin_rules(&mut self, term: StorageKey) -> Option<Reduction> {
+    fn reduce_once_using_builtin_rules(&mut self, _term: StorageKey) -> Option<Reduction> {
         todo!()
     }
 
@@ -243,7 +238,7 @@ impl Storage {
     ) {
         let graph_syntax_label = result
             .iter()
-            .filter_map(|(k, v)| {
+            .filter_map(|(_k, v)| {
                 if let KeyUsageCount::MoreThanOnce { .. } = v {
                     Some(1)
                 } else {

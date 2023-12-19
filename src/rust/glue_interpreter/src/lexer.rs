@@ -1,11 +1,4 @@
-use nom::{
-    branch::alt,
-    bytes::complete::{is_not, take_while, take_while1},
-    character::is_alphanumeric,
-    multi::{many0, many1},
-    sequence::{delimited, preceded},
-    IResult,
-};
+use nom::{branch::alt, bytes::complete::take_while1, multi::many0, sequence::preceded, IResult};
 
 use crate::symbol::Symbol;
 
