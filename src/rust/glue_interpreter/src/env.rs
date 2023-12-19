@@ -244,4 +244,306 @@ mod test {
             "(list (0 0 0) (1 0 0) (0 1 0) (1 1 0) (0 0 1) (1 0 1) (0 1 1) (1 1 1))",
         );
     }
+
+    #[test]
+    fn brainfuck_quicksort() {
+        // Implements a BrainFuck interpreter and runs a program
+        // that sorts the list [3, 2, 1] into [1, 2, 3] via quicksort.
+        //
+        // The brainfuck program that does the sorting was copied from
+        // https://www.codingame.com/playgrounds/50516/brainfuck-part-9---sort-arrays-with-bubble-and-quicksort/quicksort.
+        let input = "
+          (bf (input = ((S (S (S 0))) (S (S 0)) (S 0)))
+            > , [ >
+            + [ - > + < ] , ] > [ - > > > > > > > > > > > > >
+            > > + < < < < < < < < < < < < < < < ] > > > > > >
+            > > > > > > > > + [ [ - < + < + > > ] < [ - > + <
+            ] < - [ - < < [ < ] < < < < < < < < < < < < [ - >
+            > > > > > > > > > > > + < < < < < < < < < < < < ]
+            > > > > > > > > > > > > [ > ] > ] > > > [ - < < +
+            < + > > > ] < < [ - > > + < < ] < [ - < < [ < ] <
+            < < < < < < < < + > > > > > > > > > > [ > ] > ] <
+            < [ < ] < < < < < < < < < [ - < < [ < ] < [ - > +
+            < ] > [ > ] > ] < < [ - > > > > + < < < < ] < [ [
+            - > + > + < < ] > > [ - < < + > > ] < [ - > > [ >
+            ] > > > > + < < < < < [ < ] < ] > > [ > ] > > [ -
+            > + < < < + > > ] > [ - < + > ] > [ - < + > ] < <
+            > > + < < [ - > [ - > ] > [ < < [ - ] > > - > > ]
+            < < + < < ] > [ [ - ] < + > ] < [ - > + < ] < < [
+            - > > + < < ] > > > [ - > - < < < < < [ < ] < < [
+            - > > > [ > ] > > > > > > > > + < < < < < < < < <
+            [ < ] < < ] > > > [ > ] > > > > > > > + [ - < + >
+            ] < < < < < < < < [ < ] > [ [ - < + > ] > ] > [ -
+            < + > ] > [ - < + > ] ] > [ - < < < + < < [ < ] <
+            < [ - > > + < < ] > > [ > ] > > > > ] < < < < < [
+            < ] < < ] > > > [ > ] > > > > > > > [ [ - < + < +
+            > > ] < [ - > + < ] > [ - > > [ > ] > [ > ] > > +
+            < < < [ < ] < < [ < ] < ] > > [ > ] > [ > ] > > >
+            [ - < < < + > > > ] < < < [ - > > > + [ > ] > + <
+            < [ < ] < ] > > [ - < + > ] < [ - > > [ > ] > > +
+            < < < [ < ] < ] > > [ > ] > [ [ - < + > ] > ] < <
+            [ < ] < < < [ < ] < [ < ] < ] < < < < < < [ [ - >
+            > > > > > > > [ > ] > [ > ] > > > [ > ] > > + < <
+            < [ < ] < < < [ < ] < [ < ] < < < < < < < ] > > >
+            > [ - > > > > [ > ] > [ > ] > + < < [ < ] < [ < ]
+            < < < ] > > > > [ > ] > [ > ] > > > [ - < + < + >
+            > ] < [ - > + < ] < + [ - > > [ > ] > + < < [ < ]
+            < ] > > [ > ] > [ [ - < + > ] > ] < < [ < ] < < <
+            [ < ] < [ < ] < < < < < < < ] < < [ < ] > [ [ - <
+            < < + > > > ] > ] > > [ - < < < < < + > > > > > ]
+            > > > [ - ] > > > > [ [ - < < < < < < < < < < < +
+            > > > > > > > > > > > ] > ] > [ [ - < < < < < < <
+            < < < < < + > > > > > > > > > > > > ] > ] > > > [
+            - ] > [ - ] > [ [ - < < + > > ] > ] < < < [ < ] >
+            ] < < < < < < < < < < < < < < < < [ < ] > [ . > ]
+          )
+        ";
+        test_reduction(
+            &[
+                "(for x in
+                   (bf (input = in) x ..)
+                   ->
+                   (program
+                     (input = in)
+                     (output = ())
+                     (mem = (# 0))
+                     (cmd = (read (()) x ..))))",
+                // Read '['
+                "(for c x
+                   (read (c ..) [ x ..)
+                   ->
+                   (read (() c ..) x ..))",
+                // Read ']'
+                "(for c0 c c1 x
+                   (read (c0 (c ..) c1 ..) ] x ..)
+                   ->
+                   (read ((c .. c0) c1 ..) x ..))",
+                // Read '.'
+                "(for c0 c x
+                   (read ((c0 ..) c ..) . x ..)
+                   ->
+                   (read ((c0 .. .) c ..) x ..))",
+                // Read ','
+                "(for c0 c x
+                   (read ((c0 ..) c ..) , x ..)
+                   ->
+                   (read ((c0 .. ,) c ..) x ..))",
+                // Read '+'
+                "(for c0 c x
+                   (read ((c0 ..) c ..) + x ..)
+                   ->
+                   (read ((c0 .. +) c ..) x ..))",
+                // Read '-'
+                "(for c0 c x
+                   (read ((c0 ..) c ..) - x ..)
+                   ->
+                   (read ((c0 .. -) c ..) x ..))",
+                // Read '>'
+                "(for c0 c x
+                   (read ((c0 ..) c ..) > x ..)
+                   ->
+                   (read ((c0 .. >) c ..) x ..))",
+                // Read '<'
+                "(for c0 c x
+                   (read ((c0 ..) c ..) < x ..)
+                   ->
+                   (read ((c0 .. <) c ..) x ..))",
+                // Finish reading
+                "(for c0 c x
+                   (read ((c ..)))
+                   ->
+                   (# c ..))",
+                // Programs terminate when there are no commands on the stack
+                "(for d in out
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = d))
+                   ->
+                   (result = out))",
+                "(for v (result = v) -> (result = v))",
+                // When the instruction pointer (#) has reached the end of the
+                // instructions on the current stack frame (cmd = ....), it pops
+                // the current stack frame and starts executing the instructions
+                // below.
+                "(for i stack d in out stack0
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (d ..))
+                     (cmd = (i .. #))
+                     stack ..)
+                   ->
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (d ..))
+                     stack ..))",
+                // '>' moves the data pointer to the right and the instruction
+                // pointer to the right.
+                "(for ib ia db d d0 da stack in out stack0
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (db .. # d d0 da ..))
+                     (cmd = (ib .. # > ia ..))
+                     stack ..)
+                   ->
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (db .. d # d0 da ..))
+                     (cmd = (ib .. > # ia ..))
+                     stack ..))",
+                // '>', when there are no more values in memory, allocates a fresh
+                // zero on the right and moves to it.
+                "(for ib ia db d stack in out stack0
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (db .. # d))
+                     (cmd = (ib .. # > ia ..))
+                     stack ..)
+                   ->
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (db .. d # 0))
+                     (cmd = (ib .. > # ia ..))
+                     stack ..))",
+                // '<' moves the data pointer to the left and the instruction
+                // pointer to the *right*.
+                "(for ib ia db d d0 da stack in out stack0
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (db .. d0 # d da ..))
+                     (cmd = (ib .. # < ia ..))
+                     stack ..)
+                   ->
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (db .. # d0 d da ..))
+                     (cmd = (ib .. < # ia ..))
+                     stack ..))",
+                // '+' increments the value at the data pointer (implemented here
+                // using Peano arithmetic) and moves the instruction pointer to
+                // the right.
+                "(for ib ia db d da stack in out stack0
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (db .. # d da ..))
+                     (cmd = (ib .. # + ia ..))
+                     stack ..)
+                   ->
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (db .. # (S d) da ..))
+                     (cmd = (ib .. + # ia ..))
+                     stack ..))",
+                // '-' decrements the value at the data pointer (implemented here
+                // using Peano arithmetic) and moves the instruction pointer to
+                // the right.
+                "(for ib ia db d da stack in out stack0
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (db .. # (S d) da ..))
+                     (cmd = (ib .. # - ia ..))
+                     stack ..)
+                   ->
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (db .. # d da ..))
+                     (cmd = (ib .. - # ia ..))
+                     stack ..))",
+                // '.' copies the value at the data pointer to the end of the output.
+                "(for ib ia db d da stack in out stack0
+                   (program
+                     (input = in)
+                     (output = (out ..))
+                     (mem = (db .. # d da ..))
+                     (cmd = (ib .. # . ia ..))
+                     stack ..)
+                   ->
+                   (program
+                     (input = in)
+                     (output = (out .. d))
+                     (mem = (db .. # d da ..))
+                     (cmd = (ib .. . # ia ..))
+                     stack ..))",
+                // ',' removes a value from the start of the input and overwrites the
+                // value at the data pointer with it.
+                "(for ib ia db d da stack in0 in out stack0
+                   (program
+                     (input = (in0 in ..))
+                     (output = out)
+                     (mem = (db .. # d da ..))
+                     (cmd = (ib .. # , ia ..))
+                     stack ..)
+                   ->
+                   (program
+                     (input = (in ..))
+                     (output = out)
+                     (mem = (db .. # in0 da ..))
+                     (cmd = (ib .. , # ia ..))
+                     stack ..))",
+                // Second case for ','; if there's no input, use '0'.
+                "(for ib ia db d da stack out
+                   (program
+                     (input = ())
+                     (output = out)
+                     (mem = (db .. # d da ..))
+                     (cmd = (ib .. # , ia ..))
+                     stack ..)
+                   ->
+                   (program
+                     (input = ())
+                     (output = out)
+                     (mem = (db .. # 0 da ..))
+                     (cmd = (ib .. , # ia ..))
+                     stack ..))",
+                // When the instruction pointer is at a list of instructions it
+                // moves to the right if the value at the data pointer is zero.
+                "(for ib ii ia db da stack in out
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (db .. # 0 da ..))
+                     (cmd = (ib .. # (ii ..) ia ..))
+                     stack ..)
+                   ->
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (db .. # 0 da ..))
+                     (cmd = (ib .. (ii ..) # ia ..))
+                     stack ..))",
+                // When the instruction pointer is at a list of instructions it
+                // moves inside the list to the first instruction if the value at
+                // the data pointer is nonzero.
+                "(for ib ii ia db d da stack in out
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (db .. # (S d) da ..))
+                     (cmd = (ib .. # (ii ..) ia ..))
+                     stack ..)
+                   ->
+                   (program
+                     (input = in)
+                     (output = out)
+                     (mem = (db .. # (S d) da ..))
+                     (cmd = (# ii ..))
+                     (cmd = (ib .. # (ii ..) ia ..))
+                     stack ..))",
+            ],
+            input,
+            "(result = ((S 0) (S (S 0)) (S (S (S 0)))))",
+        );
+    }
 }
