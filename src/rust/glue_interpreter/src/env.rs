@@ -2,7 +2,7 @@ use std::collections::{HashSet, VecDeque};
 
 use crate::{
     compound::Compound,
-    rule::{apply_rule, ComputationRule, Reduction, Rule},
+    rule::{ComputationRule, Reduction, Rule},
     storage::{Storage, StorageKey, Term},
 };
 
@@ -15,6 +15,14 @@ pub struct Env {
 impl Env {
     pub fn new(rules: Vec<Rule>) -> Self {
         Self { rules }
+    }
+
+    pub fn add_rule(&mut self, rule: Rule) {
+        self.rules.push(rule);
+    }
+
+    pub fn rules(&self) -> &[Rule] {
+        &self.rules
     }
 }
 
@@ -43,82 +51,23 @@ impl Env {
 //     }
 // }
 
-pub fn reduce_once(env: &Env, storage: &mut Storage, term: StorageKey) -> Option<Reduction> {
-    if let result @ Some(Reduction::Fixpoint | Reduction::Reduced) =
-        apply_matching_rule(env, storage, term)
-    {
-        result
-    } else {
-        apply_matching_rule_recursively(env, storage, term)
-    }
-}
-
-pub fn apply_matching_rule(
-    env: &Env,
-    storage: &mut Storage,
-    term: StorageKey,
-) -> Option<Reduction> {
-    env.rules
-        .iter()
-        .filter_map(|rule| apply_rule(rule, storage, term))
-        .next()
-}
-
-pub fn apply_matching_rule_recursively(
-    env: &Env,
-    storage: &mut Storage,
-    term: StorageKey,
-) -> Option<Reduction> {
-    let mut stack = Vec::from([term]);
-    while let Some(term) = stack.pop() {
-        match storage.get(term).unwrap() {
-            Term::Compound(c) => stack.extend(c.keys()),
-            _ => {}
-        }
-        if let Some(Reduction::Reduced) = apply_matching_rule(env, storage, term) {
-            return Some(Reduction::Reduced);
-        }
-    }
-    None
-}
-
-pub fn reduce(
-    env: &Env,
-    storage: &mut Storage,
-    term: StorageKey,
-    graph_syntax: bool,
-) -> Option<Reduction> {
-    let mut step = 0;
-    loop {
-        let reduction = reduce_once(env, storage, term);
-        if let Some(Reduction::Fixpoint) | None = reduction {
-            return reduction;
-        }
-        step += 1;
-        print!("{step}.\t");
-        storage.println(term, graph_syntax);
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::{parser::read, rule::compile_rule};
 
     fn test_reduction(rules: &[&str], input: &str, expected: &str) {
-        // TODO: impl this by just evaling "(equal input expected)" and checking if it is fixpoint
-
         let mut storage = Storage::new();
 
-        let environment = Env::new(
-            rules
-                .into_iter()
-                .map(|rule| {
-                    let rule = read(&mut storage, rule).unwrap();
-                    compile_rule(&mut storage, rule)
-                })
-                .collect(),
-        );
+        let rules = rules
+            .into_iter()
+            .map(|rule| {
+                let rule = read(&mut storage, rule).unwrap();
+                compile_rule(&mut storage, rule)
+            })
+            .collect::<Vec<_>>();
+
+        storage.add_rules(rules);
 
         let input = read(&mut storage, input).unwrap();
         let expected = read(&mut storage, expected).unwrap();
@@ -127,11 +76,7 @@ mod test {
 
         print!("Reducing ");
         storage.println(input, graph_syntax);
-        reduce(&environment, &mut storage, input, graph_syntax);
-
-        // print!("Reducing ");
-        // storage.println(expected, graph_syntax);
-        // reduce_to_fixed_point(&environment, &mut storage, expected, graph_syntax);
+        storage.reduce(input);
 
         assert!(storage.is_fixed(&input));
         assert!(storage.terms_are_equal(input, expected));

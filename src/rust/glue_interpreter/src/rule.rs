@@ -7,15 +7,15 @@ use crate::{
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct ComputationRule {
-    variables: HashSet<String>,
-    pattern: SinglePattern,
-    result: SingleResult,
+    pub variables: HashSet<String>,
+    pub pattern: SinglePattern,
+    pub result: SingleResult,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct FixedPointRule {
-    variables: HashSet<String>,
-    pattern: SinglePattern,
+    pub variables: HashSet<String>,
+    pub pattern: SinglePattern,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -64,58 +64,41 @@ pub fn compile_rule(storage: &Storage, rule: StorageKey) -> Rule {
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Reduction {
-    Reduced,
-    Fixpoint,
+    ReducedOnce,
+    ReducedToFixpoint,
 }
 
 impl Reduction {
     pub fn is_reduced(self) -> bool {
         match self {
-            Reduction::Reduced => true,
-            Reduction::Fixpoint => false,
-        }
-    }
-}
-
-pub fn apply_rule(rule: &Rule, storage: &mut Storage, term: StorageKey) -> Option<Reduction> {
-    match rule {
-        Rule::Computation(rule) => pattern_match_single(storage, &rule.pattern, term).map(|m| {
-            let result = create_match_result_single(storage, &m, &rule.result);
-            let new_term = storage.get(result).unwrap();
-            storage.replace(term, new_term.clone());
-            Reduction::Reduced
-        }),
-        Rule::FixedPointRule(rule) => {
-            pattern_match_single(storage, &rule.pattern, term).map(|_| {
-                storage.mark_as_fixed(term);
-                Reduction::Fixpoint
-            })
+            Reduction::ReducedOnce => true,
+            Reduction::ReducedToFixpoint => false,
         }
     }
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
-enum SinglePattern {
+pub enum SinglePattern {
     Compound(Box<MultiPattern>),
     Variable(String),
     Symbol(String),
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
-enum MultiPattern {
+pub enum MultiPattern {
     Nothing,
     One(Box<One>),
     Many(Box<Many>),
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
-struct One {
+pub struct One {
     sp: SinglePattern,
     mp: MultiPattern,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
-struct Many {
+pub struct Many {
     sp: SinglePattern,
     mp: MultiPattern,
 }
@@ -180,12 +163,12 @@ fn parse_rule_pattern_multi(
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
-enum Match {
+pub enum Match {
     Leaf(StorageKey),
     Branches(Vec<Match>),
 }
 
-fn pattern_match_single(
+pub fn pattern_match_single(
     storage: &Storage,
     pattern: &SinglePattern,
     k: StorageKey,
@@ -292,14 +275,14 @@ fn pattern_match_multi(
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
-enum SingleResult {
+pub enum SingleResult {
     Symbol(StorageKey),
     Variable(String),
     Compound(Vec<Result>),
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
-enum Result {
+pub enum Result {
     Single(Box<SingleResult>),
     Append(Box<Result>),
 }
@@ -373,7 +356,7 @@ fn parse_rule_result_multi(
     }
 }
 
-fn create_match_result_single(
+pub fn create_match_result_single(
     storage: &mut Storage,
     matches: &HashMap<String, Match>,
     result: &SingleResult,
@@ -551,26 +534,5 @@ mod test {
         let r = create_match_result_single(&mut s, &m, &result);
 
         s.println(r, false);
-    }
-
-    #[test]
-    fn apply_rule1() {
-        let mut s = Storage::new();
-
-        // "(for xs (flatten (list (list xs ..) ..)) -> (list xs .. ..))"
-        let rule_k = parse(&mut s, lex("(for x y ((x y) ..) -> ((y x) ..))").unwrap().1);
-        let rule = compile_rule(&s, rule_k);
-
-        // (flatten (list (list a b c) (list d e) (list)))
-        let term_k = parse(
-            &mut s,
-            lex("((1 2) (3 4) (5 6) (7 8) (9 10) (11 12) (13 14))")
-                .unwrap()
-                .1,
-        );
-
-        apply_rule(&rule, &mut s, term_k);
-
-        s.println(term_k, false);
     }
 }

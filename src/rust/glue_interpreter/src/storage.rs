@@ -9,8 +9,11 @@ use slotmap::{new_key_type, SlotMap};
 use crate::{
     compound::Compound,
     delimiter::Delimiter,
-    env::Env,
-    rule::{compile_rule, ComputationRule, Rule},
+    env::{self, Env},
+    rule::{
+        compile_rule, create_match_result_single, pattern_match_single,
+        ComputationRule, Match, Reduction, Rule, SingleResult,
+    },
     symbol::Symbol,
 };
 
@@ -30,6 +33,7 @@ new_key_type! { pub struct StorageKey; }
 pub struct Storage {
     data: SlotMap<StorageKey, Term>,
     fixed_point_terms: HashSet<StorageKey>,
+    env: Env,
 }
 
 enum KeyUsageCount {
@@ -37,12 +41,119 @@ enum KeyUsageCount {
     MoreThanOnce { graph_syntax_label: usize },
 }
 
+pub enum ReduceResult {
+    ReducedToFixpoint,
+    NoWayToReduceFurther,
+}
+
+pub enum ApplyRuleResult {
+    Matched {
+        variable_bindings: HashMap<String, Match>,
+        result: SingleResult,
+    },
+    MatchedFixpoint,
+}
+
 impl Storage {
     pub fn new() -> Self {
         Self {
             data: SlotMap::with_key(),
             fixed_point_terms: HashSet::new(),
+            env: Env::new(vec![]),
         }
+    }
+
+    pub fn add_rules<I: IntoIterator<Item = Rule>>(&mut self, rules: I) {
+        rules.into_iter().for_each(|rule| self.env.add_rule(rule));
+    }
+
+    pub fn reduce(&mut self, term: StorageKey) -> ReduceResult {
+        let graph_syntax = false;
+        let mut step = 0;
+        loop {
+            let reduction = self.reduce_once(term);
+            match reduction {
+                Some(Reduction::ReducedOnce) => {
+                    step += 1;
+                    print!("{step}.\t");
+                    self.println(term, graph_syntax);
+                }
+                Some(Reduction::ReducedToFixpoint) => break ReduceResult::ReducedToFixpoint,
+                None => break ReduceResult::NoWayToReduceFurther,
+            }
+        }
+    }
+
+    fn reduce_once(&mut self, term: StorageKey) -> Option<Reduction> {
+        self.reduce_once_using_custom_rules(term)
+            .or_else(|| self.reduce_once_using_builtin_rules(term))
+    }
+
+    fn reduce_once_using_custom_rules(&mut self, term: StorageKey) -> Option<Reduction> {
+        if let result @ Some(Reduction::ReducedToFixpoint | Reduction::ReducedOnce) =
+            self.apply_matching_rule(term)
+        {
+            result
+        } else {
+            self.apply_matching_rule_recursively(term)
+        }
+    }
+
+    fn apply_matching_rule(&mut self, term: StorageKey) -> Option<Reduction> {
+        self.env
+            .rules()
+            .iter()
+            .filter_map(|rule| self.apply_rule(rule, term))
+            .next()
+            .map(|result| match result {
+                ApplyRuleResult::Matched {
+                    variable_bindings,
+                    result,
+                } => {
+                    let new_term_key =
+                        create_match_result_single(self, &variable_bindings, &result);
+                    let new_term = self.get(new_term_key).unwrap().clone();
+                    self.replace(term, new_term);
+                    Reduction::ReducedOnce
+                }
+                ApplyRuleResult::MatchedFixpoint => {
+                    self.mark_as_fixed(term);
+                    Reduction::ReducedToFixpoint
+                }
+            })
+    }
+
+    fn apply_rule(&self, rule: &Rule, term: StorageKey) -> Option<ApplyRuleResult> {
+        match rule {
+            Rule::Computation(rule) => {
+                pattern_match_single(&self, &rule.pattern, term).map(|variable_bindings| {
+                    ApplyRuleResult::Matched {
+                        variable_bindings,
+                        result: rule.result.clone(),
+                    }
+                })
+            }
+            Rule::FixedPointRule(rule) => pattern_match_single(&self, &rule.pattern, term)
+                .map(|_| ApplyRuleResult::MatchedFixpoint),
+        }
+    }
+
+    fn apply_matching_rule_recursively(&mut self, term: StorageKey) -> Option<Reduction> {
+        let mut stack = Vec::from([term]);
+        while let Some(term) = stack.pop() {
+            match self.get(term).unwrap() {
+                Term::Compound(c) => stack.extend(c.keys()),
+                _ => {}
+            }
+            if let Some(Reduction::ReducedOnce) = self.apply_matching_rule(term) {
+                return Some(Reduction::ReducedOnce);
+            }
+        }
+        None
+    }
+
+    fn reduce_once_using_builtin_rules(&mut self, term: StorageKey) -> Option<Reduction> {
+        todo!()
     }
 
     pub fn get(&self, k: StorageKey) -> Option<&Term> {
@@ -179,6 +290,10 @@ impl Storage {
     pub fn is_fixed(&self, k: &StorageKey) -> bool {
         self.fixed_point_terms.contains(k)
     }
+
+    // pub fn reduce_once(&mut self, k: StorageKey) -> Option<Reduction> {
+
+    // }
 
     // Reduces the term at 'k' to a fixed point. After the call to
     // this function, 'k' points to the reduced term.
