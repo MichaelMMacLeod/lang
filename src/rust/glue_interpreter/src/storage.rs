@@ -7,7 +7,8 @@ use crate::{
     delimiter::Delimiter,
     env::Env,
     rule::{
-        create_match_result_single, pattern_match_single, Match, Reduction, Rule, SingleResult,
+        compile_rule, create_match_result_single, pattern_match_single, Match, Reduction, Rule,
+        SingleResult,
     },
     symbol::Symbol,
 };
@@ -147,8 +148,60 @@ impl Storage {
         None
     }
 
-    fn reduce_once_using_builtin_rules(&mut self, _term: StorageKey) -> Option<Reduction> {
-        todo!()
+    fn reduce_once_using_builtin_rules(&mut self, term: StorageKey) -> Option<Reduction> {
+        if let result @ Some(Reduction::ReducedToFixpoint | Reduction::ReducedOnce) =
+            self.apply_matching_builtin_rule(term)
+        {
+            result
+        } else {
+            self.apply_matching_builtin_rule_recursively(term)
+        }
+    }
+
+    fn apply_matching_builtin_rule(&mut self, term: StorageKey) -> Option<Reduction> {
+        if let result @ Some(_) = self.reduce_builtin_rule_for(term) {
+            return result;
+        }
+
+        None
+    }
+
+    fn apply_matching_builtin_rule_recursively(&mut self, term: StorageKey) -> Option<Reduction> {
+        let mut stack = Vec::from([term]);
+        while let Some(term) = stack.pop() {
+            match self.get(term).unwrap() {
+                Term::Compound(c) => stack.extend(c.keys()),
+                _ => {}
+            }
+            if let Some(Reduction::ReducedOnce) = self.apply_matching_builtin_rule(term) {
+                return Some(Reduction::ReducedOnce);
+            }
+        }
+        None
+    }
+
+    fn reduce_builtin_rule_for(&mut self, term: StorageKey) -> Option<Reduction> {
+        if let Term::Compound(c) = self.get(term).unwrap() {
+            c.keys()
+                .first()
+                .copied()
+                .map(|key| {
+                    if let Term::Symbol(s) = self.get(key).unwrap() {
+                        if s.data() == "for" {
+                            let rule = compile_rule(&self, term);
+                            self.replace(term, Term::Rule(rule));
+                            Some(Reduction::ReducedOnce)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+        } else {
+            None
+        }
     }
 
     pub fn get(&self, k: StorageKey) -> Option<&Term> {

@@ -75,6 +75,15 @@ mod test {
         assert!(storage.terms_are_equal(input, expected));
     }
 
+    // #[test]
+    // fn builtin_rule_for() {
+    //     test_reduction(
+    //         &["(for x y (Pair x y) -> (Pair x y))"],
+    //         "((for x y (mkpair x y) -> (Pair x y)) (mkpair Hello world!))",
+    //         "(Pair Hello world!)",
+    //     );
+    // }
+
     #[test]
     fn immediate_fixpoint() {
         test_reduction(&["(for x -> x)"], "x", "x");
