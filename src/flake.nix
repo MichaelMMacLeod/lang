@@ -57,7 +57,14 @@
             (vscode-with-extensions.override {
               vscode = vscodium;
               vscodeExtensions = with vscode-extensions;
-                [ rust-lang.rust-analyzer vadimcn.vscode-lldb ];
+                [ rust-lang.rust-analyzer vadimcn.vscode-lldb ]
+                ++ vscode-utils.extensionsFromVscodeMarketplace [{
+                  name = "lean4";
+                  publisher = "leanprover";
+                  version = "0.0.121";
+                  sha256 =
+                    "sha256-1fUWxnhWBHzOp6kZinrKzLTaYcw0olzQzMR7BP0kSJw=";
+                }];
             })
             wxmaxima
             (writeShellScriptBin "devshells.current.programs" ''
