@@ -1,5 +1,4 @@
 mod compound;
-mod delimiter;
 mod env;
 mod lexer;
 mod parser;

@@ -4,7 +4,6 @@ use slotmap::{new_key_type, SlotMap};
 
 use crate::{
     compound::Compound,
-    delimiter::Delimiter,
     env::Env,
     rule::{
         compile_rule, create_match_result_single, pattern_match_single, Match, Reduction, Rule,
@@ -21,7 +20,6 @@ pub enum Term {
     Compound(Compound),
     Rule(Rule),
     Env(Env),
-    Delimiter(Delimiter),
 }
 
 new_key_type! { pub struct StorageKey; }
@@ -265,7 +263,6 @@ impl Storage {
             }
             Term::Rule(_) => print!("<rule>"),
             Term::Env(_) => print!("<env>"),
-            Term::Delimiter(_) => print!("<delimiter>"),
         }
     }
 
