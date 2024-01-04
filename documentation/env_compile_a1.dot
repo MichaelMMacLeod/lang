@@ -1,0 +1,245 @@
+// (env
+//   (for 0 -> 0)
+//   (for n (s n) -> (s n))
+//   (for n (add n 0) -> n)
+//   (for n m (add n (s m)) -> (s (add n m)))
+//   (for (equal 0 0) -> true)
+//   (for n (equal (s n) 0) -> false)
+//   (for m (equal 0 (s m)) -> false)
+//   (for n m (equal (s n) (s m)) -> (equal n m))
+//   (for true -> true)
+//   (for false -> false)
+// digraph env0 {
+//     compound=true
+//     node [fontname = "monospace"]
+
+//     // Merge equal
+    
+//     p0 [label="(for 0)"]
+//     r0 [label="(for 0)"]
+//     p1 [label="(for n (s n))"]
+//     r1 [label="(for n (s n))"]
+//     r2 [label="(for n n)"]
+//     r7 [label="(for n m (equal n m))"]
+//     p8 [label="(for true)"]
+//     r8 [label="(for true)"]
+//     p9 [label="(for false)"]
+//     r9 [label="(for false)"]
+//     r7 -> p8 [label="n ~ 0\nm ~ 0"]
+//     r7 -> p9 [label="n ~ (s _)\nm ~ 0"]
+//     r7 -> p9 [label="n ~ 0\nm ~ (s _)"]
+//     p0 -> r0
+//     p1 -> r1 [label="n := n"]
+//     p8 -> r8
+//     p9 -> r9
+//     r0 -> p0
+//     r1 -> p1 [label="n := n"]
+//     r8 -> p8
+//     r9 -> p9
+//     n1 [label="(for n g0 (add n g0))"]
+//     n1 -> p1 [label="g0 ~ (s _)\nn := (add n g0[1])"]
+//     n1 -> r2 [label="g0 ~ 0\nn := n"]
+//     r7 -> r7 [label="n ~ (s _)\nm ~ (s _)\nn := n[1]\nm := m[1]"]
+//     n2 [label="(for n g0 g1 (g1 n g0))"]
+//     n2 -> n1 [label="g1 ~ add\nn := n\ng0 := g0"]
+//     n2 -> r7 [label="g1 ~ equal\nn := n\nm := g0"]
+// }
+
+// digraph env0 {
+//     compound=true
+//     node [fontname = "monospace"]
+
+//     // Abstraction (add variables + predicates)
+    
+//     p0 [label="(for 0)"]
+//     r0 [label="(for 0)"]
+//     p1 [label="(for n (s n))"]
+//     r1 [label="(for n (s n))"]
+//     r2 [label="(for n n)"]
+//     r7 [label="(for n m (equal n m))"]
+//     p8 [label="(for true)"]
+//     r8 [label="(for true)"]
+//     p9 [label="(for false)"]
+//     r9 [label="(for false)"]
+//     r7 -> p8 [label="n ~ 0\nm ~ 0"]
+//     r7 -> p9 [label="n ~ (s _)\nm ~ 0"]
+//     r7 -> p9 [label="n ~ 0\nm ~ (s _)"]
+//     p0 -> r0
+//     p1 -> r1 [label="n := n"]
+//     p8 -> r8
+//     p9 -> r9
+//     r0 -> p0
+//     r1 -> p1 [label="n := n"]
+//     r8 -> p8
+//     r9 -> p9
+//     n1 [label="(for n g0 (add n g0))"]
+//     n1 -> p1 [label="g0 ~ (s _)\nn := (add n g0[1])"]
+//     n1 -> r2 [label="g0 ~ 0\nn := n"]
+//     r7 -> r7 [label="n ~ (s _)\nm ~ (s _)\nn := n[1]\nm := m[1]"]
+//     n2 [label="(for n g0 g1 (g1 n g0))"]
+//     n2 -> n1 [label="g1 ~ add\nn := n\ng0 := g0"]
+//     n3 [label="(for n m g0 (g0 n m))"]
+//     n3 -> r7 [label="g0 ~ equal\nn := n\nm := m"]
+// }
+
+// digraph env0 {
+//     compound=true
+//     node [fontname = "monospace"]
+
+//     // Merge equal nodes. That is, if there are two nodes, N1 -> {A,
+//     // ...} and N2 -> {B, ...}, and if N1 is "the same as" (equal
+//     // modulo variable names) N2, then delete N2 and merge {B, ...} to
+//     // get N1 -> {A, ..., B, ...}.
+    
+//     p0 [label="(for 0)"]
+//     r0 [label="(for 0)"]
+//     p1 [label="(for n (s n))"]
+//     r1 [label="(for n (s n))"]
+//     r2 [label="(for n n)"]
+//     r7 [label="(for n m (equal n m))"]
+//     p8 [label="(for true)"]
+//     r8 [label="(for true)"]
+//     p9 [label="(for false)"]
+//     r9 [label="(for false)"]
+//     r7 -> p8 [label="n ~ 0\nm ~ 0"]
+//     r7 -> p9 [label="n ~ (s _)\nm ~ 0"]
+//     r7 -> p9 [label="n ~ 0\nm ~ (s _)"]
+//     p0 -> r0
+//     p1 -> r1 [label="n := n"]
+//     p8 -> r8
+//     p9 -> r9
+//     r0 -> p0
+//     r1 -> p1 [label="n := n"]
+//     r8 -> p8
+//     r9 -> p9
+//     n1 [label="(for n g0 (add n g0))"]
+//     n1 -> p1 [label="g0 ~ (s _)\nn := (add n g0[1])"]
+//     n1 -> r2 [label="g0 ~ 0\nn := n"]
+//     r7 -> r7 [label="n ~ (s _)\nm ~ (s _)\nn := n[1]\nm := m[1]"]
+// }
+
+// digraph env0 {
+//     compound=true
+//     node [fontname = "monospace"]
+
+//     // For each A -> B -> C (non fixpoints), if B -> C is an
+//     // unconditional transition, delete B by joining A -> B and B -> C
+//     // into A -> C. Copy the variable assignments of A -> B into A ->
+//     // C, then merge in the variable assignments from B -> C. Note
+//     // that it may be the case that A and C are the same node. In this
+//     // case this transformation will shrink a loop. Note that A -> B
+//     // need not be unconditional, so it stands to reason that A -> C
+//     // is not necessarily unconditional. Note that a variable
+//     // assignment present in A -> B can be eliminated if the LHS is
+//     // not used in B -> C.
+
+//     p0 [label="(for 0)"]
+//     r0 [label="(for 0)"]
+//     p1 [label="(for n (s n))"]
+//     r1 [label="(for n (s n))"]
+//     r2 [label="(for n n)"]
+//     r7 [label="(for n m (equal n m))"]
+//     p8 [label="(for true)"]
+//     r8 [label="(for true)"]
+//     p9 [label="(for false)"]
+//     r9 [label="(for false)"]
+
+//     r7 -> p8 [label="n ~ 0\nm ~ 0"]
+//     r7 -> p9 [label="n ~ (s _)\nm ~ 0"]
+//     r7 -> p9 [label="n ~ 0\nm ~ (s _)"]
+//     // Create arrows from patterns to results, setting variables
+//     // accordingly (no predicate checks necessary).
+//     p0 -> r0
+//     p1 -> r1 [label="n := n"]
+//     p8 -> r8
+//     p9 -> r9
+
+//     // For each result, check if any pattern matches it (there will
+//     // only ever be at most one). If the pattern does, draw an arrow
+//     // from the result to the pattern, setting variables accodringly
+//     // (no predicate checks necessary).
+//     r0 -> p0
+//     r1 -> p1 [label="n := n"]
+//     r8 -> p8
+//     r9 -> p9
+
+//     // For all nodes with no incoming edges, create new nodes via
+//     // finding subterms and replacing them with variables, setting
+//     // predicates and assignments accordingly.
+//     n1 [label="(for n g0 (add n g0))"]
+//     n1 -> p1 [label="g0 ~ (s _)\nn := (add n g0[1])"]
+//     n2 [label="(for n g0 (add n g0))"]
+//     n2 -> r2 [label="g0 ~ 0\nn := n"]
+
+//     r7 -> r7 [label="n ~ (s _)\nm ~ (s _)\nn := n[1]\nm := m[1]"]
+// }
+
+digraph env0 {
+    compound=true
+    node [fontname = "monospace"]
+
+    p0 [label="(for 0)"]
+    r0 [label="(for 0)"]
+    p1 [label="(for n (s n))"]
+    r1 [label="(for n (s n))"]
+    p2 [label="(for n (add n 0))"]
+    r2 [label="(for n n)"]
+    p3 [label="(for n m (add n (s m)))"]
+    r3 [label="(for n m (s (add n m))"]
+    p4 [label="(for (equal 0 0))"]
+    r4 [label="(for true)"]
+    p5 [label="(for n (equal (s n) 0))"]
+    r5 [label="(for false)"]
+    p6 [label="(for m (equal 0 (s m)))"]
+    r6 [label="(for false)"]
+    p7 [label="(for n m (equal (s n) (s m)))"]
+    r7 [label="(for n m (equal n m))"]
+    p8 [label="(for true)"]
+    r8 [label="(for true)"]
+    p9 [label="(for false)"]
+    r9 [label="(for false)"]
+
+    // Create arrows from patterns to results, setting variables
+    // accordingly (no predicate checks necessary).
+    p0 -> r0
+    p1 -> r1 [label="n := n"]
+    p2 -> r2 [label="n := n"]
+    p3 -> r3 [label="n := n\nm := m"]
+    p4 -> r4
+    p5 -> r5
+    p6 -> r6
+    p7 -> r7 [label = "n := n\nm := m"]
+    p8 -> r8
+    p9 -> r9
+
+    // For each result, check if any pattern matches it (there will
+    // only ever be at most one). If the pattern does, draw an arrow
+    // from the result to the pattern, setting variables accodringly
+    // (no predicate checks necessary).
+    r0 -> p0
+    r1 -> p1 [label="n := n"]
+    r3 -> p1 [label="n := (add n m)"]
+    r4 -> p8
+    r5 -> p9
+    r6 -> p9
+    r8 -> p8
+    r9 -> p9
+
+    // // For each result R and pattern P, check if R matches P (there
+    // // may be zero or more such P). If so, for each variable in R, use
+    // // its binding to generate the predicate and to set variables
+    // // accordingly. Draw an arrow from R to P with the union of all
+    // // these predicates and variable assignments.
+    // r7 -> p4 [label="n ~ 0\nm ~ 0"]
+    // r7 -> p5 [label="n ~ (s _)\nm ~ 0\nn := n[1]"]
+    // r7 -> p6 [label="n ~ 0\nm ~ (s _)\nm := m[1]"]
+    // r7 -> p7 [label="n ~ (s _)\nm ~ (s _)\nn := n[1]\nm := m[1]"]
+
+    // // For all nodes with no incoming edges, create new nodes via
+    // // finding subterms and replacing them with variables, setting
+    // // predicates and assignments accordingly.
+    // n1 [label="(for n g0 (add n g0))"]
+    // n1 -> p3 [label="g0 ~ (s _)\nn := n\nm := g0[1]"]
+    // n2 [label="(for n g0 (add n g0))"]
+    // n2 -> p2 [label="g0 ~ 0\nn := n"]
+}

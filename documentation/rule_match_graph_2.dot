@@ -1,0 +1,20 @@
+// (env
+//   (for x y (left = x right = y) -> (left = x right = y))
+//   (for x y (x .. | y ..) -> (left = (x ..) right = (y ..)))
+//   )
+
+
+digraph env0 {
+    compound=true
+    node [fontname = "monospace"]
+
+    t [label="(for t t)"]
+    s [label="variable"]
+    f [label="fixpoint"]
+    // n6 [label="(for 0 1 2 3 4 5 (0 1 2 3 4 5))"]
+    0 [label="(for x y (left = x right = y))"]
+    1 [label="(for x y (x .. | y ..))"]
+
+    0 -> f
+    1 -> 0 [label="x := (x ..)\ny := (y ..)"]
+}

@@ -1,3 +1,215 @@
+(for x (a b c x ..))
+->
+(for x g0 g1 g2 (a b c x .. g2 g1 g0))
+  where
+    x.length >= 3
+    x[x.length - 3] ~ d
+    x[x.length - 2] ~ e
+    x[x.length - 1] ~ f
+
+(for x g0 g1 g2 (a b c x .. g2 g1 g0))
+->
+(for x (a b c x .. d e f))
+where
+  g2 ~ d
+  g1 ~ e
+  g0 ~ f
+
+(for x g0 g1 g2 (a b c x .. g2 g1 g0))
+->
+(for x g0 g1 (a b c x .. d g1 g0))
+  where
+    g2 ~ d
+->
+(for x g0 (a b c x .. d e g0))
+  where
+    g1 ~ e
+->
+(for x (a b c x .. d e f))
+  where
+    g0 ~ f
+
+
+(for x g0 (a b c x .. d e g0))
+-A->
+(for x g0 g1 (a b c x .. d g1 g0))
+-->
+(for x g0 (a b c x .. d e g0))
+  where
+    g1 ~ e
+
+(for x (a b c x .. d e f))
+-A->
+(for x g0 (a b c x .. d e g0))
+->
+(for x (a b c x .. d e f))
+  where
+    g0 ~ f
+
+(for x (a b c x .. d e f))
+-- abstract -->
+(for x (a b c x ..))
+->
+(for x (a b c x .. d e f))
+  where
+    x.length >= 3
+    f := x[x.length - 1]
+    e := x[x.length - 2]
+    d := x[x.length - 3]
+    x := x[i such that i >= 0 and i < x.length - 3]
+
+(+ A B)
+(+ -> -)
+(- A C)
+
+fn t
+  if t.type == symbol
+    if t == 0
+      fixpoint
+    else if 
+      
+
+Idea: represent environments as directed graphs where:
+
+- Nodes are rule variables + patterns.
+
+- N1 -> N2 means that the result of N1 could be matched by the pattern
+  of N2 given an unlimited number of further reductions of its
+  insides.
+
+- Edge labels contain conditions that must hold for the edge to be
+  followed and the assignments of the variables in the next term.
+
+For example, in the following environment:
+
+  (env
+    (for 0 -> 0)
+    (for n (s n) -> (s n))
+    (for n (add n 0) -> n)
+    (for n m (add n (s m)) -> (s (add n m))))
+
+We would generate the following graph:
+
+  p0 = (for 0)
+  p1 = (for n (s n))
+  p2a = (for n (add n 0))
+  p2b = (for n m (add n (s m)))
+
+  e0 = p0 => p0
+  e1 = p1 => p1
+    n <- n
+  e2 = p2a => [n]
+  e3a = p2b => (s p2a)
+    0 <- m
+    n <- n
+  e3b = p2b => (s p2b)
+    (s m) <- m
+    n <- n
+
+A problem not captured in this is what to do then about a term like
+this:
+
+  (add 0 (add 0 0))
+
+This doesn't match any pattern, so we can't find the node yet to put
+it in. We do know, however, that there is no rule to rewrite 'add'
+into something else. This means that if our term is to reduce to a
+fixed point, it must eventually match a pattern with 'add' in its
+first position. There are two such patterns, p2a and p2b. We should
+add additional nodes and edges to account for this possibility:
+
+  p3 = (for n m (add n m))
+
+  e4a = p3 => p2a
+    0 <- m
+    n := n
+  e4b = p3 => p2b
+    (s _) <- m
+    n := n
+    m := m
+
+To make this more general, it would be nice to have exactly one
+'starting node' which we always go to when starting to reduce any
+term.
+
+  p#1 = (for 0 0)
+  p#2 = (for 0 1 (0 1))
+  p#3 = (for 0 1 2 (0 1 2))
+  p_start = (for t t)
+
+  e#1 = p#1 => p0
+  e#2 = p#2 => p1
+  e#3 = p#3 => p3
+  e_start1 = p_start => p#1
+    symbol <- t.type
+    0 := t
+  e_start2 = p_start => p#2
+    2 <- t.length
+    0 := t[0]
+    1 := t[1]
+  e_start3 = p_start => p#3
+    3 <- t.length
+    0 := t[0]
+    1 := t[1]
+    2 := t[2]
+
+(for x y z (a x .. b y .. c z .. d))
+- t.length >= 4
+- t[0] == a
+- t[t.length - 1] == d
+- exists (i1 : integer, i2 : integer) such that
+  - i1 > 0
+  - i1 < t.length - 1
+  - t[i1] == b
+  - i2 > i1
+  - i2 < t.length - 1
+  - t[i2] == c
+
+(for x (a (b x) .. c))
+- t.length >= 2
+- t[0] == a
+- t[t.length - 1] == c
+- forall (i : integer) such that
+  - i > 0
+  - i < t.length - 1
+  implies
+  - t[i].length == 2
+  - t[i][0] == b
+
+(for x y (a x .. b y .. c))
+- t.length >= 3
+- t[0] == a
+- t[t.length - 1] == c
+- exists (i : integer) such that
+  - i > 0
+  - i < t.length - 1
+  - t[i] == b
+
+(for x (a x .. b))
+- t.length >= 2
+- t[0] == a
+- t[t.length - 1] == b
+
+(for (a (x y z)))
+- t.length == 2
+- t[0] == a
+- t[1].length == 3
+- t[1][0] == x
+- t[1][1] == y
+- t[1][2] == z
+
+(for (a b c))
+- t.length == 3
+- t[0] == a
+- t[1] == b
+- t[2] == c
+
+(for x)
+- t == X
+
+
+
+
 
 ((for v (v) ->
    (let (x 10)

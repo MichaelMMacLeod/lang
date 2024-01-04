@@ -1,0 +1,61 @@
+// (env
+//   (for 0 -> 0)
+//   (for n (s n) -> (s n))
+//   (for n (add n 0) -> n)
+//   (for n m (add n (s m)) -> (s (add n m)))
+//   (for (equal 0 0) -> true)
+//   (for n (equal (s n) 0) -> false)
+//   (for m (equal 0 (s m)) -> false)
+//   (for n m (equal (s n) (s m)) -> (equal n m))
+//   (for true -> true)
+//   (for false -> false)
+
+
+digraph env0 {
+    compound=true
+    node [fontname = "monospace"]
+
+    t [label="(for t t)"]
+    s [label="variable"]
+    f [label="fixpoint"]
+    0 [label="(for 0)"]
+    1 [label="(for n (s n))"]
+    2 [label="(for n (add n 0))"]
+    3 [label="(for n m (add n (s m)))"]
+    4 [label="(equal 0 0)"]
+    5 [label="(equal (s n) 0)"]
+    6 [label="(equal 0 (s m))"]
+    7 [label="(equal (s n) (s m))"]
+    8 [label="(for true)"]
+    9 [label="(for false)"]
+    10 [label="(for (a : symbol) a)"]
+    11 [label="(for a b (a b))"]
+    12 [label="(for a b c (a b c))"]
+
+    10 -> 0 [label="0 ~ a"]
+    10 -> 8 [label="true ~ a"]
+    10 -> 9 [label="false ~ a"]
+    11 -> 1 [label="s ~ a\nn := b"]
+    12 -> 2 [label="add ~ a\n0 ~ c\nn := b"]
+    12 -> 3 [label="add ~ a\n(s _) ~ c\nn := b\nm := c[1]"]
+    12 -> 4 [label="equal ~ a\n0 ~ b\n0 ~ c"]
+    12 -> 5 [label="equal ~ a\n(s _) ~ b\n0 ~ c\nn := b[1]"]
+    12 -> 6 [label="equal ~ a\n0 ~ b\n(s _) ~ c\nm := c[1]"]
+    12 -> 7 [label="equal ~ a\n(s _) ~ b\n(s _) ~ c\nn := b[1]\nm := c[1]"]
+    t -> 10 [label="symbol ~ t.type"]
+    t -> 11 [label="2 ~ t.length"]
+    t -> 12 [label="3 ~ t.length"]
+    0 -> f
+    1 -> f
+    2 -> s [label="n"]
+    3 -> 1 [label="n := (add n m)"]
+    8 -> f
+    9 -> f
+    4 -> 8
+    5 -> 9
+    6 -> 9
+    7 -> 7 [label="(s _) ~ n\n(s _) ~ m\nn := n\nm := m"]
+    7 -> 5 [label="(s _) ~ n\n0 ~ m\nn := n"]
+    7 -> 6 [label="0 ~ n\n(s _) ~ m\nm := m"]
+    7 -> 4 [label="0 ~ n\n0 ~ m"]
+}
