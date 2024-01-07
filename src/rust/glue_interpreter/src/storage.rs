@@ -216,6 +216,16 @@ impl Storage {
         std::mem::replace(old_term, new_term)
     }
 
+    fn replace_at_index(&mut self, mut k: StorageKey, indices: &[usize], t: Term) {
+        for &index in indices {
+            match self.get(k).unwrap() {
+                Term::Compound(c) => k = c.keys()[index],
+                _ => panic!("can't index into non-compound term"),
+            }
+        }
+        self.replace(k, t);
+    }
+
     pub fn insert(&mut self, t: Term) -> StorageKey {
         self.data.insert(t)
     }
