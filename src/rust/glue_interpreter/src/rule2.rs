@@ -1,4 +1,6 @@
 use crate::{
+    compound::Compound,
+    parser::read,
     storage::{Storage, StorageKey, Term},
     symbol::Symbol,
 };
@@ -52,97 +54,323 @@ struct ConstructorList {
     list: Vec<IndexedConstructor>,
 }
 
-fn t1() {
-    // (for x (a (b x .. c) .. d) -> (e x .. .. f))
-    let pattern_predicate = PredicateList {
-        list: vec![
-            IndexedPredicate {
-                indices: vec![],
-                predicate: Predicate::LengthGreaterThanOrEqualTo(2),
+enum Constructor2 {
+    Copy(Vec<Index>),
+    Symbol(String),
+    Compound(CompoundConstructor2),
+}
+
+struct MiddleConstructor2 {
+    constructor2: Constructor2,
+    // MUST start with zero or more non-middle indicies
+    // followed by exactly one middle index.
+    shared_indices: Vec<Index>,
+}
+
+struct CompoundConstructor2 {
+    start: Vec<Constructor2>,
+    middle: Option<Box<MiddleConstructor2>>,
+    end: Vec<Constructor2>,
+}
+
+// 'indices' MUST start with zero or more non-middle indicies
+// followed by exactly one middle index.
+fn count_repetitions(storage: &Storage, mut k: StorageKey, indices: &[Index]) -> usize {
+    let mut indices = indices.iter();
+    let middle = loop {
+        match indices.next().unwrap() {
+            Index::ZeroPlus(zp) => match storage.get(k).unwrap() {
+                Term::Compound(c) => {
+                    k = c.keys()[*zp];
+                }
+                _ => panic!("attempt to index into non-compound term"),
             },
-            IndexedPredicate {
-                indices: vec![Index::ZeroPlus(0)],
-                predicate: Predicate::SymbolEqualTo("a".into()),
+            Index::LengthMinus(lm) => match storage.get(k).unwrap() {
+                Term::Compound(c) => {
+                    k = c.keys()[c.keys().len() - lm];
+                }
+                _ => panic!("attempt to index into non-compound term"),
             },
-            IndexedPredicate {
-                indices: vec![Index::LengthMinus(1)],
-                predicate: Predicate::SymbolEqualTo("d".into()),
-            },
-            IndexedPredicate {
-                indices: vec![Index::Middle(MiddleIndices {
-                    starting_at_zero_plus: 1,
-                    ending_at_length_minus: 2,
-                })],
-                predicate: Predicate::LengthGreaterThanOrEqualTo(2),
-            },
-            IndexedPredicate {
-                indices: vec![
-                    Index::Middle(MiddleIndices {
-                        starting_at_zero_plus: 1,
-                        ending_at_length_minus: 2,
-                    }),
-                    Index::ZeroPlus(0),
-                ],
-                predicate: Predicate::SymbolEqualTo("b".into()),
-            },
-            IndexedPredicate {
-                indices: vec![
-                    Index::Middle(MiddleIndices {
-                        starting_at_zero_plus: 1,
-                        ending_at_length_minus: 2,
-                    }),
-                    Index::LengthMinus(1),
-                ],
-                predicate: Predicate::SymbolEqualTo("c".into()),
-            },
-        ],
+            Index::Middle(middle) => break middle,
+        }
     };
-    let result_constructor = ConstructorList {
-        list: vec![
-            IndexedConstructor {
-                indices: vec![IndexedConstructorIndices::ZeroPlus(0)],
-                constructor: Constructor::Symbol("e".into()),
-            },
-            IndexedConstructor {
-                indices: vec![IndexedConstructorIndices::LengthMinus(1)],
-                constructor: Constructor::Symbol("f".into()),
-            },
-            IndexedConstructor {
-                indices: vec![IndexedConstructorIndices::Middle],
-                constructor: Constructor::Copy(vec![
-                    Index::Middle(MiddleIndices {
-                        starting_at_zero_plus: 1,
-                        ending_at_length_minus: 2,
-                    }),
-                    Index::Middle(MiddleIndices {
-                        starting_at_zero_plus: 1,
-                        ending_at_length_minus: 2,
-                    }),
-                ]),
-            },
-        ],
+    let term = match storage.get(k).unwrap() {
+        Term::Compound(c) => c,
+        _ => panic!("attempt to index into non-compound term"),
     };
-}
-
-struct ActiveConstructionIndex {
-    zero_plus: usize,
-}
-
-struct ActiveConstructionIndicesList {
-    list: Vec<ActiveConstructionIndex>,
-}
-
-fn construct_with_list(storage: &mut Storage, constructors: &ConstructorList, k: StorageKey, list: ActiveConstructionIndicesList) {
-    match constructors.list.first() {
-        Some(ic) => match &ic.constructor {
-            Constructor::Symbol(s) => {
-                let s = storage.insert(Term::Symbol(Symbol::new(s.clone())));
-            }
-            Constructor::Copy(_) => todo!(),
-        },
-        None => {}
+    // We calculate here the size of the following set of integers:
+    // size { forall x. x >= first_idx && x <= len - lm } = ???
+    // For integers A and B, how many integers are in the range A <= x <= B?
+    // If A > B, then 0
+    // Otherwise, B-A+1
+    let length = term.keys().len();
+    let zp = middle.starting_at_zero_plus;
+    let lm = middle.ending_at_length_minus;
+    let a = zp;
+    let b = length - lm;
+    if a > b {
+        0
+    } else {
+        b - a
+            .checked_add(1)
+            .expect("overflow when computing repetition count")
     }
 }
+
+fn get_with_offsets(
+    storage: &Storage,
+    mut k: StorageKey,
+    indices: &[Index],
+    offsets: &[usize],
+) -> StorageKey {
+    let mut offsets = offsets.iter().copied();
+    for index in indices {
+        match storage.get(k).unwrap() {
+            Term::Compound(c) => {
+                let zp = match index {
+                    Index::ZeroPlus(zp) => *zp,
+                    Index::LengthMinus(lm) => c.keys().len() - lm,
+                    Index::Middle(m) => {
+                        let offset = offsets.next().expect("no next offset");
+                        m.starting_at_zero_plus + offset
+                    }
+                };
+                k = c.keys()[zp];
+            }
+            _ => panic!("attempt to index into non-compound term"),
+        }
+    }
+    assert!(offsets.next().is_none());
+    k
+}
+
+mod test {
+    use super::*;
+
+    #[test]
+
+    fn t1() {
+        // (for x (x ..) -> ((a x ..) b (x c) ..))
+        let result_constructor3 = Constructor2::Compound(CompoundConstructor2 {
+            start: vec![
+                Constructor2::Compound(CompoundConstructor2 {
+                    start: vec![Constructor2::Symbol("a".into())],
+                    middle: Some(Box::new(MiddleConstructor2 {
+                        constructor2: Constructor2::Copy(vec![Index::Middle(MiddleIndices {
+                            starting_at_zero_plus: 0,
+                            ending_at_length_minus: 1,
+                        })]),
+                        shared_indices: vec![Index::Middle(MiddleIndices {
+                            starting_at_zero_plus: 0,
+                            ending_at_length_minus: 1,
+                        })],
+                    })),
+                    end: vec![],
+                }),
+                Constructor2::Symbol("b".into()),
+            ],
+            middle: Some(Box::new(MiddleConstructor2 {
+                constructor2: Constructor2::Compound(CompoundConstructor2 {
+                    start: vec![
+                        Constructor2::Copy(vec![Index::Middle(MiddleIndices {
+                            starting_at_zero_plus: 0,
+                            ending_at_length_minus: 1,
+                        })]),
+                        Constructor2::Symbol("c".into()),
+                    ],
+                    middle: None,
+                    end: vec![],
+                }),
+                shared_indices: vec![Index::Middle(MiddleIndices {
+                    starting_at_zero_plus: 0,
+                    ending_at_length_minus: 1,
+                })],
+            })),
+            end: vec![],
+        });
+        let mut storage = Storage::new();
+        let source = read(&mut storage, "(1 2 3 4 5 6 7 8 9)").unwrap();
+        let destination = read(&mut storage, "()").unwrap();
+        construct_single(&mut storage, &result_constructor3, source, destination, &[]);
+        storage.println(destination, false);
+    }
+}
+
+fn construct_single(
+    storage: &mut Storage,
+    constructor: &Constructor2,
+    source: StorageKey,
+    destination: StorageKey,
+    offsets: &[usize],
+) {
+    println!("1");
+    match constructor {
+        Constructor2::Copy(indices) => {
+            println!("2");
+            let new_term = get_with_offsets(storage, source, indices, offsets);
+            let new_term = storage.get(new_term).unwrap().clone();
+            storage.replace(destination, new_term);
+        }
+        Constructor2::Symbol(string) => {
+            println!("3");
+            storage.replace(destination, Term::Symbol(Symbol::new(string.clone())));
+        }
+        Constructor2::Compound(compound) => {
+            println!("4");
+            let start_part: Vec<StorageKey> = compound
+                .start
+                .iter()
+                .map(|constructor| {
+                    println!("4a");
+                    let destination = storage.insert(Term::Symbol(Symbol::new("".into())));
+                    construct_single(storage, constructor, source, destination, offsets);
+                    destination
+                })
+                .collect();
+            let end_part: Vec<StorageKey> = compound
+                .end
+                .iter()
+                .map(|constructor| {
+                    println!("4b");
+                    let destination = storage.insert(Term::Symbol(Symbol::new("".into())));
+                    construct_single(storage, constructor, source, destination, offsets);
+                    destination
+                })
+                .collect();
+            let middle_part: Vec<StorageKey> = match &compound.middle {
+                Some(middle) => {
+                    let repetitions = count_repetitions(storage, source, &middle.shared_indices);
+                    let mut result = Vec::with_capacity(repetitions);
+                    for offset in 0..repetitions {
+                        println!("4c");
+                        let offsets: Vec<usize> =
+                            [offset].iter().chain(offsets.iter()).copied().collect();
+                        let destination = storage.insert(Term::Symbol(Symbol::new("".into())));
+                        construct_single(storage, &middle.constructor2, source, destination, &offsets);
+                        result.push(destination)
+                    }
+                    result
+                }
+                None => vec![],
+            };
+            let combined: Vec<StorageKey> = start_part
+                .into_iter()
+                .chain(middle_part.into_iter())
+                .chain(end_part.into_iter())
+                .collect();
+
+            storage.replace(destination, Term::Compound(Compound::new(combined)));
+        }
+    }
+}
+
+// (for x (a (b x .. c) .. d) -> (e x .. .. f))
+// let pattern_predicate = PredicateList {
+//     list: vec![
+//         IndexedPredicate {
+//             indices: vec![],
+//             predicate: Predicate::LengthGreaterThanOrEqualTo(2),
+//         },
+//         IndexedPredicate {
+//             indices: vec![Index::ZeroPlus(0)],
+//             predicate: Predicate::SymbolEqualTo("a".into()),
+//         },
+//         IndexedPredicate {
+//             indices: vec![Index::LengthMinus(1)],
+//             predicate: Predicate::SymbolEqualTo("d".into()),
+//         },
+//         IndexedPredicate {
+//             indices: vec![Index::Middle(MiddleIndices {
+//                 starting_at_zero_plus: 1,
+//                 ending_at_length_minus: 2,
+//             })],
+//             predicate: Predicate::LengthGreaterThanOrEqualTo(2),
+//         },
+//         IndexedPredicate {
+//             indices: vec![
+//                 Index::Middle(MiddleIndices {
+//                     starting_at_zero_plus: 1,
+//                     ending_at_length_minus: 2,
+//                 }),
+//                 Index::ZeroPlus(0),
+//             ],
+//             predicate: Predicate::SymbolEqualTo("b".into()),
+//         },
+//         IndexedPredicate {
+//             indices: vec![
+//                 Index::Middle(MiddleIndices {
+//                     starting_at_zero_plus: 1,
+//                     ending_at_length_minus: 2,
+//                 }),
+//                 Index::LengthMinus(1),
+//             ],
+//             predicate: Predicate::SymbolEqualTo("c".into()),
+//         },
+//     ],
+// };
+// let result_constructor = ConstructorList {
+//     list: vec![
+//         IndexedConstructor {
+//             indices: vec![IndexedConstructorIndices::ZeroPlus(0)],
+//             constructor: Constructor::Symbol("e".into()),
+//         },
+//         IndexedConstructor {
+//             indices: vec![IndexedConstructorIndices::LengthMinus(1)],
+//             constructor: Constructor::Symbol("f".into()),
+//         },
+//         IndexedConstructor {
+//             indices: vec![IndexedConstructorIndices::Middle],
+//             constructor: Constructor::Copy(vec![
+//                 Index::Middle(MiddleIndices {
+//                     starting_at_zero_plus: 1,
+//                     ending_at_length_minus: 2,
+//                 }),
+//                 Index::Middle(MiddleIndices {
+//                     starting_at_zero_plus: 1,
+//                     ending_at_length_minus: 2,
+//                 }),
+//             ]),
+//         },
+//     ],
+// };
+// // let result_constructor2 = Constructor2::Compound(CompoundConstructor2 {
+// //     start: vec![Constructor2::Symbol("e".into())],
+// //     middle: Some(Box::new(Constructor2::Copy(vec![
+// //         Index::Middle(MiddleIndices {
+// //             starting_at_zero_plus: 1,
+// //             ending_at_length_minus: 2,
+// //         }),
+// //         Index::Middle(MiddleIndices {
+// //             starting_at_zero_plus: 1,
+// //             ending_at_length_minus: 2,
+// //         }),
+// //     ]))),
+// //     end: vec![Constructor2::Symbol("f".into())],
+// // });
+
+// struct ActiveConstructionIndex {
+//     zero_plus: usize,
+// }
+
+// struct ActiveConstructionIndicesList {
+//     list: Vec<ActiveConstructionIndex>,
+// }
+
+// fn construct_single(
+//     storage: &mut Storage,
+//     constructor: &Constructor2,
+//     k: StorageKey,
+// ) {
+//     match constructors.list.first() {
+//         Some(ic) => match &ic.constructor {
+//             Constructor::Symbol(s) => {
+//                 let s = storage.insert(Term::Symbol(Symbol::new(s.clone())));
+//             }
+//             Constructor::Copy(_) => todo!(),
+//         },
+//         None => {}
+//     }
+// }
 
 // use std::{
 //     cmp::{Ordering, Reverse},
