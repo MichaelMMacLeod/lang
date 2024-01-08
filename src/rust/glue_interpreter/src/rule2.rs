@@ -194,6 +194,120 @@ mod test {
         construct_single(&mut storage, &result_constructor3, source, destination, &[]);
         storage.println(destination, false);
     }
+
+    #[test]
+    fn t2() {
+        // (for x ((g x) ..) -> ((a x ..) b (x c) ..))
+        let result_constructor3 = Constructor2::Compound(CompoundConstructor2 {
+            start: vec![
+                Constructor2::Compound(CompoundConstructor2 {
+                    start: vec![Constructor2::Symbol("a".into())],
+                    middle: Some(Box::new(MiddleConstructor2 {
+                        constructor2: Constructor2::Copy(vec![
+                            Index::Middle(MiddleIndices {
+                                starting_at_zero_plus: 0,
+                                ending_at_length_minus: 1,
+                            }),
+                            Index::ZeroPlus(1),
+                        ]),
+                        shared_indices: vec![Index::Middle(MiddleIndices {
+                            starting_at_zero_plus: 0,
+                            ending_at_length_minus: 1,
+                        })],
+                    })),
+                    end: vec![],
+                }),
+                Constructor2::Symbol("b".into()),
+            ],
+            middle: Some(Box::new(MiddleConstructor2 {
+                constructor2: Constructor2::Compound(CompoundConstructor2 {
+                    start: vec![
+                        Constructor2::Copy(vec![
+                            Index::Middle(MiddleIndices {
+                                starting_at_zero_plus: 0,
+                                ending_at_length_minus: 1,
+                            }),
+                            Index::ZeroPlus(1),
+                        ]),
+                        Constructor2::Symbol("c".into()),
+                    ],
+                    middle: None,
+                    end: vec![],
+                }),
+                shared_indices: vec![Index::Middle(MiddleIndices {
+                    starting_at_zero_plus: 0,
+                    ending_at_length_minus: 1,
+                })],
+            })),
+            end: vec![],
+        });
+        let mut storage = Storage::new();
+        let source = read(&mut storage, "((g 1) (g 2) (g 3) (g 4) (g 5))").unwrap();
+        let destination = read(&mut storage, "()").unwrap();
+        construct_single(&mut storage, &result_constructor3, source, destination, &[]);
+        storage.println(destination, false);
+    }
+
+    #[test]
+    fn t3() {
+        // (for x (f ((g x) ..)) -> ((a x ..) b (x c) ..))
+        let result_constructor3 = Constructor2::Compound(CompoundConstructor2 {
+            start: vec![
+                Constructor2::Compound(CompoundConstructor2 {
+                    start: vec![Constructor2::Symbol("a".into())],
+                    middle: Some(Box::new(MiddleConstructor2 {
+                        constructor2: Constructor2::Copy(vec![
+                            Index::ZeroPlus(1),
+                            Index::Middle(MiddleIndices {
+                                starting_at_zero_plus: 0,
+                                ending_at_length_minus: 1,
+                            }),
+                            Index::ZeroPlus(1),
+                        ]),
+                        shared_indices: vec![
+                            Index::ZeroPlus(1),
+                            Index::Middle(MiddleIndices {
+                                starting_at_zero_plus: 0,
+                                ending_at_length_minus: 1,
+                            }),
+                        ],
+                    })),
+                    end: vec![],
+                }),
+                Constructor2::Symbol("b".into()),
+            ],
+            middle: Some(Box::new(MiddleConstructor2 {
+                constructor2: Constructor2::Compound(CompoundConstructor2 {
+                    start: vec![
+                        Constructor2::Copy(vec![
+                            Index::ZeroPlus(1),
+                            Index::Middle(MiddleIndices {
+                                starting_at_zero_plus: 0,
+                                ending_at_length_minus: 1,
+                            }),
+                            Index::ZeroPlus(1),
+                        ]),
+                        Constructor2::Symbol("c".into()),
+                    ],
+                    middle: None,
+                    end: vec![],
+                }),
+                shared_indices: vec![
+                    Index::ZeroPlus(1),
+                    Index::Middle(MiddleIndices {
+                        starting_at_zero_plus: 0,
+                        ending_at_length_minus: 1,
+                    }),
+                ],
+            })),
+            end: vec![],
+        });
+        let mut storage = Storage::new();
+        let source = read(&mut storage, "(f ((g 1) (g 2) (g 3) (g 4) (g 5)))").unwrap();
+        let destination = read(&mut storage, "()").unwrap();
+        construct_single(&mut storage, &result_constructor3, source, destination, &[]);
+        storage.println(destination, false);
+    }
 }
 
 fn construct_single(
