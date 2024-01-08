@@ -5,6 +5,10 @@ use crate::{
     symbol::Symbol,
 };
 
+struct PredicateList {
+    list: Vec<IndexedPredicate>,
+}
+
 struct IndexedPredicate {
     indices: Vec<Index>,
     predicate: Predicate,
@@ -25,19 +29,9 @@ enum Index {
     Middle(MiddleIndices),
 }
 
-enum IndexedConstructorIndices {
-    ZeroPlus(usize),
-    LengthMinus(usize),
-    Middle,
-}
-
 struct MiddleIndices {
     starting_at_zero_plus: usize,
     ending_at_length_minus: usize,
-}
-
-struct PredicateList {
-    list: Vec<IndexedPredicate>,
 }
 
 enum Constructor {
@@ -57,6 +51,75 @@ struct CompoundConstructor {
     start: Vec<Constructor>,
     middle: Option<Box<MiddleConstructor>>,
     end: Vec<Constructor>,
+}
+
+fn get_indexed_all(storage: &Storage, mut k: StorageKey, indices: &[Index]) -> Vec<StorageKey> {
+    let mut result = vec![k];
+    let mut middle_buffer = Vec::new();
+    for index in indices {
+        match index {
+            Index::ZeroPlus(zp) => {
+                for key in &mut result {
+                    let keys = match storage.get(*key).unwrap() {
+                        Term::Compound(c) => c.keys(),
+                        _ => panic!("attempt to index into non-compound term"),
+                    };
+                    *key = keys[*zp];
+                }
+            }
+            Index::LengthMinus(lm) => {
+                for key in &mut result {
+                    let keys = match storage.get(*key).unwrap() {
+                        Term::Compound(c) => c.keys(),
+                        _ => panic!("attempt to index into non-compound term"),
+                    };
+                    *key = keys[keys.len() - lm];
+                }
+            }
+            Index::Middle(m) => {
+                let start = m.starting_at_zero_plus;
+                let end = m.ending_at_length_minus;
+                for key in &mut result {
+                    let keys = match storage.get(*key).unwrap() {
+                        Term::Compound(c) => c.keys(),
+                        _ => panic!("attempt to index into non-compound term"),
+                    };
+                    for n in start..=end {
+                        if n >= keys.len() {
+                            break;
+                        }
+                        middle_buffer.push(keys[n]);
+                    }
+                }
+                result.clear();
+                result.extend(middle_buffer.drain(..));
+            }
+        }
+    }
+    result
+}
+
+fn matches(storage: &Storage, k: StorageKey, predicates: &PredicateList) -> bool {
+    predicates.list.iter().all(|predicate| {
+        let keys = get_indexed_all(storage, k, &predicate.indices);
+        keys.into_iter().all(|key| {
+            let term = storage.get(key).unwrap();
+            match &predicate.predicate {
+                Predicate::SymbolEqualTo(string) => match term {
+                    Term::Symbol(actual_symbol) => actual_symbol.data() == string,
+                    _ => false,
+                },
+                Predicate::LengthEqualTo(size) => match term {
+                    Term::Compound(actual_compound) => actual_compound.keys().len() == *size,
+                    _ => false,
+                },
+                Predicate::LengthGreaterThanOrEqualTo(size) => match term {
+                    Term::Compound(actual_compound) => actual_compound.keys().len() >= *size,
+                    _ => false,
+                },
+            }
+        })
+    })
 }
 
 // 'indices' MUST start with zero or more non-middle indices
@@ -84,19 +147,23 @@ fn count_repetitions(storage: &Storage, mut k: StorageKey, indices: &[Index]) ->
         Term::Compound(c) => c,
         _ => panic!("attempt to index into non-compound term"),
     };
-    // We calculate here the size of the following set of integers:
-    // size { forall x. x >= first_idx && x <= len - lm } = ???
-    // For integers A and B, how many integers are in the range A <= x <= B?
-    // If A > B, then 0
-    // Otherwise, B-A+1
     let length = term.keys().len();
     let zp = middle.starting_at_zero_plus;
     let lm = middle.ending_at_length_minus;
-    let a = zp;
-    let b = length - lm;
-    b.saturating_sub(a)
-        .checked_add(1)
-        .expect("overflow when computing repetition count")
+    if lm > length {
+        0
+    } else {
+        // We calculate here the size of the following set of integers:
+        // size { forall x. x >= first_idx && x <= len - lm } = ???
+        // For integers A and B, how many integers are in the range A <= x <= B?
+        // If A > B, then 0
+        // Otherwise, B-A+1
+        let a = zp;
+        let b = length - lm;
+        b.saturating_sub(a)
+            .checked_add(1)
+            .expect("overflow when computing repetition count")
+    }
 }
 
 fn get_with_offsets(
@@ -300,6 +367,43 @@ mod test {
     #[test]
     fn t3() {
         // (for x (f ((g x) ..)) -> ((a x ..) b (x c) ..))
+        let predicates = PredicateList {
+            list: vec![
+                IndexedPredicate {
+                    indices: vec![],
+                    predicate: Predicate::LengthEqualTo(2),
+                },
+                IndexedPredicate {
+                    indices: vec![Index::ZeroPlus(0)],
+                    predicate: Predicate::SymbolEqualTo("f".into()),
+                },
+                IndexedPredicate {
+                    indices: vec![Index::ZeroPlus(1)],
+                    predicate: Predicate::LengthGreaterThanOrEqualTo(0),
+                },
+                IndexedPredicate {
+                    indices: vec![
+                        Index::ZeroPlus(1),
+                        Index::Middle(MiddleIndices {
+                            starting_at_zero_plus: 0,
+                            ending_at_length_minus: 1,
+                        }),
+                    ],
+                    predicate: Predicate::LengthEqualTo(2),
+                },
+                IndexedPredicate {
+                    indices: vec![
+                        Index::ZeroPlus(1),
+                        Index::Middle(MiddleIndices {
+                            starting_at_zero_plus: 0,
+                            ending_at_length_minus: 1,
+                        }),
+                        Index::ZeroPlus(0),
+                    ],
+                    predicate: Predicate::SymbolEqualTo("g".into()),
+                },
+            ],
+        };
         let result_constructor3 = Constructor::Compound(CompoundConstructor {
             start: vec![
                 Constructor::Compound(CompoundConstructor {
@@ -352,7 +456,8 @@ mod test {
             end: vec![],
         });
         let mut storage = Storage::new();
-        let source = read(&mut storage, "(f ((g 1) (g 2) (g 3) (g 4) (g 5)))").unwrap();
+        let source = read(&mut storage, "(f ((g 1) (g 2) (g 2) (g 3) (g 4) (g 5)))").unwrap();
+        assert!(matches(&storage, source, &predicates));
         let destination = read(&mut storage, "()").unwrap();
         construct_single(&mut storage, &result_constructor3, source, destination, &[]);
         storage.println(destination, false);
