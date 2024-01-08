@@ -111,7 +111,7 @@ fn count_repetitions(storage: &Storage, mut k: StorageKey, indices: &[Index]) ->
     if a > b {
         0
     } else {
-        b - a
+        (b - a)
             .checked_add(1)
             .expect("overflow when computing repetition count")
     }
@@ -203,25 +203,20 @@ fn construct_single(
     destination: StorageKey,
     offsets: &[usize],
 ) {
-    println!("1");
     match constructor {
         Constructor2::Copy(indices) => {
-            println!("2");
             let new_term = get_with_offsets(storage, source, indices, offsets);
             let new_term = storage.get(new_term).unwrap().clone();
             storage.replace(destination, new_term);
         }
         Constructor2::Symbol(string) => {
-            println!("3");
             storage.replace(destination, Term::Symbol(Symbol::new(string.clone())));
         }
         Constructor2::Compound(compound) => {
-            println!("4");
             let start_part: Vec<StorageKey> = compound
                 .start
                 .iter()
                 .map(|constructor| {
-                    println!("4a");
                     let destination = storage.insert(Term::Symbol(Symbol::new("".into())));
                     construct_single(storage, constructor, source, destination, offsets);
                     destination
@@ -231,7 +226,6 @@ fn construct_single(
                 .end
                 .iter()
                 .map(|constructor| {
-                    println!("4b");
                     let destination = storage.insert(Term::Symbol(Symbol::new("".into())));
                     construct_single(storage, constructor, source, destination, offsets);
                     destination
@@ -242,11 +236,16 @@ fn construct_single(
                     let repetitions = count_repetitions(storage, source, &middle.shared_indices);
                     let mut result = Vec::with_capacity(repetitions);
                     for offset in 0..repetitions {
-                        println!("4c");
                         let offsets: Vec<usize> =
                             [offset].iter().chain(offsets.iter()).copied().collect();
                         let destination = storage.insert(Term::Symbol(Symbol::new("".into())));
-                        construct_single(storage, &middle.constructor2, source, destination, &offsets);
+                        construct_single(
+                            storage,
+                            &middle.constructor2,
+                            source,
+                            destination,
+                            &offsets,
+                        );
                         result.push(destination)
                     }
                     result
