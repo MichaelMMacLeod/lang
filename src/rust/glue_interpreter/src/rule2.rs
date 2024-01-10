@@ -16,7 +16,7 @@ struct Env {
 
 struct Node {
     arrows: Vec<Arrow>,
-    constructor: Option<CompoundConstructor>,
+    constructor: Option<CompoundElement>,
 }
 
 struct Arrow {
@@ -66,28 +66,40 @@ struct MiddleIndices {
     ending_at_length_minus: usize,
 }
 
-enum Constructor {
+enum SingleConstructor {
     Copy(Vec<Index>),
     Symbol(String),
-    Compound(CompoundConstructor),
+    Compound(Vec<CompoundElement>),
 }
 
-struct MiddleConstructor {
-    constructor: Constructor,
-    // MUST start with zero or more non-middle indices
-    // followed by exactly one middle index.
-    shared_indices: Vec<Index>,
+struct CompoundElement {
+    single_constructor: SingleConstructor,
+    dot_dot_count: usize,
 }
 
-// enum CompoundConstructor2 {
-
+// enum Constructor {
+//     Copy(Vec<Index>),
+//     Symbol(String),
+//     Compound(Vec<CompoundElem>),
 // }
 
-struct CompoundConstructor {
-    start: Vec<Constructor>,
-    middle: Option<Box<MiddleConstructor>>,
-    end: Vec<Constructor>,
-}
+// struct MiddleConstructor {
+//     constructor: Constructor,
+//     // MUST start with zero or more non-middle indices
+//     // followed by exactly one middle index.
+//     shared_indices: Vec<Index>,
+// }
+
+// struct CompoundElem {
+//     constructor: Constructor,
+//     dot_dot_count: usize,
+// }
+
+// struct CompoundConstructor {
+//     start: Vec<Constructor>,
+//     middle: Option<Box<MiddleConstructor>>,
+//     end: Vec<Constructor>,
+// }
 
 fn get_indexed_all(storage: &Storage, mut k: StorageKey, indices: &[Index]) -> Vec<StorageKey> {
     let mut result = vec![k];
@@ -246,55 +258,56 @@ fn construct_single(
             storage.replace(destination, Term::Symbol(Symbol::new(string.clone())));
         }
         Constructor::Compound(compound) => {
-            let start_part: Vec<StorageKey> = compound
-                .start
-                .iter()
-                .map(|constructor| {
-                    let destination = storage.insert(Term::Symbol(Symbol::new("".into())));
-                    construct_single(storage, constructor, source, destination, offsets);
-                    destination
-                })
-                .collect();
-            let end_part: Vec<StorageKey> = compound
-                .end
-                .iter()
-                .map(|constructor| {
-                    let destination = storage.insert(Term::Symbol(Symbol::new("".into())));
-                    construct_single(storage, constructor, source, destination, offsets);
-                    destination
-                })
-                .collect();
-            let middle_part: Vec<StorageKey> = match &compound.middle {
-                Some(middle) => {
-                    let repetitions = count_repetitions(storage, source, &middle.shared_indices);
-                    let mut result = Vec::with_capacity(repetitions);
-                    for offset in 0..repetitions {
-                        // let offsets: Vec<usize> =
-                        //     [offset].iter().chain(offsets.iter()).copied().collect();
-                        let offsets: Vec<usize> =
-                            offsets.iter().chain([offset].iter()).copied().collect();
-                        // [offset].iter().chain(offsets.iter()).copied().collect();
-                        let destination = storage.insert(Term::Symbol(Symbol::new("".into())));
-                        construct_single(
-                            storage,
-                            &middle.constructor,
-                            source,
-                            destination,
-                            &offsets,
-                        );
-                        result.push(destination)
-                    }
-                    result
-                }
-                None => vec![],
-            };
-            let combined: Vec<StorageKey> = start_part
-                .into_iter()
-                .chain(middle_part.into_iter())
-                .chain(end_part.into_iter())
-                .collect();
+            // let start_part: Vec<StorageKey> = compound
+            //     .start
+            //     .iter()
+            //     .map(|constructor| {
+            //         let destination = storage.insert(Term::Symbol(Symbol::new("".into())));
+            //         construct_single(storage, constructor, source, destination, offsets);
+            //         destination
+            //     })
+            //     .collect();
+            // let end_part: Vec<StorageKey> = compound
+            //     .end
+            //     .iter()
+            //     .map(|constructor| {
+            //         let destination = storage.insert(Term::Symbol(Symbol::new("".into())));
+            //         construct_single(storage, constructor, source, destination, offsets);
+            //         destination
+            //     })
+            //     .collect();
+            // let middle_part: Vec<StorageKey> = match &compound.middle {
+            //     Some(middle) => {
+            //         let repetitions = count_repetitions(storage, source, &middle.shared_indices);
+            //         let mut result = Vec::with_capacity(repetitions);
+            //         for offset in 0..repetitions {
+            //             // let offsets: Vec<usize> =
+            //             //     [offset].iter().chain(offsets.iter()).copied().collect();
+            //             let offsets: Vec<usize> =
+            //                 offsets.iter().chain([offset].iter()).copied().collect();
+            //             // [offset].iter().chain(offsets.iter()).copied().collect();
+            //             let destination = storage.insert(Term::Symbol(Symbol::new("".into())));
+            //             construct_single(
+            //                 storage,
+            //                 &middle.constructor,
+            //                 source,
+            //                 destination,
+            //                 &offsets,
+            //             );
+            //             result.push(destination)
+            //         }
+            //         result
+            //     }
+            //     None => vec![],
+            // };
+            // let combined: Vec<StorageKey> = start_part
+            //     .into_iter()
+            //     .chain(middle_part.into_iter())
+            //     .chain(end_part.into_iter())
+            //     .collect();
 
-            storage.replace(destination, Term::Compound(Compound::new(combined)));
+            // storage.replace(destination, Term::Compound(Compound::new(combined)));
+            todo!()
         }
     }
 }
@@ -602,43 +615,74 @@ mod test {
     #[test]
     fn t1() {
         // (for x (x ..) -> ((a x ..) b (x c) ..))
-        let result_constructor3 = Constructor::Compound(CompoundConstructor {
-            start: vec![
-                Constructor::Compound(CompoundConstructor {
-                    start: vec![Constructor::Symbol("a".into())],
-                    middle: Some(Box::new(MiddleConstructor {
-                        constructor: Constructor::Copy(vec![Index::Middle(MiddleIndices {
-                            starting_at_zero_plus: 0,
-                            ending_at_length_minus: 1,
-                        })]),
-                        shared_indices: vec![Index::Middle(MiddleIndices {
-                            starting_at_zero_plus: 0,
-                            ending_at_length_minus: 1,
-                        })],
-                    })),
-                    end: vec![],
-                }),
-                Constructor::Symbol("b".into()),
-            ],
-            middle: Some(Box::new(MiddleConstructor {
-                constructor: Constructor::Compound(CompoundConstructor {
-                    start: vec![
-                        Constructor::Copy(vec![Index::Middle(MiddleIndices {
-                            starting_at_zero_plus: 0,
-                            ending_at_length_minus: 1,
-                        })]),
-                        Constructor::Symbol("c".into()),
-                    ],
-                    middle: None,
-                    end: vec![],
-                }),
-                shared_indices: vec![Index::Middle(MiddleIndices {
-                    starting_at_zero_plus: 0,
-                    ending_at_length_minus: 1,
-                })],
-            })),
-            end: vec![],
-        });
+        let result_constructor3 = Constructor::Compound(vec![CompoundElem {
+            constructor: Constructor::Compound(vec![
+                CompoundElem {
+                    constructor: Constructor::Symbol("a".into()),
+                    dot_dot_count: 0,
+                },
+                CompoundElem {
+                    constructor: Constructor::Copy(vec![Index::Middle(MiddleIndices {
+                        starting_at_zero_plus: 0,
+                        ending_at_length_minus: 1,
+                    })]),
+                    dot_dot_count: 1,
+                },
+            ]),
+            dot_dot_count: 0,
+        }]);
+        // let result_constructor3 = Constructor::Compound(vec![CompoundElem::NotDotDotted(
+        //     Constructor::Compound(vec![
+        //         CompoundElem::NotDotDotted(Constructor::Symbol("a".into())),
+        //         CompoundElem::DotDotted(Constructor::Copy(vec![Index::Middle(
+        //             MiddleIndices {
+        //                 starting_at_zero_plus: 0,
+        //                 ending_at_length_minus: 1,
+        //             },
+        //         )])),
+        //     ]),
+        // ),
+        // CompoundElem::NotDotDotted(Constructor::Symbol("b".into())),
+        // CompoundElem::DotDotted(Constructor::Compound(vec![
+
+        // ]))]);
+        // let result_constructor3 = Constructor::Compound(CompoundConstructor {
+        //     start: vec![
+        //         Constructor::Compound(CompoundConstructor {
+        //             start: vec![Constructor::Symbol("a".into())],
+        //             middle: Some(Box::new(MiddleConstructor {
+        //                 constructor: Constructor::Copy(vec![Index::Middle(MiddleIndices {
+        //                     starting_at_zero_plus: 0,
+        //                     ending_at_length_minus: 1,
+        //                 })]),
+        //                 shared_indices: vec![Index::Middle(MiddleIndices {
+        //                     starting_at_zero_plus: 0,
+        //                     ending_at_length_minus: 1,
+        //                 })],
+        //             })),
+        //             end: vec![],
+        //         }),
+        //         Constructor::Symbol("b".into()),
+        //     ],
+        //     middle: Some(Box::new(MiddleConstructor {
+        //         constructor: Constructor::Compound(CompoundConstructor {
+        //             start: vec![
+        //                 Constructor::Copy(vec![Index::Middle(MiddleIndices {
+        //                     starting_at_zero_plus: 0,
+        //                     ending_at_length_minus: 1,
+        //                 })]),
+        //                 Constructor::Symbol("c".into()),
+        //             ],
+        //             middle: None,
+        //             end: vec![],
+        //         }),
+        //         shared_indices: vec![Index::Middle(MiddleIndices {
+        //             starting_at_zero_plus: 0,
+        //             ending_at_length_minus: 1,
+        //         })],
+        //     })),
+        //     end: vec![],
+        // });
         let mut storage = Storage::new();
         let source = read(&mut storage, "(1 2 3 4 5 6 7 8 9)").unwrap();
         let destination = read(&mut storage, "()").unwrap();
@@ -649,49 +693,50 @@ mod test {
     #[test]
     fn t2() {
         // (for x ((g x) ..) -> ((a x ..) b (x c) ..))
-        let result_constructor3 = Constructor::Compound(CompoundConstructor {
-            start: vec![
-                Constructor::Compound(CompoundConstructor {
-                    start: vec![Constructor::Symbol("a".into())],
-                    middle: Some(Box::new(MiddleConstructor {
-                        constructor: Constructor::Copy(vec![
-                            Index::Middle(MiddleIndices {
-                                starting_at_zero_plus: 0,
-                                ending_at_length_minus: 1,
-                            }),
-                            Index::ZeroPlus(1),
-                        ]),
-                        shared_indices: vec![Index::Middle(MiddleIndices {
-                            starting_at_zero_plus: 0,
-                            ending_at_length_minus: 1,
-                        })],
-                    })),
-                    end: vec![],
-                }),
-                Constructor::Symbol("b".into()),
-            ],
-            middle: Some(Box::new(MiddleConstructor {
-                constructor: Constructor::Compound(CompoundConstructor {
-                    start: vec![
-                        Constructor::Copy(vec![
-                            Index::Middle(MiddleIndices {
-                                starting_at_zero_plus: 0,
-                                ending_at_length_minus: 1,
-                            }),
-                            Index::ZeroPlus(1),
-                        ]),
-                        Constructor::Symbol("c".into()),
-                    ],
-                    middle: None,
-                    end: vec![],
-                }),
-                shared_indices: vec![Index::Middle(MiddleIndices {
-                    starting_at_zero_plus: 0,
-                    ending_at_length_minus: 1,
-                })],
-            })),
-            end: vec![],
-        });
+        let result_constructor3 = Constructor::Compound(vec![]);
+        // let result_constructor3 = Constructor::Compound(CompoundConstructor {
+        //     start: vec![
+        //         Constructor::Compound(CompoundConstructor {
+        //             start: vec![Constructor::Symbol("a".into())],
+        //             middle: Some(Box::new(MiddleConstructor {
+        //                 constructor: Constructor::Copy(vec![
+        //                     Index::Middle(MiddleIndices {
+        //                         starting_at_zero_plus: 0,
+        //                         ending_at_length_minus: 1,
+        //                     }),
+        //                     Index::ZeroPlus(1),
+        //                 ]),
+        //                 shared_indices: vec![Index::Middle(MiddleIndices {
+        //                     starting_at_zero_plus: 0,
+        //                     ending_at_length_minus: 1,
+        //                 })],
+        //             })),
+        //             end: vec![],
+        //         }),
+        //         Constructor::Symbol("b".into()),
+        //     ],
+        //     middle: Some(Box::new(MiddleConstructor {
+        //         constructor: Constructor::Compound(CompoundConstructor {
+        //             start: vec![
+        //                 Constructor::Copy(vec![
+        //                     Index::Middle(MiddleIndices {
+        //                         starting_at_zero_plus: 0,
+        //                         ending_at_length_minus: 1,
+        //                     }),
+        //                     Index::ZeroPlus(1),
+        //                 ]),
+        //                 Constructor::Symbol("c".into()),
+        //             ],
+        //             middle: None,
+        //             end: vec![],
+        //         }),
+        //         shared_indices: vec![Index::Middle(MiddleIndices {
+        //             starting_at_zero_plus: 0,
+        //             ending_at_length_minus: 1,
+        //         })],
+        //     })),
+        //     end: vec![],
+        // });
         let mut storage = Storage::new();
         let source = read(&mut storage, "((g 1) (g 2) (g 3) (g 4) (g 5))").unwrap();
         let destination = read(&mut storage, "()").unwrap();
@@ -741,57 +786,58 @@ mod test {
             .into_iter()
             .collect(),
         };
-        let result_constructor3 = Constructor::Compound(CompoundConstructor {
-            start: vec![
-                Constructor::Compound(CompoundConstructor {
-                    start: vec![Constructor::Symbol("a".into())],
-                    middle: Some(Box::new(MiddleConstructor {
-                        constructor: Constructor::Copy(vec![
-                            Index::ZeroPlus(1),
-                            Index::Middle(MiddleIndices {
-                                starting_at_zero_plus: 0,
-                                ending_at_length_minus: 1,
-                            }),
-                            Index::ZeroPlus(1),
-                        ]),
-                        shared_indices: vec![
-                            Index::ZeroPlus(1),
-                            Index::Middle(MiddleIndices {
-                                starting_at_zero_plus: 0,
-                                ending_at_length_minus: 1,
-                            }),
-                        ],
-                    })),
-                    end: vec![],
-                }),
-                Constructor::Symbol("b".into()),
-            ],
-            middle: Some(Box::new(MiddleConstructor {
-                constructor: Constructor::Compound(CompoundConstructor {
-                    start: vec![
-                        Constructor::Copy(vec![
-                            Index::ZeroPlus(1),
-                            Index::Middle(MiddleIndices {
-                                starting_at_zero_plus: 0,
-                                ending_at_length_minus: 1,
-                            }),
-                            Index::ZeroPlus(1),
-                        ]),
-                        Constructor::Symbol("c".into()),
-                    ],
-                    middle: None,
-                    end: vec![],
-                }),
-                shared_indices: vec![
-                    Index::ZeroPlus(1),
-                    Index::Middle(MiddleIndices {
-                        starting_at_zero_plus: 0,
-                        ending_at_length_minus: 1,
-                    }),
-                ],
-            })),
-            end: vec![],
-        });
+        let result_constructor3 = Constructor::Compound(vec![]);
+        // let result_constructor3 = Constructor::Compound(CompoundConstructor {
+        //     start: vec![
+        //         Constructor::Compound(CompoundConstructor {
+        //             start: vec![Constructor::Symbol("a".into())],
+        //             middle: Some(Box::new(MiddleConstructor {
+        //                 constructor: Constructor::Copy(vec![
+        //                     Index::ZeroPlus(1),
+        //                     Index::Middle(MiddleIndices {
+        //                         starting_at_zero_plus: 0,
+        //                         ending_at_length_minus: 1,
+        //                     }),
+        //                     Index::ZeroPlus(1),
+        //                 ]),
+        //                 shared_indices: vec![
+        //                     Index::ZeroPlus(1),
+        //                     Index::Middle(MiddleIndices {
+        //                         starting_at_zero_plus: 0,
+        //                         ending_at_length_minus: 1,
+        //                     }),
+        //                 ],
+        //             })),
+        //             end: vec![],
+        //         }),
+        //         Constructor::Symbol("b".into()),
+        //     ],
+        //     middle: Some(Box::new(MiddleConstructor {
+        //         constructor: Constructor::Compound(CompoundConstructor {
+        //             start: vec![
+        //                 Constructor::Copy(vec![
+        //                     Index::ZeroPlus(1),
+        //                     Index::Middle(MiddleIndices {
+        //                         starting_at_zero_plus: 0,
+        //                         ending_at_length_minus: 1,
+        //                     }),
+        //                     Index::ZeroPlus(1),
+        //                 ]),
+        //                 Constructor::Symbol("c".into()),
+        //             ],
+        //             middle: None,
+        //             end: vec![],
+        //         }),
+        //         shared_indices: vec![
+        //             Index::ZeroPlus(1),
+        //             Index::Middle(MiddleIndices {
+        //                 starting_at_zero_plus: 0,
+        //                 ending_at_length_minus: 1,
+        //             }),
+        //         ],
+        //     })),
+        //     end: vec![],
+        // });
         let mut storage = Storage::new();
         let source = read(&mut storage, "(f ((g 1) (g 2) (g 2) (g 3) (g 4) (g 5)))").unwrap();
         assert!(matches(&storage, source, &predicates));
@@ -803,48 +849,49 @@ mod test {
     #[test]
     fn t4() {
         // (for x ((x ..) ..) -> ((x ..) ..)
-        let result_constructor3 = Constructor::Compound(CompoundConstructor {
-            start: vec![],
-            middle: Some(Box::new(MiddleConstructor {
-                constructor: Constructor::Compound(CompoundConstructor {
-                    start: vec![],
-                    middle: Some(Box::new(MiddleConstructor {
-                        constructor: Constructor::Copy(vec![
-                            Index::Middle(MiddleIndices {
-                                starting_at_zero_plus: 0,
-                                ending_at_length_minus: 1,
-                            }),
-                            Index::Middle(MiddleIndices {
-                                starting_at_zero_plus: 0,
-                                ending_at_length_minus: 1,
-                            }),
-                        ]),
-                        shared_indices: vec![
-                            Index::Middle(MiddleIndices {
-                                starting_at_zero_plus: 0,
-                                ending_at_length_minus: 1,
-                            }),
-                            Index::Middle(MiddleIndices {
-                                starting_at_zero_plus: 0,
-                                ending_at_length_minus: 1,
-                            }),
-                        ],
-                    })),
-                    end: vec![],
-                }),
-                shared_indices: vec![
-                    Index::Middle(MiddleIndices {
-                        starting_at_zero_plus: 0,
-                        ending_at_length_minus: 1,
-                    }),
-                    Index::Middle(MiddleIndices {
-                        starting_at_zero_plus: 0,
-                        ending_at_length_minus: 1,
-                    }),
-                ],
-            })),
-            end: vec![],
-        });
+        let result_constructor3 = Constructor::Compound(vec![]);
+        // let result_constructor3 = Constructor::Compound(CompoundConstructor {
+        //     start: vec![],
+        //     middle: Some(Box::new(MiddleConstructor {
+        //         constructor: Constructor::Compound(CompoundConstructor {
+        //             start: vec![],
+        //             middle: Some(Box::new(MiddleConstructor {
+        //                 constructor: Constructor::Copy(vec![
+        //                     Index::Middle(MiddleIndices {
+        //                         starting_at_zero_plus: 0,
+        //                         ending_at_length_minus: 1,
+        //                     }),
+        //                     Index::Middle(MiddleIndices {
+        //                         starting_at_zero_plus: 0,
+        //                         ending_at_length_minus: 1,
+        //                     }),
+        //                 ]),
+        //                 shared_indices: vec![
+        //                     Index::Middle(MiddleIndices {
+        //                         starting_at_zero_plus: 0,
+        //                         ending_at_length_minus: 1,
+        //                     }),
+        //                     Index::Middle(MiddleIndices {
+        //                         starting_at_zero_plus: 0,
+        //                         ending_at_length_minus: 1,
+        //                     }),
+        //                 ],
+        //             })),
+        //             end: vec![],
+        //         }),
+        //         shared_indices: vec![
+        //             Index::Middle(MiddleIndices {
+        //                 starting_at_zero_plus: 0,
+        //                 ending_at_length_minus: 1,
+        //             }),
+        //             Index::Middle(MiddleIndices {
+        //                 starting_at_zero_plus: 0,
+        //                 ending_at_length_minus: 1,
+        //             }),
+        //         ],
+        //     })),
+        //     end: vec![],
+        // });
         let mut storage = Storage::new();
         let source = read(&mut storage, "((1 2 3 4))").unwrap();
         // assert!(matches(&storage, source, &predicates));
