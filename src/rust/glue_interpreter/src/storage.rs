@@ -57,6 +57,20 @@ impl Storage {
         }
     }
 
+    pub fn get_compound(&self, key: StorageKey) -> Option<&Compound> {
+        match self.get(key).unwrap() {
+            Term::Compound(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    pub fn get_symbol(&self, key: StorageKey) -> Option<&Symbol> {
+        match self.get(key).unwrap() {
+            Term::Symbol(s) => Some(s),
+            _ => None,
+        }
+    }
+
     pub fn add_rules<I: IntoIterator<Item = Rule>>(&mut self, rules: I) {
         rules.into_iter().for_each(|rule| self.env.add_rule(rule));
     }

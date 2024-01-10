@@ -1,3 +1,8 @@
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{Once, OnceLock},
+};
+
 use crate::{
     compound::Compound,
     parser::read,
@@ -5,15 +10,32 @@ use crate::{
     symbol::Symbol,
 };
 
+struct Env {
+    top: Node,
+}
+
+struct Node {
+    arrows: Vec<Arrow>,
+    constructor: Option<CompoundConstructor>,
+}
+
+struct Arrow {
+    predicates: PredicateList,
+    target: Node,
+}
+
+#[derive(Debug)]
 struct PredicateList {
     list: Vec<IndexedPredicate>,
 }
 
+#[derive(Debug)]
 struct IndexedPredicate {
     indices: Vec<Index>,
     predicate: Predicate,
 }
 
+#[derive(Debug)]
 enum Predicate {
     // Predicates for symbols
     SymbolEqualTo(String),
@@ -23,12 +45,14 @@ enum Predicate {
     LengthGreaterThanOrEqualTo(usize),
 }
 
+#[derive(Clone, Debug)]
 enum Index {
     ZeroPlus(usize),
     LengthMinus(usize),
     Middle(MiddleIndices),
 }
 
+#[derive(Clone, Debug)]
 struct MiddleIndices {
     starting_at_zero_plus: usize,
     ending_at_length_minus: usize,
@@ -260,11 +284,202 @@ fn construct_single(
     }
 }
 
+struct Rule2 {
+    predicate: PredicateList,
+    constructor: Constructor,
+}
+
+// (for (<var> : symbol) .. <predicate> -> <constructor>)
+// const fixpoint_rule_predicate: PredicateList = PredicateList { list: vec![] };
+
+struct VarMap {
+    map: HashMap<String, Option<Vec<Index>>>,
+}
+
+fn compile_rule2(storage: &Storage, k: StorageKey) -> Option<Rule2> {
+    static RULE_PREDICATE: OnceLock<PredicateList> = OnceLock::new();
+    let rule_predicate = RULE_PREDICATE.get_or_init(|| PredicateList {
+        list: vec![
+            IndexedPredicate {
+                indices: vec![],
+                predicate: Predicate::LengthGreaterThanOrEqualTo(4),
+            },
+            IndexedPredicate {
+                indices: vec![Index::ZeroPlus(0)],
+                predicate: Predicate::SymbolEqualTo("for".into()),
+            },
+            IndexedPredicate {
+                indices: vec![Index::LengthMinus(2)],
+                predicate: Predicate::SymbolEqualTo("->".into()),
+            },
+        ],
+    });
+
+    if !matches(storage, k, rule_predicate) {
+        return None;
+    }
+
+    let c = storage.get_compound(k).unwrap().keys();
+    let length = c.len();
+    let predicate = c[length - 3];
+    let constructor = c[length - 1];
+    let mut variables = VarMap {
+        map: HashMap::new(),
+    };
+    for &k in &c[1..=(length - 4)] {
+        if let Some(s) = storage.get_symbol(k) {
+            variables.map.insert(s.data().clone(), None);
+        } else {
+            return None;
+        }
+    }
+
+    let Some(predicate) = compile_rule_predicate(storage, &mut variables, k) else {
+        return None;
+    };
+
+    todo!()
+}
+
+fn compile_rule_predicate(
+    storage: &Storage,
+    variables: &mut VarMap,
+    k: StorageKey,
+) -> Option<PredicateList> {
+    let mut predicate_list = PredicateList { list: Vec::new() };
+    compile_rule_predicate_list(storage, variables, k, &mut predicate_list, &[])
+        .map(|_| predicate_list)
+}
+
+fn compile_rule_predicate_list(
+    storage: &Storage,
+    variables: &mut VarMap,
+    k: StorageKey,
+    list: &mut PredicateList,
+    indices: &[Index],
+) -> Option<()> {
+    match storage.get(k).unwrap() {
+        Term::Symbol(s) => {
+            if variables.map.contains_key(s.data()) {
+                if variables.map.get(s.data()).is_some() {
+                    None // var used more than once is an error
+                } else {
+                    let _ = variables
+                        .map
+                        .get_mut(s.data())
+                        .unwrap()
+                        .insert(indices.to_vec());
+                    Some(())
+                }
+            } else {
+                list.list.push(IndexedPredicate {
+                    indices: indices.to_vec(),
+                    predicate: Predicate::SymbolEqualTo(s.data().clone()),
+                });
+                Some(())
+            }
+        }
+        Term::Compound(c) => {
+            fn is_dot_dotted(storage: &Storage, keys: &[StorageKey], index: usize) -> bool {
+                let Some(index2) = index.checked_add(1) else {
+                    return false;
+                };
+                let k1 = keys.get(index);
+                let k2 = keys.get(index2);
+                match (k1, k2) {
+                    (Some(_), Some(t2)) => {
+                        let Some(s) = storage.get_symbol(*t2) else {
+                            return false;
+                        };
+                        s.data() == ".."
+                    }
+                    _ => false,
+                }
+            }
+            let mut before_dot_dot = true;
+            let mut at_dot_dot = false;
+            for (index, &k) in c.keys().iter().enumerate() {
+                if at_dot_dot {
+                    at_dot_dot = false;
+                    continue;
+                }
+                if is_dot_dotted(storage, c.keys(), index) {
+                    if before_dot_dot {
+                        before_dot_dot = false;
+                        at_dot_dot = true;
+                        let indices: Vec<Index> = indices
+                            .iter()
+                            .chain(&[Index::Middle(MiddleIndices {
+                                starting_at_zero_plus: index,
+                                // because we are inside the loop we know length >= 1 and index < length
+                                // len - index = number of elements after the dot-dotted term (including the "..")
+                                // len - index - 1 = number of elements after the dot-dotted term (excluding the "..")
+                                // [ 0 1 2 .. 3 4 5 6 ]
+                                // start: 2
+                                // end: length - 5
+                                ending_at_length_minus: c.keys().len() - index - 1,
+                            })])
+                            .cloned()
+                            .collect();
+                        compile_rule_predicate_list(storage, variables, k, list, &indices);
+                    } else {
+                        // Illegal to have more than one dot-dotted term per compound term
+                        return None;
+                    }
+                } else if before_dot_dot {
+                    let indices: Vec<Index> = indices
+                        .iter()
+                        .chain(&[Index::ZeroPlus(index)])
+                        .cloned()
+                        .collect();
+                    compile_rule_predicate_list(storage, variables, k, list, &indices);
+                } else {
+                    let indices: Vec<Index> = indices
+                        .iter()
+                        .chain(&[Index::LengthMinus(
+                            c.keys().len().checked_sub(index).unwrap()
+                            // index.checked_sub(1).unwrap(), /* -1 to ignore the ".." */
+                        )])
+                        .cloned()
+                        .collect();
+                    compile_rule_predicate_list(storage, variables, k, list, &indices);
+                }
+            }
+            list.list.push(IndexedPredicate {
+                indices: indices.to_vec(),
+                predicate: if before_dot_dot {
+                    Predicate::LengthEqualTo(c.keys().len())
+                } else {
+                    Predicate::LengthGreaterThanOrEqualTo(
+                        c.keys().len().checked_sub(2).unwrap(), /* -2 to ignore the "<T> .." */
+                    )
+                },
+            });
+            Some(())
+        }
+        _ => None,
+    }
+}
+
 mod test {
     use super::*;
 
     #[test]
+    fn c1() {
+        let mut storage = Storage::new();
+        // let k = read(&mut storage, "(f ((g x) ..))").unwrap();
+        let k = read(&mut storage, "(zp0 zp1 zp2 (x 1 2 3) .. lm3 lm2 lm1)").unwrap();
+        let mut variables = VarMap {
+            map: [("x".into(), None)].into_iter().collect(),
+        };
+        let predicate = compile_rule_predicate(&storage, &mut variables, k).unwrap();
+        // let expected = PredicateList { list: vec![
+        //     IndexedPredicate { indices: vec![Index::ZeroPlus(0)], predicate: Predicate::SymbolEqualTo(()) }
+        // ]};
+        dbg!(predicate);
+    }
 
+    #[test]
     fn t1() {
         // (for x (x ..) -> ((a x ..) b (x c) ..))
         let result_constructor3 = Constructor::Compound(CompoundConstructor {
