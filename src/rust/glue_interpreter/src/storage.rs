@@ -407,3 +407,40 @@ impl Storage {
     //     }
     // }
 }
+
+pub struct IndexedKey {
+    pub index: Vec<usize>,
+    pub key: StorageKey,
+}
+
+pub struct StorageBFS {
+    stack: Vec<IndexedKey>,
+}
+
+impl StorageBFS {
+    pub fn new(key: StorageKey) -> Self {
+        Self {
+            stack: vec![IndexedKey { index: vec![], key }],
+        }
+    }
+
+    pub fn next(&mut self, storage: &Storage) -> Option<IndexedKey> {
+        let indexed_key = self.stack.pop()?;
+        let term = storage.get(indexed_key.key).unwrap();
+        if let Term::Compound(c) = term {
+            self.stack
+                .extend(c.keys().iter().enumerate().map(|(n, &key)| {
+                    IndexedKey {
+                        index: indexed_key
+                            .index
+                            .iter()
+                            .chain([n].iter())
+                            .cloned()
+                            .collect(),
+                        key,
+                    }
+                }));
+        }
+        Some(indexed_key)
+    }
+}

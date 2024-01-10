@@ -6,7 +6,7 @@ use std::{
 use crate::{
     compound::Compound,
     parser::read,
-    storage::{Storage, StorageKey, Term},
+    storage::{Storage, StorageBFS, StorageKey, Term},
     symbol::Symbol,
 };
 
@@ -20,22 +20,30 @@ struct Node {
 }
 
 struct Arrow {
-    predicates: PredicateList,
+    predicates: PredicateSet,
     target: Node,
 }
 
-#[derive(Debug)]
-struct PredicateList {
-    list: Vec<IndexedPredicate>,
+#[derive(Debug, PartialEq, Eq)]
+struct PredicateSet {
+    set: HashSet<IndexedPredicate>,
 }
 
-#[derive(Debug)]
+impl PredicateSet {
+    fn new() -> Self {
+        Self {
+            set: HashSet::new(),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
 struct IndexedPredicate {
     indices: Vec<Index>,
     predicate: Predicate,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 enum Predicate {
     // Predicates for symbols
     SymbolEqualTo(String),
@@ -45,14 +53,14 @@ enum Predicate {
     LengthGreaterThanOrEqualTo(usize),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum Index {
     ZeroPlus(usize),
     LengthMinus(usize),
     Middle(MiddleIndices),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct MiddleIndices {
     starting_at_zero_plus: usize,
     ending_at_length_minus: usize,
@@ -70,6 +78,10 @@ struct MiddleConstructor {
     // followed by exactly one middle index.
     shared_indices: Vec<Index>,
 }
+
+// enum CompoundConstructor2 {
+
+// }
 
 struct CompoundConstructor {
     start: Vec<Constructor>,
@@ -123,8 +135,8 @@ fn get_indexed_all(storage: &Storage, mut k: StorageKey, indices: &[Index]) -> V
     result
 }
 
-fn matches(storage: &Storage, k: StorageKey, predicates: &PredicateList) -> bool {
-    predicates.list.iter().all(|predicate| {
+fn matches(storage: &Storage, k: StorageKey, predicates: &PredicateSet) -> bool {
+    predicates.set.iter().all(|predicate| {
         let keys = get_indexed_all(storage, k, &predicate.indices);
         keys.into_iter().all(|key| {
             let term = storage.get(key).unwrap();
@@ -257,8 +269,11 @@ fn construct_single(
                     let repetitions = count_repetitions(storage, source, &middle.shared_indices);
                     let mut result = Vec::with_capacity(repetitions);
                     for offset in 0..repetitions {
+                        // let offsets: Vec<usize> =
+                        //     [offset].iter().chain(offsets.iter()).copied().collect();
                         let offsets: Vec<usize> =
-                            [offset].iter().chain(offsets.iter()).copied().collect();
+                            offsets.iter().chain([offset].iter()).copied().collect();
+                        // [offset].iter().chain(offsets.iter()).copied().collect();
                         let destination = storage.insert(Term::Symbol(Symbol::new("".into())));
                         construct_single(
                             storage,
@@ -285,7 +300,7 @@ fn construct_single(
 }
 
 struct Rule2 {
-    predicate: PredicateList,
+    predicate: PredicateSet,
     constructor: Constructor,
 }
 
@@ -297,9 +312,9 @@ struct VarMap {
 }
 
 fn compile_rule2(storage: &Storage, k: StorageKey) -> Option<Rule2> {
-    static RULE_PREDICATE: OnceLock<PredicateList> = OnceLock::new();
-    let rule_predicate = RULE_PREDICATE.get_or_init(|| PredicateList {
-        list: vec![
+    static RULE_PREDICATE: OnceLock<PredicateSet> = OnceLock::new();
+    let rule_predicate = RULE_PREDICATE.get_or_init(|| PredicateSet {
+        set: [
             IndexedPredicate {
                 indices: vec![],
                 predicate: Predicate::LengthGreaterThanOrEqualTo(4),
@@ -312,7 +327,9 @@ fn compile_rule2(storage: &Storage, k: StorageKey) -> Option<Rule2> {
                 indices: vec![Index::LengthMinus(2)],
                 predicate: Predicate::SymbolEqualTo("->".into()),
             },
-        ],
+        ]
+        .into_iter()
+        .collect(),
     });
 
     if !matches(storage, k, rule_predicate) {
@@ -334,28 +351,65 @@ fn compile_rule2(storage: &Storage, k: StorageKey) -> Option<Rule2> {
         }
     }
 
-    let Some(predicate) = compile_rule_predicate(storage, &mut variables, k) else {
+    let Some(predicate_set) = compile_rule_predicate(storage, &mut variables, k) else {
         return None;
     };
 
     todo!()
 }
 
+fn compile_rule_constructor(
+    storage: &mut Storage,
+    variables: &mut VarMap,
+    k: StorageKey,
+) -> Option<Constructor> {
+    match storage.get(k).unwrap() {
+        Term::Symbol(s) => {
+            if let Some(indices) = variables.map.get(s.data()) {
+                let indices = indices.clone().unwrap();
+                Some(Constructor::Copy(indices))
+            } else {
+                Some(Constructor::Symbol(s.data().clone()))
+            }
+        }
+        Term::Compound(c) => {
+            let mut keys = c.keys().iter().rev().cloned();
+
+            let mut start: Vec<Constructor> = vec![];
+            let mut middle: Option<MiddleConstructor> = None;
+            let mut end: Vec<Constructor> = vec![];
+
+            while let Some(key) = keys.next() {
+                // if
+
+                // ((point (x ..) (y ..)) ..) -> (vals x .. .. y .. ..)
+            }
+
+            todo!()
+        }
+        _ => None,
+    }
+}
+
 fn compile_rule_predicate(
     storage: &Storage,
     variables: &mut VarMap,
     k: StorageKey,
-) -> Option<PredicateList> {
-    let mut predicate_list = PredicateList { list: Vec::new() };
-    compile_rule_predicate_list(storage, variables, k, &mut predicate_list, &[])
-        .map(|_| predicate_list)
+) -> Option<PredicateSet> {
+    let mut predicate_set = PredicateSet::new();
+    compile_rule_predicate_list(storage, variables, k, &mut predicate_set, &[])
+        .map(|_| predicate_set)
+}
+
+enum RuleCompilationError {
+    VarUsedMoreThanOnce(String),
 }
 
 fn compile_rule_predicate_list(
     storage: &Storage,
     variables: &mut VarMap,
     k: StorageKey,
-    list: &mut PredicateList,
+    list: &mut PredicateSet,
     indices: &[Index],
 ) -> Option<()> {
     match storage.get(k).unwrap() {
@@ -372,7 +426,7 @@ fn compile_rule_predicate_list(
                     Some(())
                 }
             } else {
-                list.list.push(IndexedPredicate {
+                list.set.insert(IndexedPredicate {
                     indices: indices.to_vec(),
                     predicate: Predicate::SymbolEqualTo(s.data().clone()),
                 });
@@ -437,15 +491,14 @@ fn compile_rule_predicate_list(
                     let indices: Vec<Index> = indices
                         .iter()
                         .chain(&[Index::LengthMinus(
-                            c.keys().len().checked_sub(index).unwrap()
-                            // index.checked_sub(1).unwrap(), /* -1 to ignore the ".." */
+                            c.keys().len().checked_sub(index).unwrap(), // index.checked_sub(1).unwrap(), /* -1 to ignore the ".." */
                         )])
                         .cloned()
                         .collect();
                     compile_rule_predicate_list(storage, variables, k, list, &indices);
                 }
             }
-            list.list.push(IndexedPredicate {
+            list.set.insert(IndexedPredicate {
                 indices: indices.to_vec(),
                 predicate: if before_dot_dot {
                     Predicate::LengthEqualTo(c.keys().len())
@@ -473,10 +526,77 @@ mod test {
             map: [("x".into(), None)].into_iter().collect(),
         };
         let predicate = compile_rule_predicate(&storage, &mut variables, k).unwrap();
-        // let expected = PredicateList { list: vec![
-        //     IndexedPredicate { indices: vec![Index::ZeroPlus(0)], predicate: Predicate::SymbolEqualTo(()) }
-        // ]};
-        dbg!(predicate);
+        let expected = PredicateSet {
+            set: [
+                IndexedPredicate {
+                    indices: vec![],
+                    predicate: Predicate::LengthGreaterThanOrEqualTo(6),
+                },
+                IndexedPredicate {
+                    indices: vec![Index::Middle(MiddleIndices {
+                        starting_at_zero_plus: 3,
+                        ending_at_length_minus: 4,
+                    })],
+                    predicate: Predicate::LengthEqualTo(4),
+                },
+                IndexedPredicate {
+                    indices: vec![
+                        Index::Middle(MiddleIndices {
+                            starting_at_zero_plus: 3,
+                            ending_at_length_minus: 4,
+                        }),
+                        Index::ZeroPlus(1),
+                    ],
+                    predicate: Predicate::SymbolEqualTo("1".into()),
+                },
+                IndexedPredicate {
+                    indices: vec![
+                        Index::Middle(MiddleIndices {
+                            starting_at_zero_plus: 3,
+                            ending_at_length_minus: 4,
+                        }),
+                        Index::ZeroPlus(2),
+                    ],
+                    predicate: Predicate::SymbolEqualTo("2".into()),
+                },
+                IndexedPredicate {
+                    indices: vec![
+                        Index::Middle(MiddleIndices {
+                            starting_at_zero_plus: 3,
+                            ending_at_length_minus: 4,
+                        }),
+                        Index::ZeroPlus(3),
+                    ],
+                    predicate: Predicate::SymbolEqualTo("3".into()),
+                },
+                IndexedPredicate {
+                    indices: vec![Index::ZeroPlus(0)],
+                    predicate: Predicate::SymbolEqualTo("zp0".into()),
+                },
+                IndexedPredicate {
+                    indices: vec![Index::ZeroPlus(1)],
+                    predicate: Predicate::SymbolEqualTo("zp1".into()),
+                },
+                IndexedPredicate {
+                    indices: vec![Index::ZeroPlus(2)],
+                    predicate: Predicate::SymbolEqualTo("zp2".into()),
+                },
+                IndexedPredicate {
+                    indices: vec![Index::LengthMinus(3)],
+                    predicate: Predicate::SymbolEqualTo("lm3".into()),
+                },
+                IndexedPredicate {
+                    indices: vec![Index::LengthMinus(2)],
+                    predicate: Predicate::SymbolEqualTo("lm2".into()),
+                },
+                IndexedPredicate {
+                    indices: vec![Index::LengthMinus(1)],
+                    predicate: Predicate::SymbolEqualTo("lm1".into()),
+                },
+            ]
+            .into(),
+        };
+        assert_eq!(predicate, expected);
     }
 
     #[test]
@@ -582,8 +702,8 @@ mod test {
     #[test]
     fn t3() {
         // (for x (f ((g x) ..)) -> ((a x ..) b (x c) ..))
-        let predicates = PredicateList {
-            list: vec![
+        let predicates = PredicateSet {
+            set: [
                 IndexedPredicate {
                     indices: vec![],
                     predicate: Predicate::LengthEqualTo(2),
@@ -617,7 +737,9 @@ mod test {
                     ],
                     predicate: Predicate::SymbolEqualTo("g".into()),
                 },
-            ],
+            ]
+            .into_iter()
+            .collect(),
         };
         let result_constructor3 = Constructor::Compound(CompoundConstructor {
             start: vec![
@@ -673,6 +795,59 @@ mod test {
         let mut storage = Storage::new();
         let source = read(&mut storage, "(f ((g 1) (g 2) (g 2) (g 3) (g 4) (g 5)))").unwrap();
         assert!(matches(&storage, source, &predicates));
+        let destination = read(&mut storage, "()").unwrap();
+        construct_single(&mut storage, &result_constructor3, source, destination, &[]);
+        storage.println(destination, false);
+    }
+
+    #[test]
+    fn t4() {
+        // (for x ((x ..) ..) -> ((x ..) ..)
+        let result_constructor3 = Constructor::Compound(CompoundConstructor {
+            start: vec![],
+            middle: Some(Box::new(MiddleConstructor {
+                constructor: Constructor::Compound(CompoundConstructor {
+                    start: vec![],
+                    middle: Some(Box::new(MiddleConstructor {
+                        constructor: Constructor::Copy(vec![
+                            Index::Middle(MiddleIndices {
+                                starting_at_zero_plus: 0,
+                                ending_at_length_minus: 1,
+                            }),
+                            Index::Middle(MiddleIndices {
+                                starting_at_zero_plus: 0,
+                                ending_at_length_minus: 1,
+                            }),
+                        ]),
+                        shared_indices: vec![
+                            Index::Middle(MiddleIndices {
+                                starting_at_zero_plus: 0,
+                                ending_at_length_minus: 1,
+                            }),
+                            Index::Middle(MiddleIndices {
+                                starting_at_zero_plus: 0,
+                                ending_at_length_minus: 1,
+                            }),
+                        ],
+                    })),
+                    end: vec![],
+                }),
+                shared_indices: vec![
+                    Index::Middle(MiddleIndices {
+                        starting_at_zero_plus: 0,
+                        ending_at_length_minus: 1,
+                    }),
+                    Index::Middle(MiddleIndices {
+                        starting_at_zero_plus: 0,
+                        ending_at_length_minus: 1,
+                    }),
+                ],
+            })),
+            end: vec![],
+        });
+        let mut storage = Storage::new();
+        let source = read(&mut storage, "((1 2 3 4))").unwrap();
+        // assert!(matches(&storage, source, &predicates));
         let destination = read(&mut storage, "()").unwrap();
         construct_single(&mut storage, &result_constructor3, source, destination, &[]);
         storage.println(destination, false);
