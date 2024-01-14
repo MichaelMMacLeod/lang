@@ -20,7 +20,7 @@ pub enum SingleConstructor {
 #[derive(Clone, Debug)]
 struct CompoundElement {
     single_constructor: SingleConstructor,
-    dot_dotted_indices: TermIndexN,
+    dot_dotted_indices: Index5,
 }
 
 impl SingleConstructor {
@@ -71,16 +71,18 @@ impl SingleConstructor {
                         let mut pending_instructions: Vec<Instruction> = vec![];
                         for compound_element in c {
                             let constructor = compound_element.single_constructor;
-                            let dot_dotted_indices = compound_element.dot_dotted_indices;
-                            let dot_dotted_indices = TermIndexN::new(
-                                offsets
-                                    .iter()
-                                    .map(|offset| CompoundIndex::ZeroPlus(*offset))
-                                    .chain(dot_dotted_indices.compound_indices().iter().cloned())
-                                    .collect(),
-                            );
-                            let dot_dotted_indices = dot_dotted_indices.to_index5();
+                            let mut dot_dotted_indices = compound_element.dot_dotted_indices;
+                            dot_dotted_indices.prepend(&offsets);
                             match dot_dotted_indices {
+                                Index5::WithoutMiddle(nomiddles) => {
+                                    let offsets = nomiddles_to_zp(&nomiddles, storage, k);
+                                    pending_instructions.push(
+                                        Instruction::ProcessConstructorWithOffsets {
+                                            constructor,
+                                            offsets,
+                                        },
+                                    );
+                                }
                                 Index5::WithMiddle(index4s) => {
                                     struct Elem {
                                         offsets: Vec<Nomiddle>,
@@ -122,15 +124,6 @@ impl SingleConstructor {
                                             },
                                         );
                                     }
-                                }
-                                Index5::WithoutMiddle(nomiddles) => {
-                                    let offsets = nomiddles_to_zp(&nomiddles, storage, k);
-                                    pending_instructions.push(
-                                        Instruction::ProcessConstructorWithOffsets {
-                                            constructor,
-                                            offsets,
-                                        },
-                                    );
                                 }
                             }
                         }
@@ -180,9 +173,10 @@ mod test {
         // (for x (x ..) -> (x ..))
         let constructor = SingleConstructor::Compound(vec![CompoundElement {
             single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![])),
-            dot_dotted_indices: TermIndexN::new(vec![CompoundIndex::Middle(MiddleIndices::new(
-                0, 1,
-            ))]),
+            dot_dotted_indices: Index5::new_with_middle(vec![Index4::new(
+                vec![],
+                MiddleIndices::new(0, 1),
+            )]),
         }]);
         let mut storage = Storage::new();
         let term = storage.read("(1 2 3 4 5 6)").unwrap();
@@ -198,16 +192,17 @@ mod test {
             single_constructor: SingleConstructor::Compound(vec![
                 CompoundElement {
                     single_constructor: SingleConstructor::Symbol("a".into()),
-                    dot_dotted_indices: TermIndexN::empty(),
+                    dot_dotted_indices: Index5::empty(),
                 },
                 CompoundElement {
                     single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![])),
-                    dot_dotted_indices: TermIndexN::empty(),
+                    dot_dotted_indices: Index5::empty(),
                 },
             ]),
-            dot_dotted_indices: TermIndexN::new(vec![CompoundIndex::Middle(MiddleIndices::new(
-                0, 1,
-            ))]),
+            dot_dotted_indices: Index5::new_with_middle(vec![Index4::new(
+                vec![],
+                MiddleIndices::new(0, 1),
+            )]),
         }]);
         let mut storage = Storage::new();
         let term = storage.read("(1 2 3 4 5 6)").unwrap();
@@ -226,7 +221,8 @@ mod test {
                 single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![
                     Nomiddle::ZeroPlus(0),
                 ])),
-                dot_dotted_indices: TermIndexN::new(vec![CompoundIndex::Middle(
+                dot_dotted_indices: Index5::new_with_middle(vec![Index4::new(
+                    vec![],
                     MiddleIndices::new(0, 1),
                 )]),
             },
@@ -234,15 +230,16 @@ mod test {
                 single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![
                     Nomiddle::LenMinus(1),
                 ])),
-                dot_dotted_indices: TermIndexN::new(vec![CompoundIndex::Middle(
+                dot_dotted_indices: Index5::new_with_middle(vec![Index4::new(
+                    vec![],
                     MiddleIndices::new(0, 1),
                 )]),
             },
             CompoundElement {
                 single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![])),
-                dot_dotted_indices: TermIndexN::new(vec![
-                    CompoundIndex::Middle(MiddleIndices::new(0, 1)),
-                    CompoundIndex::Middle(MiddleIndices::new(1, 2)),
+                dot_dotted_indices: Index5::new_with_middle(vec![
+                    Index4::new(vec![], MiddleIndices::new(0, 1)),
+                    Index4::new(vec![], MiddleIndices::new(1, 2)),
                 ]),
             },
         ]);
@@ -265,41 +262,43 @@ mod test {
             single_constructor: SingleConstructor::Compound(vec![
                 CompoundElement {
                     single_constructor: SingleConstructor::Symbol("y:".into()),
-                    dot_dotted_indices: TermIndexN::empty(),
+                    dot_dotted_indices: Index5::empty(),
                 },
                 CompoundElement {
                     single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![
                         Nomiddle::LenMinus(1),
                     ])),
-                    dot_dotted_indices: TermIndexN::empty(),
+                    dot_dotted_indices: Index5::empty(),
                 },
                 CompoundElement {
                     single_constructor: SingleConstructor::Symbol("x:".into()),
-                    dot_dotted_indices: TermIndexN::empty(),
+                    dot_dotted_indices: Index5::empty(),
                 },
                 CompoundElement {
                     single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![
                         Nomiddle::ZeroPlus(0),
                     ])),
-                    dot_dotted_indices: TermIndexN::empty(),
+                    dot_dotted_indices: Index5::empty(),
                 },
                 CompoundElement {
                     single_constructor: SingleConstructor::Symbol("z:".into()),
-                    dot_dotted_indices: TermIndexN::empty(),
+                    dot_dotted_indices: Index5::empty(),
                 },
                 CompoundElement {
                     single_constructor: SingleConstructor::Compound(vec![CompoundElement {
                         single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![])),
-                        dot_dotted_indices: TermIndexN::new(vec![CompoundIndex::Middle(
+                        dot_dotted_indices: Index5::new_with_middle(vec![Index4::new(
+                            vec![],
                             MiddleIndices::new(1, 2),
                         )]),
                     }]),
-                    dot_dotted_indices: TermIndexN::empty(),
+                    dot_dotted_indices: Index5::empty(),
                 },
             ]),
-            dot_dotted_indices: TermIndexN::new(vec![CompoundIndex::Middle(MiddleIndices::new(
-                0, 1,
-            ))]),
+            dot_dotted_indices: Index5::new_with_middle(vec![Index4::new(
+                vec![],
+                MiddleIndices::new(0, 1),
+            )]),
         }]);
 
         let mut storage = Storage::new();
@@ -319,12 +318,12 @@ mod test {
         // (for x (a ((b x) ..)) -> (x ..))
         let constructor = SingleConstructor::Compound(vec![CompoundElement {
             single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![
-                Nomiddle::ZeroPlus(1)
+                Nomiddle::ZeroPlus(1),
             ])),
-            dot_dotted_indices: TermIndexN::new(vec![
-                CompoundIndex::ZeroPlus(1),
-                CompoundIndex::Middle(MiddleIndices::new(0, 1)),
-            ]),
+            dot_dotted_indices: Index5::new_with_middle(vec![Index4::new(
+                vec![Nomiddle::ZeroPlus(1)],
+                MiddleIndices::new(0, 1),
+            )]),
         }]);
         let mut storage = Storage::new();
         let term = storage.read("(a ((b 1) (b 2) (b 3) (b 4) (b 5)))").unwrap();

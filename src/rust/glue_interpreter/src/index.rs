@@ -308,14 +308,66 @@ impl NomiddleIndex {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Index4 {
     pub first: Vec<Nomiddle>,
     pub last: MiddleIndices,
 }
 
+impl Index4 {
+    pub fn new(first: Vec<Nomiddle>, last: MiddleIndices) -> Self {
+        Self { first, last }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum Index5 {
     WithMiddle(Vec<Index4>),
     WithoutMiddle(Vec<Nomiddle>),
+}
+
+impl Index5 {
+    pub fn new_with_middle(indices: Vec<Index4>) -> Self {
+        Self::WithMiddle(indices)
+    }
+
+    pub fn new_without_middle(indices: Vec<Nomiddle>) -> Self {
+        Self::WithoutMiddle(indices)
+    }
+
+    pub fn empty() -> Self {
+        Self::new_without_middle(vec![])
+    }
+
+    pub fn prepend(&mut self, offsets: &[usize]) {
+        match self {
+            Index5::WithMiddle(m) => {
+                if let Some(f) = m.first_mut() {
+                    let new_elements: Vec<Nomiddle> = offsets
+                        .iter()
+                        .map(|offset| Nomiddle::ZeroPlus(*offset))
+                        .chain(f.first.drain(..))
+                        .collect();
+                    f.first = new_elements;
+                } else {
+                    *self = Index5::WithoutMiddle(
+                        offsets
+                            .iter()
+                            .map(|offset| Nomiddle::ZeroPlus(*offset))
+                            .collect(),
+                    )
+                }
+            }
+            Index5::WithoutMiddle(m) => {
+                let new_elements: Vec<Nomiddle> = offsets
+                    .iter()
+                    .map(|offset| Nomiddle::ZeroPlus(*offset))
+                    .chain(m.drain(..))
+                    .collect();
+                *m = new_elements;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
