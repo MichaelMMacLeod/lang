@@ -34,6 +34,35 @@ impl SingleConstructor {
             },
         }
 
+        fn print_instruction(i: &Instruction) {
+            match i {
+                Instruction::BuildCompoundTermOfLength(l) => print!("B{}", l),
+                Instruction::ProcessConstructorWithOffsets {
+                    constructor,
+                    offsets,
+                } => {
+                    print!("C{:?}", &offsets);
+                }
+            }
+        }
+
+        fn print_instruction_stack(s: &[Instruction]) {
+            print!("instructions: ");
+            for i in s {
+                print_instruction(i);
+                print!(" ");
+            }
+            println!();
+        }
+
+        fn print_key_stack(s: &[StorageKey]) {
+            print!("keys: ");
+            for k in s {
+                print!("{:?} ", k);
+            }
+            println!();
+        }
+
         let mut instruction_stack = vec![Instruction::ProcessConstructorWithOffsets {
             constructor: self.clone(),
             offsets: vec![],
@@ -41,11 +70,10 @@ impl SingleConstructor {
 
         let mut key_stack: Vec<StorageKey> = vec![];
 
+        print_instruction_stack(&instruction_stack);
+        print_key_stack(&key_stack);
+        println!();
         while let Some(instruction) = instruction_stack.pop() {
-            // dbg!(&instruction);
-            // for key in &key_stack {
-            //     storage.println(*key, false);
-            // }
             match instruction {
                 Instruction::BuildCompoundTermOfLength(len) => {
                     let lower_bound = key_stack.len().checked_sub(len).unwrap();
@@ -134,6 +162,9 @@ impl SingleConstructor {
                     }
                 },
             }
+            print_instruction_stack(&instruction_stack);
+            print_key_stack(&key_stack);
+            println!();
         }
 
         assert_eq!(key_stack.len(), 1);
