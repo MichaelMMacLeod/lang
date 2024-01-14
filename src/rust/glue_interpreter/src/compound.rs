@@ -17,4 +17,8 @@ impl Compound {
     pub fn keys_mut(&mut self) -> &mut [StorageKey] {
         &mut self.data
     }
+
+    pub fn push_key(&mut self, key: StorageKey) {
+        self.data.push(key);
+    }
 }

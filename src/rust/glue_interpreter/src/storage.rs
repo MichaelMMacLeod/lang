@@ -9,7 +9,7 @@ use crate::{
         compile_rule, create_match_result_single, pattern_match_single, Match, Reduction, Rule,
         SingleResult,
     },
-    symbol::Symbol,
+    symbol::Symbol, parser::read,
 };
 
 use std::hash::Hash;
@@ -57,8 +57,18 @@ impl Storage {
         }
     }
 
+    pub fn read(&mut self, input: &str) -> Option<StorageKey> {
+        read(self, input)
+    }
+
     pub fn get_compound(&self, key: StorageKey) -> Option<&Compound> {
         match self.get(key).unwrap() {
+            Term::Compound(c) => Some(c),
+            _ => None,
+        }
+    }
+    pub fn get_compound_mut(&mut self, key: StorageKey) -> Option<&mut Compound> {
+        match self.get_mut(key).unwrap() {
             Term::Compound(c) => Some(c),
             _ => None,
         }

@@ -31,11 +31,11 @@ impl MiddleIndices {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct TermIndex {
+pub struct TermIndexN {
     compound_indices: Vec<CompoundIndex>,
 }
 
-impl TermIndex {
+impl TermIndexN {
     pub fn new(indices: Vec<CompoundIndex>) -> Self {
         Self {
             compound_indices: indices,
@@ -44,6 +44,36 @@ impl TermIndex {
 
     pub fn compound_indices(&self) -> &[CompoundIndex] {
         &self.compound_indices
+    }
+
+    pub fn into_term_index(
+        &self,
+        storage: &Storage,
+        mut k: StorageKey,
+        offsets: &[usize],
+    ) -> TermIndex {
+        let mut indices = Vec::new();
+
+        let mut offsets = offsets.into_iter();
+        for index_n in &self.compound_indices {
+            let zp = match index_n {
+                CompoundIndex::ZeroPlus(zp) => *zp,
+                CompoundIndex::LengthMinus(lm) => {
+                    let len = storage.get_compound(k).unwrap().keys().len();
+                    len.checked_sub(*lm).unwrap()
+                }
+                CompoundIndex::Middle(m) => {
+                    let &offset = offsets.next().unwrap();
+                    m.starting_at_zero_plus().checked_add(offset).unwrap()
+                }
+            };
+            k = storage.get_compound(k).unwrap().keys()[zp];
+            indices.push(zp);
+        }
+
+        assert!(offsets.next().is_none());
+
+        TermIndex::new(indices)
     }
 
     fn lookup(&self, storage: &Storage, k: StorageKey) -> Vec<StorageKey> {
@@ -93,19 +123,20 @@ impl TermIndex {
     }
 }
 
-pub struct TermIndex2 {
+#[derive(Debug)]
+pub struct TermIndex1 {
     initial: Vec<usize>,
     last: MiddleIndices,
 }
 
-impl TermIndex2 {
+impl TermIndex1 {
     pub fn new(initial: Vec<usize>, last: MiddleIndices) -> Self {
         Self { initial, last }
     }
 }
 
-impl TermIndex2 {
-    fn count_repetitions(&self, storage: &Storage, mut k: StorageKey) -> usize {
+impl TermIndex1 {
+    pub fn count_repetitions(&self, storage: &Storage, mut k: StorageKey) -> usize {
         for &index in &self.initial {
             k = storage.get_compound(k).unwrap().keys()[index];
         }
@@ -130,6 +161,23 @@ impl TermIndex2 {
     }
 }
 
+pub struct TermIndex {
+    indices: Vec<usize>,
+}
+
+impl TermIndex {
+    pub fn new(indices: Vec<usize>) -> Self {
+        Self { indices }
+    }
+
+    pub fn lookup(&self, storage: &Storage, mut k: StorageKey) -> StorageKey {
+        for &index in &self.indices {
+            k = storage.get_compound(k).unwrap().keys()[index];
+        }
+        k
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::parser::read;
@@ -140,7 +188,7 @@ mod test {
     fn count_repetitions1() {
         let mut storage = Storage::new();
         let k = read(&mut storage, "(0 1 2 3 4)".into()).unwrap();
-        let index = TermIndex2::new(vec![], MiddleIndices::new(1, 1));
+        let index = TermIndex1::new(vec![], MiddleIndices::new(1, 1));
         let repetitions = index.count_repetitions(&storage, k);
         assert_eq!(repetitions, 4);
     }
@@ -149,8 +197,43 @@ mod test {
     fn count_repetitions2() {
         let mut storage = Storage::new();
         let k = read(&mut storage, "(0 (a b c d e (x y) g) 2 3 4)".into()).unwrap();
-        let index = TermIndex2::new(vec![1, 5], MiddleIndices::new(0, 1));
+        let index = TermIndex1::new(vec![1, 5], MiddleIndices::new(0, 1));
         let repetitions = index.count_repetitions(&storage, k);
         assert_eq!(repetitions, 2);
     }
 }
+
+
+
+
+
+
+
+
+
+// fn get_with_offsets(
+//     storage: &Storage,
+//     mut k: StorageKey,
+//     indices: &[Index],
+//     offsets: &[usize],
+// ) -> StorageKey {
+//     let mut offsets = offsets.iter().copied();
+//     for index in indices {
+//         match storage.get(k).unwrap() {
+//             Term::Compound(c) => {
+//                 let zp = match index {
+//                     Index::ZeroPlus(zp) => *zp,
+//                     Index::LengthMinus(lm) => c.keys().len() - lm,
+//                     Index::Middle(m) => {
+//                         let offset = offsets.next().expect("no next offset");
+//                         m.starting_at_zero_plus() + offset
+//                     }
+//                 };
+//                 k = c.keys()[zp];
+//             }
+//             _ => panic!("attempt to index into non-compound term"),
+//         }
+//     }
+//     assert!(offsets.next().is_none());
+//     k
+// }

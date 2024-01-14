@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::{
-    index::TermIndex,
+    index::TermIndexN,
     storage::{Storage, StorageKey, Term},
 };
 
@@ -43,7 +43,7 @@ impl PredicateSet {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct IndexedPredicate {
-    index: Vec<TermIndex>,
+    index: Vec<TermIndexN>,
     predicate: Predicate,
 }
 
