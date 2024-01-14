@@ -255,7 +255,8 @@ impl Storage {
     }
 
     pub fn println(&self, key: StorageKey, graph_syntax: bool) {
-        let labels = self.label_keys_used_more_than_once(key);
+        let labels = HashMap::new();
+        // let labels = self.label_keys_used_more_than_once(key);
         let mut already_labeled = HashSet::new();
         self.print(key, &labels, &mut already_labeled, graph_syntax);
         println!();

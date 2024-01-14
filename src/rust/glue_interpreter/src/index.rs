@@ -28,6 +28,27 @@ impl MiddleIndices {
     pub fn ending_at_length_minus(&self) -> usize {
         self.ending_at_length_minus
     }
+
+    pub fn count_repetitions(&self, storage: &Storage, k: StorageKey) -> usize {
+        let term = storage.get_compound(k).unwrap();
+        let length = term.keys().len();
+        let zp = self.starting_at_zero_plus();
+        let lm = self.ending_at_length_minus();
+        if lm > length {
+            0
+        } else {
+            // We calculate here the size of the following set of integers:
+            // size { forall x. x >= first_idx && x <= len - lm } = ???
+            // For integers A and B, how many integers are in the range A <= x <= B?
+            // If A > B, then 0
+            // Otherwise, B-A+1
+            let a = zp;
+            let b = length - lm;
+            b.saturating_sub(a)
+                .checked_add(1)
+                .expect("overflow when computing repetition count")
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -40,6 +61,35 @@ impl TermIndexN {
         Self {
             compound_indices: indices,
         }
+    }
+
+    pub fn to_index5(self) -> Index5 {
+        let mut nomiddle_stack: Vec<Nomiddle> = vec![];
+        let mut index4_stack: Vec<Index4> = vec![];
+
+        for index in self.compound_indices {
+            match index {
+                CompoundIndex::ZeroPlus(zp) => {
+                    nomiddle_stack.push(Nomiddle::ZeroPlus(zp));
+                }
+                CompoundIndex::LengthMinus(lm) => {
+                    nomiddle_stack.push(Nomiddle::LenMinus(lm));
+                }
+                CompoundIndex::Middle(m) => index4_stack.push(Index4 {
+                    first: nomiddle_stack.drain(..).collect(),
+                    last: m,
+                }),
+            }
+        }
+
+        match index4_stack.len() {
+            0 => Index5::WithoutMiddle(nomiddle_stack),
+            _ => Index5::WithMiddle(index4_stack),
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self::new(vec![])
     }
 
     pub fn compound_indices(&self) -> &[CompoundIndex] {
@@ -161,6 +211,7 @@ impl TermIndex1 {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct TermIndex {
     indices: Vec<usize>,
 }
@@ -176,6 +227,95 @@ impl TermIndex {
         }
         k
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum Nomiddle {
+    ZeroPlus(usize),
+    LenMinus(usize),
+}
+
+#[derive(Clone, Debug)]
+pub struct NomiddleIndex {
+    indices: Vec<Nomiddle>,
+}
+
+pub fn zp_lookup(indices: &[usize], storage: &Storage, mut k: StorageKey) -> StorageKey {
+    for &index in indices {
+        k = storage.get_compound(k).unwrap().keys()[index];
+    }
+    k
+}
+
+impl NomiddleIndex {
+    pub fn new(indices: Vec<Nomiddle>) -> Self {
+        Self { indices }
+    }
+
+    pub fn lookup(self, storage: &Storage, mut k: StorageKey) -> StorageKey {
+        for index in self.indices {
+            let zp = match index {
+                Nomiddle::ZeroPlus(zp) => zp,
+                Nomiddle::LenMinus(lm) => {
+                    let len = storage.get_compound(k).unwrap().keys().len();
+                    len.checked_sub(lm).unwrap()
+                }
+            };
+            k = storage.get_compound(k).unwrap().keys()[zp];
+        }
+
+        k
+    }
+
+    pub fn lookup2(self, storage: &Storage, mut k: StorageKey, offsets: &[usize]) -> StorageKey {
+        for &offset in offsets {
+            k = storage.get_compound(k).unwrap().keys()[offset];
+        }
+
+        for index in self.indices {
+            let zp = match index {
+                Nomiddle::ZeroPlus(zp) => zp,
+                Nomiddle::LenMinus(lm) => {
+                    let len = storage.get_compound(k).unwrap().keys().len();
+                    len.checked_sub(lm).unwrap()
+                }
+            };
+            k = storage.get_compound(k).unwrap().keys()[zp];
+        }
+
+        k
+    }
+
+    pub fn to_zp(self, storage: &Storage, mut k: StorageKey, offsets: &[usize]) -> Vec<usize> {
+        for &offset in offsets {
+            k = storage.get_compound(k).unwrap().keys()[offset];
+        }
+
+        self.indices
+            .into_iter()
+            .map(|nomiddle_index| {
+                let zp = match nomiddle_index {
+                    Nomiddle::ZeroPlus(zp) => zp,
+                    Nomiddle::LenMinus(lm) => {
+                        let len = storage.get_compound(k).unwrap().keys().len();
+                        len.checked_sub(lm).unwrap()
+                    }
+                };
+                k = storage.get_compound(k).unwrap().keys()[zp];
+                zp
+            })
+            .collect()
+    }
+}
+
+pub struct Index4 {
+    pub first: Vec<Nomiddle>,
+    pub last: MiddleIndices,
+}
+
+pub enum Index5 {
+    WithMiddle(Vec<Index4>),
+    WithoutMiddle(Vec<Nomiddle>),
 }
 
 #[cfg(test)]
@@ -202,14 +342,6 @@ mod test {
         assert_eq!(repetitions, 2);
     }
 }
-
-
-
-
-
-
-
-
 
 // fn get_with_offsets(
 //     storage: &Storage,

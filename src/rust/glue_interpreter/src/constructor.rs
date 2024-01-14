@@ -2,264 +2,315 @@ use std::collections::VecDeque;
 
 use crate::{
     compound::Compound,
-    index::{CompoundIndex, MiddleIndices, TermIndex, TermIndex1, TermIndexN},
+    index::{
+        zp_lookup, CompoundIndex, Index4, Index5, MiddleIndices, Nomiddle, NomiddleIndex,
+        TermIndex, TermIndex1, TermIndexN,
+    },
     storage::{Storage, StorageKey, Term},
     symbol::Symbol,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SingleConstructor {
-    Copy(TermIndexN),
+    Copy(NomiddleIndex),
     Symbol(String),
     Compound(Vec<CompoundElement>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct CompoundElement {
     single_constructor: SingleConstructor,
-    dot_dot_count: usize,
+    dot_dotted_indices: TermIndexN,
 }
 
 impl SingleConstructor {
-    fn shared_term_index_n(&self, dot_dot_count: usize) -> TermIndexN {
-        let mut stack = vec![self.clone()];
-        let indices: Vec<CompoundIndex> = loop {
-            match stack.pop().unwrap() {
-                SingleConstructor::Copy(c) => {
-                    let mut result: Vec<CompoundIndex> = vec![];
-                    let mut middle_count: usize = 0;
-                    for compound_index in c.compound_indices() {
-                        if middle_count == dot_dot_count {
-                            break;
-                        }
-                        result.push(compound_index.clone());
-                        if let CompoundIndex::Middle(_) = compound_index {
-                            middle_count += 1;
-                        }
-                    }
-                    assert!(middle_count == dot_dot_count);
-                    break result;
-                }
-                SingleConstructor::Symbol(_) => {}
-                SingleConstructor::Compound(c) => {
-                    for compound_element in &c {
-                        stack.push(compound_element.single_constructor.clone())
-                    }
-                }
-            }
-        };
-        TermIndexN::new(indices)
-    }
-
     fn construct(&self, storage: &mut Storage, k: StorageKey) {
+        #[derive(Debug)]
         enum Instruction {
-            Create(Instruction2),
-            Populate(usize),
+            BuildCompoundTermOfLength(usize),
+            ProcessConstructorWithOffsets {
+                constructor: SingleConstructor,
+                offsets: Vec<usize>,
+            },
         }
 
-        struct Instruction2 {
-            offsets: Vec<usize>,
-            constructor: SingleConstructor,
-        }
-
-        let destination = storage.insert(Term::Symbol(Symbol::new("".into() /* temp */)));
-
-        let mut instruction_stack: Vec<Instruction> = vec![Instruction::Create(Instruction2 {
-            offsets: vec![],
+        let mut instruction_stack = vec![Instruction::ProcessConstructorWithOffsets {
             constructor: self.clone(),
-        })];
+            offsets: vec![],
+        }];
 
-        let mut data_stack: Vec<StorageKey> = vec![];
+        let mut key_stack: Vec<StorageKey> = vec![];
 
         while let Some(instruction) = instruction_stack.pop() {
+            // dbg!(&instruction);
+            // for key in &key_stack {
+            //     storage.println(*key, false);
+            // }
             match instruction {
-                Instruction::Populate(size) => {
-                    let keys: Vec<StorageKey> = data_stack.drain(0..size).collect();
-                    assert_eq!(keys.len(), size);
-                    let compound_key = storage.insert(Term::Compound(Compound::new(keys)));
-                    data_stack.push(compound_key);
-                },
-                Instruction::Create(Instruction2 {
-                    offsets,
+                Instruction::BuildCompoundTermOfLength(len) => {
+                    let lower_bound = key_stack.len().checked_sub(len).unwrap();
+                    let compount_term_elements: Vec<_> = key_stack.drain(lower_bound..).collect();
+                    assert_eq!(len, compount_term_elements.len());
+                    let key = storage.insert(Term::Compound(Compound::new(compount_term_elements)));
+                    key_stack.push(key);
+                }
+                Instruction::ProcessConstructorWithOffsets {
                     constructor,
-                }) => match constructor {
-                    SingleConstructor::Copy(i) => {
-                        let index_to_copy = i.into_term_index(storage, k, &offsets);
-                        let key_to_copy = index_to_copy.lookup(storage, k);
-                        data_stack.push(key_to_copy);
-                    }
+                    offsets,
+                } => match constructor {
                     SingleConstructor::Symbol(s) => {
-                        let key = storage.insert(Term::Symbol(Symbol::new(s)));
-                        data_stack.push(key);
+                        let k = storage.insert(Term::Symbol(Symbol::new(s)));
+                        key_stack.push(k);
+                    }
+                    SingleConstructor::Copy(c) => {
+                        let new_k = zp_lookup(&offsets, storage, k);
+                        let new_k = c.lookup(storage, new_k);
+                        key_stack.push(new_k);
                     }
                     SingleConstructor::Compound(c) => {
-                        fn next_repetition_count(
-                            shared_indices: &TermIndexN,
-                            storage: &Storage,
-                            mut key: StorageKey,
-                            offsets: &[usize],
-                        ) -> usize {
-                            let term_index_1: TermIndex1 = {
-                                // let mut iter = shared_indices.compound_indices().iter();
-                                let mut offsets_iter = offsets.into_iter();
-                                let mut last: Option<MiddleIndices> = None;
-                                let initial: Vec<usize> = shared_indices
-                                    .compound_indices()
-                                    .iter()
-                                    .map_while(|index| match index {
-                                        CompoundIndex::ZeroPlus(zp) => {
-                                            key = storage.get_compound(key).unwrap().keys()[*zp];
-                                            Some(*zp)
-                                        }
-                                        CompoundIndex::LengthMinus(lm) => {
-                                            let len =
-                                                storage.get_compound(key).unwrap().keys().len();
-                                            let zp = len.checked_sub(*lm).unwrap();
-                                            key = storage.get_compound(key).unwrap().keys()[zp];
-                                            Some(zp)
-                                        }
-                                        CompoundIndex::Middle(m) => {
-                                            if let Some(offset) = offsets_iter.next() {
-                                                let zp = m
-                                                    .starting_at_zero_plus()
-                                                    .checked_add(*offset)
-                                                    .unwrap();
-                                                key = storage.get_compound(key).unwrap().keys()[zp];
-                                                Some(zp)
-                                            } else {
-                                                last = Some(m.clone());
-                                                None
-                                            }
-                                        }
-                                    })
-                                    .collect();
-                                TermIndex1::new(initial, last.unwrap())
-                            };
-                            term_index_1.count_repetitions(storage, key)
-                        }
-
+                        let mut pending_instructions: Vec<Instruction> = vec![];
                         for compound_element in c {
-                            let shared_indices = compound_element
-                                .single_constructor
-                                .shared_term_index_n(compound_element.dot_dot_count);
-
-                            #[derive(Debug)]
-                            struct Elem {
-                                offsets: Vec<usize>,
-                            }
-
-                            let mut queue: VecDeque<Elem> = VecDeque::new();
-                            for offset in 0..next_repetition_count(&shared_indices, storage, k, &[])
-                            {
-                                queue.push_back(Elem {
-                                    offsets: offsets.iter().chain(&[offset]).cloned().collect(),
-                                })
-                            }
-
-                            while let Some(elem) = queue.pop_front() {
-                                dbg!(&elem, queue.len());
-                                if elem.offsets.len() >= compound_element.dot_dot_count {
-                                    assert!(elem.offsets.len() == compound_element.dot_dot_count);
-                                    // instruction_stack.push(Instruction::Create(()))
-                                    // instruction_stack.push(Instruction {
-                                    //     offsets: elem.offsets,
-                                    //     destination,
-                                    // });
-                                } else {
-                                    for offset in 0..next_repetition_count(
-                                        &shared_indices,
-                                        storage,
-                                        k,
-                                        &elem.offsets,
-                                    ) {
-                                        queue.push_back(Elem {
-                                            offsets: elem
-                                                .offsets
-                                                .iter()
-                                                .chain(&[offset])
-                                                .cloned()
-                                                .collect(),
-                                        })
+                            let constructor = compound_element.single_constructor;
+                            let dot_dotted_indices = compound_element.dot_dotted_indices;
+                            let dot_dotted_indices = TermIndexN::new(
+                                offsets
+                                    .iter()
+                                    .map(|offset| CompoundIndex::ZeroPlus(*offset))
+                                    .chain(dot_dotted_indices.compound_indices().iter().cloned())
+                                    .collect(),
+                            );
+                            let dot_dotted_indices = dot_dotted_indices.to_index5();
+                            match dot_dotted_indices {
+                                Index5::WithMiddle(index4s) => {
+                                    struct Elem {
+                                        offsets: Vec<Nomiddle>,
                                     }
+                                    let mut elem_stack: Vec<Elem> = vec![Elem { offsets: vec![] }];
+                                    for index4 in index4s {
+                                        elem_stack = elem_stack
+                                            .drain(..)
+                                            .flat_map(|elem| {
+                                                let nomiddles: Vec<Nomiddle> = elem
+                                                    .offsets
+                                                    .iter()
+                                                    .chain(index4.first.iter())
+                                                    .cloned()
+                                                    .collect();
+                                                let zp = nomiddles_to_zp(&nomiddles, storage, k);
+                                                let k = zp_lookup(&zp, storage, k);
+                                                let repetitions =
+                                                    index4.last.count_repetitions(storage, k);
+                                                let starting_at_zp =
+                                                    index4.last.starting_at_zero_plus();
+                                                (0..repetitions).map(move |n| Elem {
+                                                    offsets: nomiddles
+                                                        .iter()
+                                                        .chain(&[Nomiddle::ZeroPlus(
+                                                            starting_at_zp + n,
+                                                        )])
+                                                        .cloned()
+                                                        .collect(),
+                                                })
+                                            })
+                                            .collect();
+                                    }
+                                    for elem in elem_stack {
+                                        pending_instructions.push(
+                                            Instruction::ProcessConstructorWithOffsets {
+                                                constructor: constructor.clone(),
+                                                offsets: nomiddles_to_zp(&elem.offsets, storage, k),
+                                            },
+                                        );
+                                    }
+                                }
+                                Index5::WithoutMiddle(nomiddles) => {
+                                    let offsets = nomiddles_to_zp(&nomiddles, storage, k);
+                                    pending_instructions.push(
+                                        Instruction::ProcessConstructorWithOffsets {
+                                            constructor,
+                                            offsets,
+                                        },
+                                    );
                                 }
                             }
                         }
+                        instruction_stack.push(Instruction::BuildCompoundTermOfLength(
+                            pending_instructions.len(),
+                        ));
+                        instruction_stack.extend(pending_instructions.drain(..).rev());
                     }
                 },
             }
-            // match self {
-            //     SingleConstructor::Copy(i) => {
-            //         let index_to_copy = i.into_term_index(storage, k, &instruction.offsets);
-            //         let key_to_copy = index_to_copy.lookup(storage, k);
-            //         let copied_term = storage.get(key_to_copy).unwrap().clone();
-            //         storage.replace(instruction.destination, copied_term);
-            //     }
-            //     SingleConstructor::Symbol(s) => {
-            //         let copied_term = Term::Symbol(Symbol::new(s.clone()));
-            //         storage.replace(instruction.destination, copied_term);
-            //     }
-            //     SingleConstructor::Compound(c) =>
-            //     }
-            // }
         }
 
-        let destination = storage.get(destination).unwrap().clone();
-        storage.replace(k, destination);
+        assert_eq!(key_stack.len(), 1);
+        let result = key_stack.pop().unwrap();
+        let result = storage.get(result).unwrap().clone();
+        storage.replace(k, result);
     }
+}
+
+fn nomiddles_to_zp(nomiddles: &[Nomiddle], storage: &Storage, mut k: StorageKey) -> Vec<usize> {
+    nomiddles
+        .iter()
+        .map(|nomiddle| {
+            let zp = match nomiddle {
+                Nomiddle::ZeroPlus(zp) => *zp,
+                Nomiddle::LenMinus(lm) => {
+                    let len = storage.get_compound(k).unwrap().keys().len();
+                    len.checked_sub(*lm).unwrap()
+                }
+            };
+            k = storage.get_compound(k).unwrap().keys()[zp];
+            zp
+        })
+        .collect()
 }
 
 #[cfg(test)]
 mod test {
+    use std::vec;
+
+    use crate::index::Nomiddle;
+
     use super::*;
 
     #[test]
     fn construct0() {
         // (for x (x ..) -> (x ..))
         let constructor = SingleConstructor::Compound(vec![CompoundElement {
-            single_constructor: SingleConstructor::Copy(TermIndexN::new(vec![
-                CompoundIndex::Middle(MiddleIndices::new(0, 1)),
-            ])),
-            dot_dot_count: 1,
+            single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![])),
+            dot_dotted_indices: TermIndexN::new(vec![CompoundIndex::Middle(MiddleIndices::new(
+                0, 1,
+            ))]),
         }]);
         let mut storage = Storage::new();
-        let term = storage.read("(a b c 1 2 3 4 5 6 d e)").unwrap();
+        let term = storage.read("(1 2 3 4 5 6)").unwrap();
         constructor.construct(&mut storage, term);
-        storage.println(term, false);
+        let expected = storage.read("(1 2 3 4 5 6)").unwrap();
+        assert!(storage.terms_are_equal(term, expected));
     }
 
     #[test]
     fn construct1() {
-        // (for x (a b c x .. d e) -> (x ..))
+        // (for x (x ..) -> ((a x) ..))
         let constructor = SingleConstructor::Compound(vec![CompoundElement {
-            single_constructor: SingleConstructor::Copy(TermIndexN::new(vec![
-                CompoundIndex::Middle(MiddleIndices::new(3, 3)),
-            ])),
-            dot_dot_count: 1,
+            single_constructor: SingleConstructor::Compound(vec![
+                CompoundElement {
+                    single_constructor: SingleConstructor::Symbol("a".into()),
+                    dot_dotted_indices: TermIndexN::empty(),
+                },
+                CompoundElement {
+                    single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![])),
+                    dot_dotted_indices: TermIndexN::empty(),
+                },
+            ]),
+            dot_dotted_indices: TermIndexN::new(vec![CompoundIndex::Middle(MiddleIndices::new(
+                0, 1,
+            ))]),
         }]);
         let mut storage = Storage::new();
-        let term = storage.read("(a b c 1 2 3 4 5 6 d e)").unwrap();
+        let term = storage.read("(1 2 3 4 5 6)").unwrap();
         constructor.construct(&mut storage, term);
-        storage.println(term, false);
+        let expected = storage
+            .read("((a 1) (a 2) (a 3) (a 4) (a 5) (a 6))")
+            .unwrap();
+        assert!(storage.terms_are_equal(term, expected));
     }
 
     #[test]
     fn construct2() {
-        // (for x (a b c x .. d e) -> true)
-        let constructor = SingleConstructor::Symbol("true".into());
+        // (for x y z ((x z .. y) ..) -> (x .. y .. z .. ..))
+        let constructor = SingleConstructor::Compound(vec![
+            CompoundElement {
+                single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![
+                    Nomiddle::ZeroPlus(0),
+                ])),
+                dot_dotted_indices: TermIndexN::new(vec![CompoundIndex::Middle(
+                    MiddleIndices::new(0, 1),
+                )]),
+            },
+            CompoundElement {
+                single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![
+                    Nomiddle::LenMinus(1),
+                ])),
+                dot_dotted_indices: TermIndexN::new(vec![CompoundIndex::Middle(
+                    MiddleIndices::new(0, 1),
+                )]),
+            },
+            CompoundElement {
+                single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![])),
+                dot_dotted_indices: TermIndexN::new(vec![
+                    CompoundIndex::Middle(MiddleIndices::new(0, 1)),
+                    CompoundIndex::Middle(MiddleIndices::new(1, 2)),
+                ]),
+            },
+        ]);
+
         let mut storage = Storage::new();
-        let term = storage.read("(a b c 1 2 3 4 5 6 d e)").unwrap();
+        let term = storage
+            .read("((x0 z0a z0b y0) (x1 z1a z1b y1) (x2 z2a z2b y2))")
+            .unwrap();
         constructor.construct(&mut storage, term);
-        storage.println(term, false);
+        let expected = storage
+            .read("(x0 x1 x2 y0 y1 y2 z0a z0b z1a z1b z2a z2b)")
+            .unwrap();
+        assert!(storage.terms_are_equal(term, expected));
     }
 
     #[test]
     fn construct3() {
-        // (for x (a b c x d e) -> x)
-        let constructor =
-            SingleConstructor::Copy(TermIndexN::new(vec![CompoundIndex::ZeroPlus(3)]));
+        // (for x y z ((x z .. y) ..) -> ((y: y x: x z: (z ..)) ..))
+        let constructor = SingleConstructor::Compound(vec![CompoundElement {
+            single_constructor: SingleConstructor::Compound(vec![
+                CompoundElement {
+                    single_constructor: SingleConstructor::Symbol("y:".into()),
+                    dot_dotted_indices: TermIndexN::empty(),
+                },
+                CompoundElement {
+                    single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![
+                        Nomiddle::LenMinus(1),
+                    ])),
+                    dot_dotted_indices: TermIndexN::empty(),
+                },
+                CompoundElement {
+                    single_constructor: SingleConstructor::Symbol("x:".into()),
+                    dot_dotted_indices: TermIndexN::empty(),
+                },
+                CompoundElement {
+                    single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![
+                        Nomiddle::ZeroPlus(0),
+                    ])),
+                    dot_dotted_indices: TermIndexN::empty(),
+                },
+                CompoundElement {
+                    single_constructor: SingleConstructor::Symbol("z:".into()),
+                    dot_dotted_indices: TermIndexN::empty(),
+                },
+                CompoundElement {
+                    single_constructor: SingleConstructor::Compound(vec![CompoundElement {
+                        single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![])),
+                        dot_dotted_indices: TermIndexN::new(vec![CompoundIndex::Middle(
+                            MiddleIndices::new(1, 2),
+                        )]),
+                    }]),
+                    dot_dotted_indices: TermIndexN::empty(),
+                },
+            ]),
+            dot_dotted_indices: TermIndexN::new(vec![CompoundIndex::Middle(MiddleIndices::new(
+                0, 1,
+            ))]),
+        }]);
+
         let mut storage = Storage::new();
-        let term = storage.read("(a b c 1 d e)").unwrap();
+        let term = storage
+            .read("((x0 z0a z0b y0) (x1 z1a z1b y1) (x2 z2a z2b y2))")
+            .unwrap();
         constructor.construct(&mut storage, term);
+        let expected = storage
+            .read("((y: y0 x: x0 z: (z0a z0b)) (y: y1 x: x1 z: (z1a z1b)) (y: y2 x: x2 z: (z2a z2b)))")
+            .unwrap();
         storage.println(term, false);
+        assert!(storage.terms_are_equal(term, expected));
     }
 }
