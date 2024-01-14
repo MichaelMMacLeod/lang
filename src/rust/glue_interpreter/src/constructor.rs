@@ -313,4 +313,24 @@ mod test {
         storage.println(term, false);
         assert!(storage.terms_are_equal(term, expected));
     }
+
+    #[test]
+    fn construct4() {
+        // (for x (a ((b x) ..)) -> (x ..))
+        let constructor = SingleConstructor::Compound(vec![CompoundElement {
+            single_constructor: SingleConstructor::Copy(NomiddleIndex::new(vec![
+                Nomiddle::ZeroPlus(1)
+            ])),
+            dot_dotted_indices: TermIndexN::new(vec![
+                CompoundIndex::ZeroPlus(1),
+                CompoundIndex::Middle(MiddleIndices::new(0, 1)),
+            ]),
+        }]);
+        let mut storage = Storage::new();
+        let term = storage.read("(a ((b 1) (b 2) (b 3) (b 4) (b 5)))").unwrap();
+        constructor.construct(&mut storage, term);
+        let expected = storage.read("(1 2 3 4 5)").unwrap();
+        storage.println(term, false);
+        assert!(storage.terms_are_equal(term, expected));
+    }
 }
