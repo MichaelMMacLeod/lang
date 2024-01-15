@@ -9,6 +9,7 @@ mod rule2;
 mod predicate;
 mod index;
 mod constructor;
+mod constructor2;
 
 fn main() {
     println!("Hello, world!");
