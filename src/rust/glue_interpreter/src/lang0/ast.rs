@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{
     compound::Compound,
     lang0::expr::OpExpr,
@@ -22,6 +24,12 @@ impl Ast {
         let mut key_stack: Vec<StorageKey> = Vec::with_capacity(1024);
 
         while let Some(instruction) = self.stmts.get(instruction_pointer) {
+            println!(
+                "vars: {:?}",
+                variables.iter().enumerate().collect::<Vec<_>>()
+            );
+            println!("{instruction_pointer}:\t{instruction}");
+            println!("-------------------------------------");
             match instruction {
                 Stmt::Assign { lhs, rhs } => {
                     while variables.get(lhs.0).is_none() {
@@ -71,6 +79,24 @@ impl Ast {
     }
 }
 
+impl Display for Ast {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (i, stmt) in self
+            .stmts
+            .iter()
+            .take(self.stmts.len().saturating_sub(1))
+            .enumerate()
+        {
+            write!(f, "{i}:\t{}\n", stmt)?;
+        }
+        if let Some(stmt) = self.stmts.last() {
+            let i = self.stmts.len().checked_sub(1).unwrap();
+            write!(f, "{i}:\t{}", stmt)?;
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::lang0::{
@@ -80,196 +106,8 @@ mod test {
 
     use super::*;
 
-    // #[test]
-    // fn interpret0() {
-    //     // (for x (x ..) -> (x ..))
-    //     let mut storage = Storage::new();
-    //     let src = storage.read("(a b c d e)").unwrap();
-    //     let ast = Ast {
-    //         stmts: vec![
-    //             // 0
-    //             Stmt::Assign {
-    //                 lhs: Var(0),
-    //                 rhs: Expr::OpExpr(OpExpr::ConstantExpr(ConstantExpr)),
-    //             },
-    //             // 1
-    //             Stmt::Assign {
-    //                 lhs: Var(1),
-    //                 rhs: Expr::Len(Index { elements: vec![] }),
-    //             },
-    //             // 2
-    //             Stmt::Copy(Index {
-    //                 elements: vec![OpExpr::Var(0)],
-    //             }),
-    //             // 3
-    //             Stmt::Assign {
-    //                 lhs: Var(0),
-    //                 rhs: Expr::Add {
-    //                     lhs: OpExpr::Var(0),
-    //                     rhs: OpExpr::Constant(1),
-    //                 },
-    //             },
-    //             // 4
-    //             Stmt::Jump {
-    //                 jump_to: Label(2),
-    //                 when_var: Var(0),
-    //                 le_var: OpExpr::Var(1),
-    //             },
-    //             // 5
-    //             Stmt::Assign {
-    //                 lhs: Var(3),
-    //                 rhs: Expr::Len(Index { elements: vec![] }),
-    //             },
-    //             // 6
-    //             Stmt::Build {
-    //                 length: OpExpr::Var(3),
-    //             },
-    //         ],
-    //     };
-    //     let result = ast.interpret(&mut storage, src);
-    //     let expected = storage.read("(a b c d e)").unwrap();
-    //     storage.println(result, false);
-    //     assert!(storage.terms_are_equal(result, expected));
-    // }
-
-    // #[test]
-    // fn interpret1() {
-    //     // (for x (x ..) -> ((a x) ..))
-    //     let mut storage = Storage::new();
-    //     let src = storage.read("(a b c d e)").unwrap();
-    //     let a = storage.read("a").unwrap();
-    //     let ast = Ast {
-    //         stmts: vec![
-    //             Stmt::Assign {
-    //                 lhs: Var(0),
-    //                 rhs: Expr::OpExpr(OpExpr::ConstantExpr(ConstantExpr::Constant(0))),
-    //             },
-    //             Stmt::Assign {
-    //                 lhs: Var(1),
-    //                 rhs: Expr::Len(Index { elements: vec![] }),
-    //             },
-    //             Stmt::Sym(a),
-    //             Stmt::Copy(Index {
-    //                 elements: vec![OpExpr::Var(0)],
-    //             }),
-    //             Stmt::Build {
-    //                 length: OpExpr::Constant(2),
-    //             },
-    //             Stmt::Assign {
-    //                 lhs: Var(0),
-    //                 rhs: Expr::Add {
-    //                     lhs: OpExpr::Var(0),
-    //                     rhs: OpExpr::Constant(1),
-    //                 },
-    //             },
-    //             Stmt::Jump {
-    //                 jump_to: Label(2),
-    //                 when_var: Var(0),
-    //                 le_var: OpExpr::Var(1),
-    //             },
-    //             Stmt::Assign {
-    //                 lhs: Var(3),
-    //                 rhs: Expr::Len(Index { elements: vec![] }),
-    //             },
-    //             Stmt::Build {
-    //                 length: OpExpr::Var(3),
-    //             },
-    //         ],
-    //     };
-    //     let result = ast.interpret(&mut storage, src);
-    //     let expected = storage.read("((a a) (a b) (a c) (a d) (a e))").unwrap();
-    //     storage.println(result, false);
-    //     assert!(storage.terms_are_equal(result, expected));
-    // }
-
-    // #[test]
-    // fn interpret2() {
-    //     // (for x ((x ..) ..) -> ((x ..) ..))
-    //     let mut storage = Storage::new();
-    //     let src = storage.read("((a b c d e) (f g) () (h i j) (k))").unwrap();
-    //     let a = storage.read("a").unwrap();
-    //     let ast = Ast {
-    //         stmts: vec![
-    //             //              #0 = 0
-    //             //              #1 = len []
-    //             //              jmp to LOOP_1_END
-    //             // LOOP_1:      #2 = 0
-    //             //              #3 = len [#0]
-    //             //              jmp to LOOP_2_END
-    //             // LOOP_2:      copy [#0 #2]
-    //             //              #2 = #2 + 1
-    //             // LOOP_2_END:  jmp to LOOP_2 if #2 < #3
-    //             //              build #3
-    //             //              #0 = #0 + 1
-    //             // LOOP_1_END:  jmp to LOOP_1 if #0 < #1
-    //             //              build #1
-    //             Stmt::Assign {
-    //                 lhs: Var(0),
-    //                 rhs: Expr::OpExpr(OpExpr::ConstantExpr(ConstantExpr::Constant(0))),
-    //             },
-    //             Stmt::Assign {
-    //                 lhs: Var(1),
-    //                 rhs: Expr::Len(Index { elements: vec![] }),
-    //             },
-    //             Stmt::UnconditionalJump(Label(11 /* LOOP_1_END */)),
-    //             /* LOOP_1 = 3 */
-    //             Stmt::Assign {
-    //                 lhs: Var(2),
-    //                 rhs: Expr::OpExpr(OpExpr::ConstantExpr(ConstantExpr::Constant(0))),
-    //             },
-    //             Stmt::Assign {
-    //                 lhs: Var(3),
-    //                 rhs: Expr::Len(Index {
-    //                     elements: vec![OpExpr::Var(0)],
-    //                 }),
-    //             },
-    //             Stmt::UnconditionalJump(Label(8 /* LOOP_2_END */)),
-    //             /* LOOP_2 = 6 */
-    //             Stmt::Copy(Index {
-    //                 elements: vec![OpExpr::Var(0), OpExpr::Var(2)],
-    //             }),
-    //             Stmt::Assign {
-    //                 lhs: Var(2),
-    //                 rhs: Expr::Add {
-    //                     lhs: OpExpr::Var(2),
-    //                     rhs: OpExpr::Constant(1),
-    //                 },
-    //             },
-    //             /* LOOP_2_END = 8 */
-    //             Stmt::Jump {
-    //                 jump_to: Label(6 /* LOOP_2 */),
-    //                 when_var: Var(2),
-    //                 le_var: OpExpr::Var(3),
-    //             },
-    //             Stmt::Build {
-    //                 length: OpExpr::Var(3),
-    //             },
-    //             Stmt::Assign {
-    //                 lhs: Var(0),
-    //                 rhs: Expr::Add {
-    //                     lhs: OpExpr::Var(0),
-    //                     rhs: OpExpr::Constant(1),
-    //                 },
-    //             },
-    //             /* LOOP_1_END = 11 */
-    //             Stmt::Jump {
-    //                 jump_to: Label(3 /* LOOP_1 */),
-    //                 when_var: Var(0),
-    //                 le_var: OpExpr::Var(1),
-    //             },
-    //             Stmt::Build {
-    //                 length: OpExpr::Var(1),
-    //             },
-    //         ],
-    //     };
-    //     let result = ast.interpret(&mut storage, src);
-    //     let expected = storage.read("((a b c d e) (f g) () (h i j) (k))").unwrap();
-    //     storage.println(result, false);
-    //     assert!(storage.terms_are_equal(result, expected));
-    // }
-
     #[test]
-    fn interpret3() {
+    fn interpret0() {
         // (for x ((x ..) ..) -> (x .. ..))
         let mut storage = Storage::new();
         let src = storage.read("((a b c d e) (f g) () (h i j) (k))").unwrap();
@@ -307,6 +145,58 @@ mod test {
         };
         let result = ast.interpret(&mut storage, src);
         let expected = storage.read("(a b c d e f g h i j k)").unwrap();
+        storage.println(result, false);
+        assert!(storage.terms_are_equal(result, expected));
+    }
+
+    #[test]
+    fn interpret1() {
+        // (for x y (x .. y) -> y)
+        let mut storage = Storage::new();
+        let src = storage.read("((a b c d e) (f g) () (h i j) (k))").unwrap();
+        let ast = Ast {
+            stmts: vec![
+                //              #0 = len []
+                //              #0 = #0 - 1
+                //              copy [#0]
+                Stmt::assign(0, Expr::len(vec![])),
+                Stmt::assign(0, Expr::sub(0, ConstantExpr::constant(1))),
+                Stmt::copy(vec![ConstantExpr::var(0)]),
+            ],
+        };
+        let result = ast.interpret(&mut storage, src);
+        let expected = storage.read("(k)").unwrap();
+        storage.println(result, false);
+        assert!(storage.terms_are_equal(result, expected));
+    }
+
+    #[test]
+    fn interpret2() {
+        // (for x y ((x .. y) ..) -> (y ..))
+        let mut storage = Storage::new();
+        let src = storage.read("((a b c d e) (f g) () (h i j) (k))").unwrap();
+        let ast = Ast {
+            stmts: vec![
+                //              #0 = 0
+                //              #1 = len []
+                //              jmp LOOP_END
+                // LOOP_START:  copy [#0, len-1]
+                //              #0 = #0 + 1
+                // LOOP_END:    jmp LOOP_START if #0 < #1
+                //              build #1
+
+                // copy [...1, len-1, ...2]
+                // -->
+                // #0 = len [...1]
+                // #0 = #0 - 1
+                // copy [...1, #0, ...2]
+                Stmt::assign(0, Expr::len(vec![])),
+                Stmt::assign(0, Expr::sub(0, ConstantExpr::constant(1))),
+                Stmt::copy(vec![ConstantExpr::var(0)]),
+            ],
+        };
+        let result = ast.interpret(&mut storage, src);
+        let expected = storage.read("(k)").unwrap();
         storage.println(result, false);
         assert!(storage.terms_are_equal(result, expected));
     }

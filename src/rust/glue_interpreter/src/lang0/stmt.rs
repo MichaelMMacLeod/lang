@@ -1,8 +1,10 @@
+use std::fmt::Display;
+
 use crate::storage::StorageKey;
 
 use super::expr::{ConstantExpr, Expr, Index, OpExpr, Var};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Stmt {
     Assign {
         lhs: Var,
@@ -58,5 +60,40 @@ impl Stmt {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Label(pub usize);
+
+impl Display for Label {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[instruction: {}]", self.0)
+    }
+}
+
+impl Display for Stmt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Stmt::Assign { lhs, rhs } => {
+                write!(f, "{} = {}", lhs, rhs)
+            }
+            Stmt::Sym(s) => {
+                write!(f, "{:?}", s)
+            }
+            Stmt::Copy(c) => {
+                write!(f, "copy {}", c)
+            }
+            Stmt::Build { length } => {
+                write!(f, "build {}", length)
+            }
+            Stmt::Jump {
+                jump_to,
+                when_var,
+                le_var,
+            } => {
+                write!(f, "jump {} when {} < {}", jump_to, when_var, le_var)
+            }
+            Stmt::UnconditionalJump(label) => {
+                write!(f, "jump {}", label)
+            }
+        }
+    }
+}

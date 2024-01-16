@@ -1,6 +1,8 @@
+use std::fmt::Display;
+
 use crate::storage::{Storage, StorageKey};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Var(pub usize);
 
 impl Var {
@@ -9,7 +11,7 @@ impl Var {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ConstantExpr {
     Var(Var),
     Constant(usize),
@@ -32,7 +34,7 @@ impl ConstantExpr {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum OpExpr {
     ConstantExpr(ConstantExpr),
     Op {
@@ -42,7 +44,7 @@ pub enum OpExpr {
     },
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum OpKind {
     Add,
     Sub,
@@ -88,13 +90,13 @@ impl OpExpr {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Expr {
     OpExpr(OpExpr),
     Len(Index),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Index {
     elements: Vec<ConstantExpr>,
 }
@@ -103,9 +105,7 @@ impl Index {
     pub fn new(elements: Vec<ConstantExpr>) -> Self {
         Self { elements }
     }
-}
 
-impl Index {
     pub fn eval(&self, variables: &[usize], storage: &Storage, mut src: StorageKey) -> StorageKey {
         for index in &self.elements {
             let index = index.eval(&variables);
@@ -144,6 +144,74 @@ impl Expr {
                 .unwrap()
                 .keys()
                 .len(),
+        }
+    }
+}
+
+impl Display for Var {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "#{}", self.0)
+    }
+}
+
+impl Display for ConstantExpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConstantExpr::Var(v) => v.fmt(f),
+            ConstantExpr::Constant(c) => write!(f, "{}", *c),
+        }
+    }
+}
+
+impl Display for OpKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OpKind::Add => write!(f, "add"),
+            OpKind::Sub => write!(f, "sub"),
+        }
+    }
+}
+
+impl Display for OpExpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OpExpr::ConstantExpr(ce) => ce.fmt(f),
+            OpExpr::Op { kind, lhs, rhs } => {
+                write!(f, "{} {} {}", kind, lhs, rhs)
+            }
+        }
+    }
+}
+
+impl Display for Index {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.elements.len() == 0 {
+            write!(f, "[index: ]")?;
+        }
+        if self.elements.len() != 0 {
+            write!(f, "[index: ")?;
+        }
+        for e in self
+            .elements
+            .iter()
+            .take(self.elements.len().saturating_sub(1))
+        {
+            write!(f, "{} ", e)?;
+        }
+        if let Some(e) = self.elements.last() {
+            write!(f, "{}]", e)?;
+        }
+        Ok(())
+    }
+}
+
+impl Display for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Expr::OpExpr(oe) => oe.fmt(f),
+            Expr::Len(i) => {
+                write!(f, "len {}", i)
+            }
         }
     }
 }
