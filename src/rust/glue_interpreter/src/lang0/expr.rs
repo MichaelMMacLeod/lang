@@ -1,111 +1,149 @@
 use crate::storage::{Storage, StorageKey};
 
-#[derive(Debug)]
-pub enum VarOrConstant {
-    Constant(usize),
-    Var(usize),
-}
-
-impl VarOrConstant {
-    pub fn eval(&self, variables: &[usize]) -> usize {
-        match self {
-            VarOrConstant::Var(v) => variables[*v],
-            VarOrConstant::Constant(c) => *c,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum Expr {
-    Var(usize),
-    Constant(usize),
-    Len(Index),
-    Add {
-        lhs: VarOrConstant,
-        rhs: VarOrConstant,
-    },
-    Sub {
-        lhs: VarOrConstant,
-        rhs: VarOrConstant,
-    },
-    Mul {
-        lhs: VarOrConstant,
-        rhs: VarOrConstant,
-    },
-}
-
-impl Expr {
-    pub fn eval(&self, variables: &[usize], storage: &Storage, src: StorageKey) -> usize {
-        match self {
-            Expr::Var(v) => variables[*v],
-            Expr::Constant(c) => *c,
-            Expr::Len(l) => {
-                let key = l.get(variables, storage, src);
-                storage.get_compound(key).unwrap().keys().len()
-            }
-            Expr::Add { lhs, rhs } => {
-                let lhs = lhs.eval(variables);
-                let rhs = rhs.eval(variables);
-                lhs.checked_add(rhs).unwrap()
-            }
-            Expr::Sub { lhs, rhs } => {
-                let lhs = lhs.eval(variables);
-                let rhs = rhs.eval(variables);
-                lhs.checked_sub(rhs).unwrap()
-            }
-            Expr::Mul { lhs, rhs } => {
-                let lhs = lhs.eval(variables);
-                let rhs = rhs.eval(variables);
-                lhs.checked_mul(rhs).unwrap()
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Len(pub Index);
-
-#[derive(Debug)]
-pub struct Add {
-    lhs: Box<VarOrConstant>,
-    rhs: Box<VarOrConstant>,
-}
-
-#[derive(Debug)]
-pub struct Sub {
-    lhs: Box<VarOrConstant>,
-    rhs: Box<VarOrConstant>,
-}
-
-#[derive(Debug)]
-pub struct Mult {
-    lhs: Box<VarOrConstant>,
-    rhs: Box<VarOrConstant>,
-}
-
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Var(pub usize);
 
 impl Var {
-    pub fn get(&self, variables: &[usize]) -> usize {
+    pub fn eval(&self, variables: &[usize]) -> usize {
         variables[self.0]
     }
 }
 
-#[derive(Debug)]
-pub struct Constant(pub usize);
+#[derive(Debug, PartialEq, Eq)]
+pub enum ConstantExpr {
+    Var(Var),
+    Constant(usize),
+}
 
-#[derive(Debug)]
+impl ConstantExpr {
+    pub fn var(v: usize) -> Self {
+        Self::Var(Var(v))
+    }
+
+    pub fn constant(c: usize) -> Self {
+        Self::Constant(c)
+    }
+
+    pub fn eval(&self, variables: &[usize]) -> usize {
+        match self {
+            ConstantExpr::Var(v) => v.eval(variables),
+            ConstantExpr::Constant(c) => *c,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum OpExpr {
+    ConstantExpr(ConstantExpr),
+    Op {
+        kind: OpKind,
+        lhs: Var,
+        rhs: ConstantExpr,
+    },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum OpKind {
+    Add,
+    Sub,
+}
+
+impl OpExpr {
+    pub fn var(v: usize) -> Self {
+        Self::ConstantExpr(ConstantExpr::var(v))
+    }
+
+    pub fn constant(c: usize) -> Self {
+        Self::ConstantExpr(ConstantExpr::constant(c))
+    }
+
+    pub fn add(var: usize, e: ConstantExpr) -> Self {
+        Self::Op {
+            kind: OpKind::Add,
+            lhs: Var(var),
+            rhs: e,
+        }
+    }
+
+    pub fn sub(var: usize, e: ConstantExpr) -> Self {
+        Self::Op {
+            kind: OpKind::Sub,
+            lhs: Var(var),
+            rhs: e,
+        }
+    }
+
+    pub fn eval(&self, variables: &[usize]) -> usize {
+        match self {
+            OpExpr::ConstantExpr(ve) => ve.eval(variables),
+            OpExpr::Op { kind, lhs, rhs } => {
+                let lhs = lhs.eval(variables);
+                let rhs = rhs.eval(variables);
+                match kind {
+                    OpKind::Add => lhs.checked_add(rhs).unwrap(),
+                    OpKind::Sub => lhs.checked_sub(rhs).unwrap(),
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Expr {
+    OpExpr(OpExpr),
+    Len(Index),
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct Index {
-    pub elements: Vec<VarOrConstant>,
+    elements: Vec<ConstantExpr>,
 }
 
 impl Index {
-    pub fn get(&self, variables: &[usize], storage: &Storage, mut src: StorageKey) -> StorageKey {
-        for elem in &self.elements {
-            let index = elem.eval(&variables);
+    pub fn new(elements: Vec<ConstantExpr>) -> Self {
+        Self { elements }
+    }
+}
+
+impl Index {
+    pub fn eval(&self, variables: &[usize], storage: &Storage, mut src: StorageKey) -> StorageKey {
+        for index in &self.elements {
+            let index = index.eval(&variables);
             src = storage.get_compound(src).unwrap().keys()[index];
         }
         src
+    }
+}
+
+impl Expr {
+    pub fn var(v: usize) -> Self {
+        Self::OpExpr(OpExpr::var(v))
+    }
+
+    pub fn constant(c: usize) -> Self {
+        Self::OpExpr(OpExpr::constant(c))
+    }
+
+    pub fn add(var: usize, e: ConstantExpr) -> Self {
+        Self::OpExpr(OpExpr::add(var, e))
+    }
+
+    pub fn sub(var: usize, e: ConstantExpr) -> Self {
+        Self::OpExpr(OpExpr::sub(var, e))
+    }
+
+    pub fn len(elements: Vec<ConstantExpr>) -> Self {
+        Self::Len(Index { elements })
+    }
+
+    pub fn eval(&self, variables: &[usize], storage: &Storage, src: StorageKey) -> usize {
+        match self {
+            Expr::OpExpr(oe) => oe.eval(variables),
+            Expr::Len(index) => storage
+                .get_compound(index.eval(variables, storage, src))
+                .unwrap()
+                .keys()
+                .len(),
+        }
     }
 }
