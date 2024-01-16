@@ -33,7 +33,7 @@ pub enum AstLoopable {
         var: usize,
         start: usize,
         end: LoopEnd,
-        prior: Vec<ConstantExpr>,
+        prior: Index,
         body: Box<AstLoopable>,
     },
 }
@@ -69,7 +69,7 @@ impl AstLoopable {
         var: lang0::expr::Var,
         start: usize,
         end_at_len_minus: usize,
-        prior: Vec<ConstantExpr>,
+        prior: Vec<IndexElement>,
         body: AstLoopable,
     ) -> Self {
         Self::ForLoop {
@@ -79,7 +79,7 @@ impl AstLoopable {
                 len_minus: end_at_len_minus,
             },
             body: Box::new(body),
-            prior,
+            prior: Index::new(prior),
         }
     }
 }
@@ -137,6 +137,43 @@ impl Ast {
         let mut current_index_elements: Vec<ConstantExpr> = Vec::with_capacity(32);
         let mut stmts: Vec<Stmt0> = Vec::with_capacity(64);
 
+        fn get_len_minus_var(
+            stmts: &mut Vec<Stmt0>,
+            vars: &mut HashSet<GenVar>,
+            elements: Vec<ConstantExpr>,
+            length_minus: usize,
+        ) -> usize {
+            let var = new_gen_var(vars);
+            stmts.extend([
+                Stmt0::assign(var, Expr0::len(elements.clone())),
+                Stmt0::assign(var, Expr0::sub(var, ConstantExpr::constant(length_minus))),
+            ]);
+            var
+        }
+
+        fn add_prior_elements(
+            index: &Index,
+            elements: &mut Vec<ConstantExpr>,
+            varmap: &mut HashMap<SrcVar, GenVar>,
+            mut vars: &mut HashSet<GenVar>,
+            stmts: &mut Vec<Stmt0>,
+        ) {
+            for element in index.elements() {
+                match element {
+                    IndexElement::ZeroPlus(zp) => elements.push(ConstantExpr::constant(*zp)),
+                    IndexElement::Var(var) => elements.push(ConstantExpr::var(get_src_var(
+                        varmap,
+                        &mut vars,
+                        SrcVar(*var),
+                    ))),
+                    IndexElement::LenMinus(lm) => {
+                        let var = get_len_minus_var(stmts, &mut vars, elements.clone(), *lm);
+                        elements.push(ConstantExpr::var(var));
+                    }
+                }
+            }
+        }
+
         while let Some(dfs) = stack.pop() {
             match dfs.clone() {
                 Dfs::Enter(ast) => match ast {
@@ -145,34 +182,20 @@ impl Ast {
                     }
                     Ast::Copy(index) => {
                         let mut new_elements = current_index_elements.clone();
-                        for element in index.elements() {
-                            match element {
-                                IndexElement::ZeroPlus(zp) => {
-                                    new_elements.push(ConstantExpr::constant(*zp))
-                                }
-                                IndexElement::Var(var) => new_elements.push(ConstantExpr::var(
-                                    get_src_var(&mut varmap, &mut vars, SrcVar(*var)),
-                                )),
-                                IndexElement::LenMinus(lm) => {
-                                    let var = new_gen_var(&mut vars);
-                                    stmts.extend([
-                                        Stmt0::assign(var, Expr0::len(new_elements.clone())),
-                                        Stmt0::assign(
-                                            var,
-                                            Expr0::sub(var, ConstantExpr::constant(*lm)),
-                                        ),
-                                    ]);
-                                    new_elements.push(ConstantExpr::var(var));
-                                }
-                            }
-                        }
+                        add_prior_elements(
+                            &index,
+                            &mut new_elements,
+                            &mut varmap,
+                            &mut vars,
+                            &mut stmts,
+                        );
                         stmts.push(Stmt0::copy(new_elements));
                     }
                     Ast::Build(b) => {
                         let repetitions_var = new_gen_var(&mut vars);
                         stmts.push(Stmt0::assign(repetitions_var, Expr0::constant(0)));
                         stack.push(Dfs::ExitBuild { repetitions_var });
-                        stack.extend(b.into_iter().map(|ast| Dfs::EnterLoopable {
+                        stack.extend(b.into_iter().rev().map(|ast| Dfs::EnterLoopable {
                             repetitions_var,
                             ast,
                         }));
@@ -191,7 +214,13 @@ impl Ast {
                         body,
                     } => {
                         let var = get_src_var(&mut varmap, &mut vars, SrcVar(var));
-                        current_index_elements.extend(prior.iter().cloned());
+                        add_prior_elements(
+                            &prior,
+                            &mut current_index_elements,
+                            &mut varmap,
+                            &mut vars,
+                            &mut stmts,
+                        );
                         let end_var = new_gen_var(&mut vars);
                         stmts.extend([
                             Stmt0::assign(var, Expr0::constant(start)),
@@ -217,7 +246,7 @@ impl Ast {
                                 end_var,
                                 repetitions_var,
                                 length_var,
-                                pop_count: prior.len().checked_add(1).unwrap(),
+                                pop_count: prior.elements().len().checked_add(1).unwrap(),
                                 top_loop_jump_index,
                             },
                             Dfs::EnterLoopable {
@@ -266,9 +295,9 @@ impl Ast {
                     }
                 }
             }
-            dbg!(dfs);
-            println!("{}", Ast0::new(stmts.clone()));
-            println!("-----------------");
+            // dbg!(dfs);
+            // println!("{}", Ast0::new(stmts.clone()));
+            // println!("-----------------");
         }
 
         Ast0::new(stmts)
@@ -280,24 +309,6 @@ mod test {
     use crate::{lang0::expr::Var, storage::Storage};
 
     use super::*;
-
-    #[test]
-    fn compile0() {
-        // (for x ((x ..) ..) -> (x .. ..))
-        let ast = Ast::build(vec![AstLoopable::for_loop(
-            lang0::expr::Var(0),
-            0,
-            0,
-            vec![],
-            AstLoopable::for_loop(
-                lang0::expr::Var(1),
-                0,
-                0,
-                vec![],
-                AstLoopable::copy(vec![IndexElement::Var(0), IndexElement::Var(1)]),
-            ),
-        )]);
-    }
 
     #[test]
     fn compile1() {
@@ -312,7 +323,7 @@ mod test {
                 0,
                 0,
                 vec![],
-                AstLoopable::copy(vec![IndexElement::Var(0), IndexElement::Var(1)]),
+                AstLoopable::copy(vec![]),
             )]),
         )]);
         let ast = ast.compile();
@@ -322,6 +333,8 @@ mod test {
         println!("{ast}");
         let result = ast.interpret(&mut storage, src);
         storage.println(result, false);
+        let expected = storage.read("((a b c) () (d) (e f g h i j k))").unwrap();
+        assert!(storage.terms_are_equal(result, expected));
     }
 
     #[test]
@@ -331,8 +344,8 @@ mod test {
             Var(0),
             0,
             0,
-            vec![ConstantExpr::constant(3)],
-            AstLoopable::copy(vec![IndexElement::Var(0)]),
+            vec![IndexElement::ZeroPlus(3)],
+            AstLoopable::copy(vec![]),
         )]);
         let ast = ast.compile();
         let mut storage = Storage::new();
@@ -341,5 +354,152 @@ mod test {
         println!("{ast}");
         let result = ast.interpret(&mut storage, src);
         storage.println(result, false);
+        let expected = storage.read("(a b c d e)").unwrap();
+        assert!(storage.terms_are_equal(result, expected));
+    }
+
+    #[test]
+    fn compile3() {
+        // (for x (0 1 (20 (x ..) 22 23 24) 3) -> (x ..)
+        let ast = Ast::build(vec![AstLoopable::for_loop(
+            Var(0),
+            0,
+            0,
+            vec![IndexElement::ZeroPlus(2), IndexElement::ZeroPlus(1)],
+            AstLoopable::copy(vec![]),
+        )]);
+        let ast = ast.compile();
+        let mut storage = Storage::new();
+        let src = storage.read("(0 1 (20 (a b c d e) 22 23 24) 3)").unwrap();
+        storage.println(src, false);
+        println!("{ast}");
+        let result = ast.interpret(&mut storage, src);
+        storage.println(result, false);
+        let expected = storage.read("(a b c d e)").unwrap();
+        assert!(storage.terms_are_equal(result, expected));
+    }
+
+    #[test]
+    fn compile4() {
+        // (for y x (0 1 (20 (y .. x) 22 23 24) 3) -> x
+        let ast = Ast::copy(vec![
+            IndexElement::ZeroPlus(2),
+            IndexElement::ZeroPlus(1),
+            IndexElement::LenMinus(1),
+        ]);
+        let ast = ast.compile();
+        let mut storage = Storage::new();
+        let src = storage.read("(0 1 (20 (a b c d e) 22 23 24) 3)").unwrap();
+        storage.println(src, false);
+        println!("{ast}");
+        let result = ast.interpret(&mut storage, src);
+        storage.println(result, false);
+        let expected = storage.read("e").unwrap();
+        assert!(storage.terms_are_equal(result, expected));
+    }
+
+    #[test]
+    fn compile5() {
+        // (for x y z (x .. (y .. 0)) -> (x .. y ..))
+        let ast = Ast::build(vec![
+            AstLoopable::for_loop(Var(0), 0, 1, vec![], AstLoopable::copy(vec![])),
+            AstLoopable::for_loop(
+                Var(0),
+                0,
+                1,
+                vec![IndexElement::LenMinus(1)],
+                AstLoopable::copy(vec![]),
+            ),
+        ]);
+        let ast = ast.compile();
+        let mut storage = Storage::new();
+        let src = storage.read("(0 1 2 (3 4 5 6 7 0))").unwrap();
+        storage.println(src, false);
+        println!("{ast}");
+        let result = ast.interpret(&mut storage, src);
+        storage.println(result, false);
+        let expected = storage.read("(0 1 2 3 4 5 6 7)").unwrap();
+        assert!(storage.terms_are_equal(result, expected));
+    }
+
+    #[test]
+    fn compile6() {
+        // (for x y z (x .. (y .. (z ..))) -> (x .. y .. z ..))
+        let ast = Ast::build(vec![
+            AstLoopable::for_loop(Var(0), 0, 1, vec![], AstLoopable::copy(vec![])),
+            AstLoopable::for_loop(
+                Var(0),
+                0,
+                1,
+                vec![IndexElement::LenMinus(1)],
+                AstLoopable::copy(vec![]),
+            ),
+            AstLoopable::for_loop(
+                Var(0),
+                0,
+                0,
+                vec![IndexElement::LenMinus(1), IndexElement::LenMinus(1)],
+                AstLoopable::copy(vec![]),
+            ),
+        ]);
+        let ast = ast.compile();
+        let mut storage = Storage::new();
+        let src = storage.read("(0 1 2 (3 4 5 6 7 (8 9)))").unwrap();
+        storage.println(src, false);
+        println!("{ast}");
+        let result = ast.interpret(&mut storage, src);
+        storage.println(result, false);
+        let expected = storage.read("(0 1 2 3 4 5 6 7 8 9)").unwrap();
+        assert!(storage.terms_are_equal(result, expected));
+    }
+
+    #[test]
+    fn compile7() {
+        // (for x y z ((x .. (y .. (z ..))) ..) -> (x .. .. y .. .. z .. ..))
+        let ast = Ast::build(vec![
+            AstLoopable::for_loop(
+                Var(0),
+                0,
+                0,
+                vec![],
+                AstLoopable::for_loop(Var(1), 0, 1, vec![], AstLoopable::copy(vec![])),
+            ),
+            AstLoopable::for_loop(
+                Var(0),
+                0,
+                0,
+                vec![],
+                AstLoopable::for_loop(
+                    Var(1),
+                    0,
+                    1,
+                    vec![IndexElement::LenMinus(1)],
+                    AstLoopable::copy(vec![]),
+                ),
+            ),
+            AstLoopable::for_loop(
+                Var(0),
+                0,
+                0,
+                vec![],
+                AstLoopable::for_loop(
+                    Var(1),
+                    0,
+                    0,
+                    vec![IndexElement::LenMinus(1), IndexElement::LenMinus(1)],
+                    AstLoopable::copy(vec![]),
+                ),
+            ),
+        ]);
+        let ast = ast.compile();
+        let mut storage = Storage::new();
+        let src = storage.read("((x0 (y0 (z0))) (x1 (y1 (z1))))").unwrap();
+        // let src = storage.read("((0a 1a 2a (3a 4a 5a 6a 7a (8a 9a))) (0b ((1b 2b))) (((0c 1c 2c))))").unwrap();
+        storage.println(src, false);
+        println!("{ast}");
+        let result = ast.interpret(&mut storage, src);
+        storage.println(result, false);
+        let expected = storage.read("(x0 y0 z0 x1 y1 z1)").unwrap();
+        assert!(storage.terms_are_equal(result, expected));
     }
 }

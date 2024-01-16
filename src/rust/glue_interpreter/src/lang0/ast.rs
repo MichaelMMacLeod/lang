@@ -29,6 +29,17 @@ impl Ast {
                 variables.iter().enumerate().collect::<Vec<_>>()
             );
             println!("{instruction_pointer}:\t{instruction}");
+            print!("keys: ");
+            for key in &key_stack {
+                storage.print(
+                    *key,
+                    &std::collections::HashMap::new(),
+                    &mut std::collections::HashSet::new(),
+                    false,
+                );
+                print!(" ");
+            }
+            println!();
             println!("-------------------------------------");
             match instruction {
                 Stmt::Assign { lhs, rhs } => {
