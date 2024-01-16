@@ -131,6 +131,7 @@ impl Ast {
                 length_var: usize,
                 pop_count: usize,
                 top_loop_jump_index: usize,
+                is_most_inner_loop: bool,
             },
         }
         let mut stack = vec![Dfs::Enter(self)];
@@ -240,6 +241,10 @@ impl Ast {
                         ));
                         let top_loop_jump_index = stmts.len();
                         stmts.push(Stmt0::unconditional_jump(0)); /* TODO */
+                        let is_most_inner_loop = match body.as_ref() {
+                            AstLoopable::Ast(_) => true,
+                            AstLoopable::ForLoop { .. } => false,
+                        };
                         stack.extend([
                             Dfs::ExitForLoop {
                                 induction_var: var,
@@ -248,6 +253,7 @@ impl Ast {
                                 length_var,
                                 pop_count: prior.elements().len().checked_add(1).unwrap(),
                                 top_loop_jump_index,
+                                is_most_inner_loop,
                             },
                             Dfs::EnterLoopable {
                                 repetitions_var,
@@ -266,23 +272,24 @@ impl Ast {
                     length_var,
                     mut pop_count,
                     top_loop_jump_index,
+                    is_most_inner_loop,
                 } => {
                     stmts.push(Stmt0::assign(
                         induction_var,
                         Expr0::add(induction_var, ConstantExpr::constant(1)),
                     ));
                     let bot_loop_jump_index = stmts.len();
-                    stmts.extend([
-                        Stmt0::jump(
-                            top_loop_jump_index.checked_add(1).unwrap(),
-                            induction_var,
-                            ConstantExpr::var(end_var),
-                        ),
-                        Stmt0::assign(
+                    stmts.push(Stmt0::jump(
+                        top_loop_jump_index.checked_add(1).unwrap(),
+                        induction_var,
+                        ConstantExpr::var(end_var),
+                    ));
+                    if is_most_inner_loop {
+                        stmts.push(Stmt0::assign(
                             repetitions_var,
                             Expr0::add(repetitions_var, ConstantExpr::var(length_var)),
-                        ),
-                    ]);
+                        ));
+                    }
                     match &mut stmts[top_loop_jump_index] {
                         Stmt0::UnconditionalJump(label) => {
                             label.0 = bot_loop_jump_index;
@@ -499,7 +506,7 @@ mod test {
         println!("{ast}");
         let result = ast.interpret(&mut storage, src);
         storage.println(result, false);
-        let expected = storage.read("(x0 y0 z0 x1 y1 z1)").unwrap();
+        let expected = storage.read("(x0 x1 y0 y1 z0 z1)").unwrap();
         assert!(storage.terms_are_equal(result, expected));
     }
 }
