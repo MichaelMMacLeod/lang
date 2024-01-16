@@ -1,0 +1,53 @@
+Pattern: (x ..)
+
+Language 1
+
+  ((a x) .. z)
+
+Language 2
+
+  (compound
+    (elem (dot-dotted-indices 0..=len-1)
+      (compound
+        (elem (dot-dotted-indices)
+          (symbol a))
+        (elem (dot-dotted-indices)
+          (copy))))
+    (elem (dot-dotted-indices)
+      (symbol z)))
+
+Language 3
+
+  (constructor
+    (loop
+      (var 0)
+      (start 0)
+      (end (- (len (index)) 1))
+      (body
+        (symbol a)
+        (copy (index (var 0)))
+        (compound 2)))
+    (symbol z)
+    (compound (+ (len (index)) 1)))
+
+Language 4
+
+  (constructor
+    (assign (var 0) 0)
+    (assign (var 1)
+      (len (index)))
+    (assign (var 2)
+      (sub (var 1) 1))
+LOOP:
+    (symbol a)
+    (copy (index (var 0)))
+    (compound 2)
+    (assign (var 0)
+      (add (var 0) 1))
+    (jump to LOOP when (var 0) <= (var 1))
+    (symbol z)
+    (assign (var 3)
+      (len (index)))
+    (assign (var 4)
+      (add (var 3) 1))
+    (compound (var 4)))

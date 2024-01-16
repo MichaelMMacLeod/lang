@@ -1,5 +1,49 @@
 use crate::storage::{Storage, StorageKey, Term};
 
+pub struct Index6s {
+    indices: Vec<Index6>,
+}
+
+impl Index6s {
+    pub fn new(indices: Vec<Index6>) -> Self {
+        Self { indices }
+    }
+}
+
+pub enum Index6 {
+    ZeroPlus(ZeroPlus),
+    LenMinus(LenMinus),
+    Middle(Middle),
+}
+
+impl Index6 {
+    pub fn zero_plus(n: usize) -> Self {
+        Self::ZeroPlus(ZeroPlus(n))
+    }
+
+    pub fn len_minus(n: usize) -> Self {
+        Self::LenMinus(LenMinus(n))
+    }
+
+    pub fn middle(zero_plus: usize, len_minus: usize) -> Self {
+        Self::Middle(Middle {
+            zero_plus: ZeroPlus(zero_plus),
+            len_minus: LenMinus(len_minus),
+            current: ZeroPlus(zero_plus),
+        })
+    }
+}
+
+pub struct ZeroPlus(usize);
+
+pub struct LenMinus(usize);
+
+pub struct Middle {
+    zero_plus: ZeroPlus,
+    len_minus: LenMinus,
+    current: ZeroPlus,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CompoundIndex {
     ZeroPlus(usize),
