@@ -169,10 +169,12 @@ impl Ast {
             for element in index.elements() {
                 match element {
                     IndexElement::ZeroPlus(zp) => elements.push(ConstantExpr::constant(*zp)),
-                    IndexElement::Var(var) => elements.push(ConstantExpr::var(
-                        varm.get_source_variable(LangNPlusOneVar::new(*var), scope)
-                            .into(),
-                    )),
+                    IndexElement::Var(var) => elements.push(
+                        unreachable!(), /* ConstantExpr::var(
+                                            varm.get_source_variable(LangNPlusOneVar::new(*var), scope)
+                                                .into(),
+                                        ) */
+                    ),
                     IndexElement::LenMinus(lm) => {
                         let var = get_len_minus_var(stmts, elements.clone(), *lm, varm, scope);
                         elements.push(ConstantExpr::var(var));

@@ -18,12 +18,6 @@ impl LangNPlusOneVar {
     }
 }
 
-impl From<LangNPlusOneVar> for usize {
-    fn from(value: LangNPlusOneVar) -> Self {
-        value.0
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Scope(usize);
 
@@ -31,7 +25,7 @@ pub struct Scope(usize);
 pub struct Varmap {
     generated_vars: HashSet<LangNVar>,
     source_to_generated_map: HashMap<LangNPlusOneVar, LangNVar>,
-    scope_stack: Vec<Vec<LangNVar>>,
+    scope_stack: Vec<Vec<(LangNVar, Option<LangNPlusOneVar>)>>,
 }
 
 impl Varmap {
@@ -44,24 +38,18 @@ impl Varmap {
     pub fn exit_scope(&mut self, scope: Scope) {
         self.assert_scope_invariants(&scope);
         let scoped_vars = self.scope_stack.pop().unwrap();
-        for var in scoped_vars {
+        for (var, np1) in scoped_vars {
             assert!(self.generated_vars.contains(&var));
             self.generated_vars.remove(&var);
+            if let Some(np1_var) = np1 {
+                assert!(self.source_to_generated_map.contains_key(&np1_var));
+                self.source_to_generated_map.remove(&np1_var);
+            }
         }
     }
 
     pub fn generate_var(&mut self, scope: &Scope) -> LangNVar {
-        self.assert_scope_invariants(&scope);
-        let mut var = LangNVar(self.generated_vars.len());
-        while self.generated_vars.contains(&var) {
-            var.0 += 1;
-        }
-        self.generated_vars.insert(var);
-        self.scope_stack
-            .last_mut()
-            .expect("attempt to create var outside of top level scope")
-            .push(var);
-        var
+        self.generate_var_np1(scope, None)
     }
 
     pub fn get_source_variable(&mut self, src: LangNPlusOneVar, scope: &Scope) -> LangNVar {
@@ -72,9 +60,23 @@ impl Varmap {
         }
     }
 
+    fn generate_var_np1(&mut self, scope: &Scope, np1: Option<LangNPlusOneVar>) -> LangNVar {
+        self.assert_scope_invariants(&scope);
+        let mut var = LangNVar(self.generated_vars.len());
+        while self.generated_vars.contains(&var) {
+            var.0 += 1;
+        }
+        self.generated_vars.insert(var);
+        self.scope_stack
+            .last_mut()
+            .expect("attempt to create var outside of top level scope")
+            .push((var, np1));
+        var
+    }
+
     fn generate_var_from_source(&mut self, src: LangNPlusOneVar, scope: &Scope) -> LangNVar {
         assert!(!self.source_to_generated_map.contains_key(&src));
-        let var = self.generate_var(scope);
+        let var = self.generate_var_np1(scope, Some(src));
         self.source_to_generated_map.insert(src, var);
         var
     }
@@ -90,7 +92,6 @@ impl Varmap {
             "only the most recent scope may be operated on",
         );
     }
-
 }
 
 impl Default for Varmap {
