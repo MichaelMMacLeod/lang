@@ -7,6 +7,7 @@ use crate::{
         expr::{ConstantExpr, Var},
         stmt::Label,
     },
+    lang2::varmap::{LangNPlusOneVar, LangNVar, Scope, Varmap},
     storage::StorageKey,
 };
 use lang0::ast::Ast as Ast0;
@@ -51,7 +52,7 @@ pub enum Ast {
 pub enum AstLoopable {
     Ast(Ast),
     ForLoop {
-        var: usize,
+        var: LangNPlusOneVar,
         start: usize,
         end: LoopEnd,
         prior: Index,
@@ -94,7 +95,7 @@ impl AstLoopable {
         body: AstLoopable,
     ) -> Self {
         Self::ForLoop {
-            var: var.0,
+            var: LangNPlusOneVar::new(var.0),
             start,
             end: LoopEnd {
                 len_minus: end_at_len_minus,
@@ -107,83 +108,50 @@ impl AstLoopable {
 
 impl Ast {
     fn compile(self) -> Ast0 {
-        #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-        struct SrcVar(usize);
-
-        #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-        struct GenVar(usize);
-
-        let mut varmap: HashMap<SrcVar, GenVar> = HashMap::new();
-        let mut vars: HashSet<GenVar> = HashSet::new();
-
-        fn pop_scope(vars: &mut HashSet<GenVar>, scopes: &mut Vec<Vec<GenVar>>) {
-            for var in scopes.pop().unwrap() {
-                remove_gen_var(vars, var);
-            }
-        }
-
-        fn remove_gen_var(vars: &mut HashSet<GenVar>, var: GenVar) {
-            assert!(vars.contains(&var));
-            vars.remove(&var);
-        }
-
-        fn new_gen_var(vars: &mut HashSet<GenVar>, scopes: &mut Vec<Vec<GenVar>>) -> usize {
-            let mut var = vars.len();
-            loop {
-                if !vars.contains(&GenVar(var)) {
-                    vars.insert(GenVar(var));
-                    scopes.last_mut().unwrap().push(GenVar(var));
-                    break var;
-                }
-                var += 1;
-            }
-        }
-
-        fn get_src_var(
-            varmap: &mut HashMap<SrcVar, GenVar>,
-            vars: &mut HashSet<GenVar>,
-            var: SrcVar,
-            scopes: &mut Vec<Vec<GenVar>>,
-        ) -> usize {
-            varmap
-                .entry(var)
-                .or_insert(GenVar(new_gen_var(vars, scopes)))
-                .0
-        }
+        let mut varm = Varmap::default();
 
         #[derive(Clone, Debug, PartialEq, Eq, Hash)]
         enum Dfs {
-            Enter(Ast),
+            Enter {
+                ast: Ast,
+                scope: Scope,
+            },
             EnterLoopable {
-                repetitions_var: usize,
+                repetitions_var: LangNVar,
                 ast: AstLoopable,
+                scope: Scope,
             },
             ExitBuild {
-                repetitions_var: usize,
+                repetitions_var: LangNVar,
+                scope: Scope,
             },
             ExitForLoop {
-                induction_var: usize,
-                end_var: usize,
-                repetitions_var: usize,
-                length_var: usize,
+                induction_var: LangNVar,
+                end_var: LangNVar,
+                repetitions_var: LangNVar,
+                length_var: LangNVar,
                 pop_count: usize,
                 top_loop_jump_index: usize,
                 is_most_inner_loop: bool,
+                scope: Scope,
             },
         }
-        let mut stack = vec![Dfs::Enter(self)];
+        let mut stack = vec![Dfs::Enter {
+            ast: self,
+            scope: varm.enter_scope(),
+        }];
         let mut current_index_elements: Vec<ConstantExpr> = Vec::with_capacity(32);
         let mut stmts: Vec<Stmt0> = Vec::with_capacity(64);
-        let mut scopes: Vec<Vec<GenVar>> = vec![vec![]];
 
         fn get_len_minus_var(
             stmts: &mut Vec<Stmt0>,
-            vars: &mut HashSet<GenVar>,
             elements: Vec<ConstantExpr>,
             length_minus: usize,
-            scopes: &mut Vec<Vec<GenVar>>,
+            varm: &mut Varmap,
+            scope: &Scope,
         ) -> usize {
-            let var = new_gen_var(vars, scopes);
+            let var = varm.generate_var(scope);
+            let var = var.into();
             stmts.extend([
                 Stmt0::assign(var, Expr0::len(elements.clone())),
                 Stmt0::assign(var, Expr0::sub(var, ConstantExpr::constant(length_minus))),
@@ -194,23 +162,19 @@ impl Ast {
         fn add_prior_elements(
             index: &Index,
             elements: &mut Vec<ConstantExpr>,
-            varmap: &mut HashMap<SrcVar, GenVar>,
-            mut vars: &mut HashSet<GenVar>,
             stmts: &mut Vec<Stmt0>,
-            scopes: &mut Vec<Vec<GenVar>>,
+            varm: &mut Varmap,
+            scope: &Scope,
         ) {
             for element in index.elements() {
                 match element {
                     IndexElement::ZeroPlus(zp) => elements.push(ConstantExpr::constant(*zp)),
-                    IndexElement::Var(var) => elements.push(ConstantExpr::var(get_src_var(
-                        varmap,
-                        &mut vars,
-                        SrcVar(*var),
-                        scopes,
-                    ))),
+                    IndexElement::Var(var) => elements.push(ConstantExpr::var(
+                        varm.get_source_variable(LangNPlusOneVar::new(*var), scope)
+                            .into(),
+                    )),
                     IndexElement::LenMinus(lm) => {
-                        let var =
-                            get_len_minus_var(stmts, &mut vars, elements.clone(), *lm, scopes);
+                        let var = get_len_minus_var(stmts, elements.clone(), *lm, varm, scope);
                         elements.push(ConstantExpr::var(var));
                     }
                 }
@@ -219,7 +183,7 @@ impl Ast {
 
         while let Some(dfs) = stack.pop() {
             match dfs.clone() {
-                Dfs::Enter(ast) => match ast {
+                Dfs::Enter { ast, scope } => match ast {
                     Ast::Sym(key) => {
                         stmts.push(Stmt0::sym(key));
                     }
@@ -228,29 +192,33 @@ impl Ast {
                         add_prior_elements(
                             &index,
                             &mut new_elements,
-                            &mut varmap,
-                            &mut vars,
                             &mut stmts,
-                            &mut scopes,
+                            &mut varm,
+                            &scope,
                         );
                         stmts.push(Stmt0::copy(new_elements));
                     }
                     Ast::Build(b) => {
-                        scopes.push(vec![]);
-                        let repetitions_var = new_gen_var(&mut vars, &mut scopes);
-                        stmts.push(Stmt0::assign(repetitions_var, Expr0::constant(0)));
-                        stack.push(Dfs::ExitBuild { repetitions_var });
+                        let scope = varm.enter_scope();
+                        let repetitions_var = varm.generate_var(&scope);
+                        stmts.push(Stmt0::assign(repetitions_var.into(), Expr0::constant(0)));
+                        stack.push(Dfs::ExitBuild {
+                            repetitions_var,
+                            scope,
+                        });
                         stack.extend(b.into_iter().rev().map(|ast| Dfs::EnterLoopable {
                             repetitions_var,
                             ast,
+                            scope,
                         }));
                     }
                 },
                 Dfs::EnterLoopable {
                     repetitions_var,
                     ast,
+                    scope,
                 } => match ast {
-                    AstLoopable::Ast(ast) => stack.push(Dfs::Enter(ast)),
+                    AstLoopable::Ast(ast) => stack.push(Dfs::Enter { ast, scope }),
                     AstLoopable::ForLoop {
                         var,
                         start,
@@ -258,32 +226,34 @@ impl Ast {
                         prior,
                         body,
                     } => {
-                        scopes.push(vec![]);
-                        let var = get_src_var(&mut varmap, &mut vars, SrcVar(var), &mut scopes);
+                        let scope = varm.enter_scope();
+                        let var = varm.get_source_variable(var, &scope);
                         add_prior_elements(
                             &prior,
                             &mut current_index_elements,
-                            &mut varmap,
-                            &mut vars,
                             &mut stmts,
-                            &mut scopes,
+                            &mut varm,
+                            &scope,
                         );
-                        let end_var = new_gen_var(&mut vars, &mut scopes);
+                        let end_var = varm.generate_var(&scope);
                         stmts.extend([
-                            Stmt0::assign(var, Expr0::constant(start)),
-                            Stmt0::assign(end_var, Expr0::len(current_index_elements.clone())),
+                            Stmt0::assign(var.into(), Expr0::constant(start)),
+                            Stmt0::assign(
+                                end_var.into(),
+                                Expr0::len(current_index_elements.clone()),
+                            ),
                         ]);
-                        current_index_elements.push(ConstantExpr::var(var));
+                        current_index_elements.push(ConstantExpr::var(var.into()));
                         if end.len_minus != 0 {
                             stmts.push(Stmt0::assign(
-                                end_var,
-                                Expr0::sub(end_var, ConstantExpr::constant(end.len_minus)),
+                                end_var.into(),
+                                Expr0::sub(end_var.into(), ConstantExpr::constant(end.len_minus)),
                             ))
                         }
-                        let length_var = new_gen_var(&mut vars, &mut scopes);
+                        let length_var = varm.generate_var(&scope);
                         stmts.push(Stmt0::assign(
-                            length_var,
-                            Expr0::sub(end_var, ConstantExpr::var(var)),
+                            length_var.into(),
+                            Expr0::sub(end_var.into(), ConstantExpr::var(var.into())),
                         ));
                         let top_loop_jump_index = stmts.len();
                         stmts.push(Stmt0::unconditional_jump(0)); /* TODO */
@@ -300,17 +270,22 @@ impl Ast {
                                 pop_count: prior.elements().len().checked_add(1).unwrap(),
                                 top_loop_jump_index,
                                 is_most_inner_loop,
+                                scope,
                             },
                             Dfs::EnterLoopable {
                                 repetitions_var,
                                 ast: *body,
+                                scope,
                             },
                         ]);
                     }
                 },
-                Dfs::ExitBuild { repetitions_var } => {
-                    stmts.push(Stmt0::build(ConstantExpr::var(repetitions_var)));
-                    pop_scope(&mut vars, &mut scopes);
+                Dfs::ExitBuild {
+                    repetitions_var,
+                    scope,
+                } => {
+                    stmts.push(Stmt0::build(ConstantExpr::var(repetitions_var.into())));
+                    varm.exit_scope(scope);
                 }
                 Dfs::ExitForLoop {
                     induction_var,
@@ -320,21 +295,25 @@ impl Ast {
                     mut pop_count,
                     top_loop_jump_index,
                     is_most_inner_loop,
+                    scope,
                 } => {
                     stmts.push(Stmt0::assign(
-                        induction_var,
-                        Expr0::add(induction_var, ConstantExpr::constant(1)),
+                        induction_var.into(),
+                        Expr0::add(induction_var.into(), ConstantExpr::constant(1)),
                     ));
                     let bot_loop_jump_index = stmts.len();
                     stmts.push(Stmt0::jump(
                         top_loop_jump_index.checked_add(1).unwrap(),
-                        induction_var,
-                        ConstantExpr::var(end_var),
+                        induction_var.into(),
+                        ConstantExpr::var(end_var.into()),
                     ));
                     if is_most_inner_loop {
                         stmts.push(Stmt0::assign(
-                            repetitions_var,
-                            Expr0::add(repetitions_var, ConstantExpr::var(length_var)),
+                            repetitions_var.into(),
+                            Expr0::add(
+                                repetitions_var.into(),
+                                ConstantExpr::var(length_var.into()),
+                            ),
                         ));
                     }
                     match &mut stmts[top_loop_jump_index] {
@@ -347,7 +326,7 @@ impl Ast {
                         current_index_elements.pop();
                         pop_count = pop_count.checked_sub(1).unwrap();
                     }
-                    pop_scope(&mut vars, &mut scopes);
+                    varm.exit_scope(scope);
                 }
             }
             // dbg!(dfs);
@@ -360,7 +339,7 @@ impl Ast {
 }
 
 #[cfg(test)]
-mod test {
+mod lang2_test {
     use crate::{lang0::expr::Var, storage::Storage};
 
     use super::*;
