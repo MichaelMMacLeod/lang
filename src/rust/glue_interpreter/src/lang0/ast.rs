@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, time::Instant};
 
 use crate::{
     compound::Compound,
@@ -19,28 +19,30 @@ impl Ast {
     }
 
     pub fn interpret(&self, storage: &mut Storage, src: StorageKey) -> StorageKey {
+        let now = Instant::now();
+
         let mut instruction_pointer: usize = 0;
-        let mut variables: Vec<usize> = Vec::with_capacity(1024);
+        let mut variables: Vec<usize> = Vec::with_capacity(128);
         let mut key_stack: Vec<StorageKey> = Vec::with_capacity(1024);
 
         while let Some(instruction) = self.stmts.get(instruction_pointer) {
-            println!(
-                "vars: {:?}",
-                variables.iter().enumerate().collect::<Vec<_>>()
-            );
-            println!("{instruction_pointer}:\t{instruction}");
-            print!("keys: ");
-            for key in &key_stack {
-                storage.print(
-                    *key,
-                    &std::collections::HashMap::new(),
-                    &mut std::collections::HashSet::new(),
-                    false,
-                );
-                print!(" ");
-            }
-            println!();
-            println!("-------------------------------------");
+            // println!(
+            //     "vars: {:?}",
+            //     variables.iter().enumerate().collect::<Vec<_>>()
+            // );
+            // println!("{instruction_pointer}:\t{instruction}");
+            // print!("keys: ");
+            // for key in &key_stack {
+            //     storage.print(
+            //         *key,
+            //         &std::collections::HashMap::new(),
+            //         &mut std::collections::HashSet::new(),
+            //         false,
+            //     );
+            //     print!(" ");
+            // }
+            // println!();
+            // println!("-------------------------------------");
             match instruction {
                 Stmt::Assign { lhs, rhs } => {
                     while variables.get(lhs.0).is_none() {
@@ -84,6 +86,8 @@ impl Ast {
             // dbg!(&variables);
             // println!("------------------------------");
         }
+        let elapsed = now.elapsed();
+        println!("Elapsed time: {}ms ({}s)", elapsed.as_millis(), elapsed.as_secs());
 
         assert_eq!(key_stack.len(), 1);
         key_stack.pop().unwrap()
