@@ -92,9 +92,9 @@ impl Storage {
             let reduction = self.reduce_once(term);
             match reduction {
                 Some(Reduction::ReducedOnce) => {
-                    step += 1;
-                    print!("{step}.\t");
-                    self.println(term, graph_syntax);
+                    // step += 1;
+                    // print!("{step}.\t");
+                    // self.println(term, graph_syntax);
                 }
                 Some(Reduction::ReducedToFixpoint) => break ReduceResult::ReducedToFixpoint,
                 None => break ReduceResult::NoWayToReduceFurther,
