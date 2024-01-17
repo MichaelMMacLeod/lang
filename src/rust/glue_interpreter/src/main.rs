@@ -13,7 +13,6 @@ mod constructor2;
 mod lang0;
 mod lang3;
 mod lang2;
-mod lang1;
 pub mod lang4;
 
 fn main() {

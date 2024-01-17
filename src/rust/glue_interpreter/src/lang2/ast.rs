@@ -7,12 +7,33 @@ use crate::{
         expr::{ConstantExpr, Var},
         stmt::Label,
     },
-    lang1::stmt::{Index, IndexElement},
     storage::StorageKey,
 };
 use lang0::ast::Ast as Ast0;
 use lang0::expr::Expr as Expr0;
 use lang0::stmt::Stmt as Stmt0;
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Index {
+    elements: Vec<IndexElement>,
+}
+
+impl Index {
+    pub fn new(elements: Vec<IndexElement>) -> Self {
+        Self { elements }
+    }
+
+    pub fn elements(&self) -> &[IndexElement] {
+        &self.elements
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum IndexElement {
+    ZeroPlus(usize),
+    LenMinus(usize),
+    Var(usize),
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct LoopEnd {
