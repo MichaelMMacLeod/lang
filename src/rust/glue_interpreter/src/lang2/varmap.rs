@@ -53,7 +53,7 @@ impl Varmap {
     pub fn generate_var(&mut self, scope: &Scope) -> LangNVar {
         self.assert_scope_invariants(&scope);
         let mut var = LangNVar(self.generated_vars.len());
-        while !self.generated_vars.contains(&var) {
+        while self.generated_vars.contains(&var) {
             var.0 += 1;
         }
         self.generated_vars.insert(var);
