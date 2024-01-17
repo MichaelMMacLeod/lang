@@ -185,21 +185,9 @@ impl Display for OpExpr {
 
 impl Display for Index {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.elements.len() == 0 {
-            write!(f, "[index: ]")?;
-        }
-        if self.elements.len() != 0 {
-            write!(f, "[index: ")?;
-        }
-        for e in self
-            .elements
-            .iter()
-            .take(self.elements.len().saturating_sub(1))
-        {
-            write!(f, "{} ", e)?;
-        }
-        if let Some(e) = self.elements.last() {
-            write!(f, "{}]", e)?;
+        write!(f, "input")?;
+        for e in self.elements.iter().take(self.elements.len()) {
+            write!(f, "[{}]", e)?;
         }
         Ok(())
     }

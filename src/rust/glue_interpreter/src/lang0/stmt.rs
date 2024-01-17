@@ -65,7 +65,7 @@ pub struct Label(pub usize);
 
 impl Display for Label {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[instruction: {}]", self.0)
+        write!(f, "@{}", self.0)
     }
 }
 
@@ -76,7 +76,7 @@ impl Display for Stmt {
                 write!(f, "{} = {}", lhs, rhs)
             }
             Stmt::Sym(s) => {
-                write!(f, "{:?}", s)
+                write!(f, "sym {:?}", s)
             }
             Stmt::Copy(c) => {
                 write!(f, "copy {}", c)

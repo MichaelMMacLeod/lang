@@ -26,11 +26,11 @@ impl Ast {
         let mut key_stack: Vec<StorageKey> = Vec::with_capacity(1024);
 
         while let Some(instruction) = self.stmts.get(instruction_pointer) {
-            // println!(
-            //     "vars: {:?}",
-            //     variables.iter().enumerate().collect::<Vec<_>>()
-            // );
-            // println!("{instruction_pointer}:\t{instruction}");
+            println!(
+                "vars: {:?}",
+                variables.iter().enumerate().collect::<Vec<_>>()
+            );
+            println!("{instruction_pointer}:\t{instruction}");
             // print!("keys: ");
             // for key in &key_stack {
             //     storage.print(
@@ -42,7 +42,7 @@ impl Ast {
             //     print!(" ");
             // }
             // println!();
-            // println!("-------------------------------------");
+            println!("-------------------------------------");
             match instruction {
                 Stmt::Assign { lhs, rhs } => {
                     while variables.get(lhs.0).is_none() {
@@ -102,11 +102,11 @@ impl Display for Ast {
             .take(self.stmts.len().saturating_sub(1))
             .enumerate()
         {
-            write!(f, "{i}:\t{}\n", stmt)?;
+            write!(f, "@{i}\t{}\n", stmt)?;
         }
         if let Some(stmt) = self.stmts.last() {
             let i = self.stmts.len().checked_sub(1).unwrap();
-            write!(f, "{i}:\t{}", stmt)?;
+            write!(f, "@{i}\t{}", stmt)?;
         }
         Ok(())
     }
