@@ -105,7 +105,61 @@ impl AstLoopable {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct BuildPrologue<'a> {
+    ast: &'a [AstLoopable],
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct BuildEpilogue {
+    repetitions_var: LangNVar,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct ForLoopPrologue {
+    repetitions_var: LangNVar,
+    scope: Scope,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct ForLoopEpilogue {
+    induction_var: LangNVar,
+    end_var: LangNVar,
+    repetitions_var: LangNVar,
+    pop_count: usize,
+    top_loop_jump_index: usize,
+    is_most_inner_loop: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+enum EnterData<'a> {
+    Sym(&'a StorageKey),
+    Copy(&'a Index),
+    Build(BuildPrologue<'a>),
+    ForLoop(ForLoopPrologue),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+enum ExitData {
+    Build(BuildEpilogue),
+    ForLoop(ForLoopEpilogue),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+enum Dfs2<'a> {
+    Enter(EnterData<'a>),
+    Exit(ExitData),
+}
+
 impl Ast {
+    fn dfs<'a>(&'a self) -> Dfs2<'a> {
+        match self {
+            Ast::Sym(s) => Dfs2::Enter(EnterData::Sym(&s)),
+            Ast::Copy(i) => Dfs2::Enter(EnterData::Copy(&i)),
+            Ast::Build(b) => Dfs2::Enter(EnterData::Build(BuildPrologue { ast: &b })),
+        }
+    }
+
     fn compile(self) -> Ast0 {
         let mut varm = Varmap::default();
 
