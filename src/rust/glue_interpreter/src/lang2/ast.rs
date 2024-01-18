@@ -59,6 +59,15 @@ pub enum AstLoopable {
     },
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct ForLoop<'a> {
+    var: &'a LangNPlusOneVar,
+    start: &'a usize,
+    end: &'a LoopEnd,
+    prior: &'a Index,
+    body: &'a AstLoopable,
+}
+
 impl Ast {
     pub fn sym(key: StorageKey) -> Self {
         Self::Sym(key)
@@ -113,12 +122,13 @@ struct BuildPrologue<'a> {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct BuildEpilogue {
     repetitions_var: LangNVar,
+    scope: Scope,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-struct ForLoopPrologue {
+struct ForLoopPrologue<'a> {
     repetitions_var: LangNVar,
-    scope: Scope,
+    for_loop: ForLoop<'a>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -126,17 +136,25 @@ struct ForLoopEpilogue {
     induction_var: LangNVar,
     end_var: LangNVar,
     repetitions_var: LangNVar,
+    length_var: LangNVar,
     pop_count: usize,
     top_loop_jump_index: usize,
     is_most_inner_loop: bool,
+    scope: Scope,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct CopyEnterData<'a> {
+    index: &'a Index,
+    scope: Scope,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum EnterData<'a> {
     Sym(&'a StorageKey),
-    Copy(&'a Index),
+    Copy(CopyEnterData<'a>),
     Build(BuildPrologue<'a>),
-    ForLoop(ForLoopPrologue),
+    ForLoop(ForLoopPrologue<'a>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -146,53 +164,25 @@ enum ExitData {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-enum Dfs2<'a> {
+enum Dfs<'a> {
     Enter(EnterData<'a>),
     Exit(ExitData),
 }
 
 impl Ast {
-    fn dfs<'a>(&'a self) -> Dfs2<'a> {
+    fn dfs<'a>(&'a self, scope: Scope) -> Dfs<'a> {
         match self {
-            Ast::Sym(s) => Dfs2::Enter(EnterData::Sym(&s)),
-            Ast::Copy(i) => Dfs2::Enter(EnterData::Copy(&i)),
-            Ast::Build(b) => Dfs2::Enter(EnterData::Build(BuildPrologue { ast: &b })),
+            Ast::Sym(s) => Dfs::Enter(EnterData::Sym(&s)),
+            Ast::Copy(i) => Dfs::Enter(EnterData::Copy(CopyEnterData { index: i, scope })),
+            Ast::Build(b) => Dfs::Enter(EnterData::Build(BuildPrologue { ast: &b })),
         }
     }
 
-    fn compile(self) -> Ast0 {
+    fn compile(&self) -> Ast0 {
         let mut varm = Varmap::default();
 
-        #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-        enum Dfs {
-            Enter {
-                ast: Ast,
-                scope: Scope,
-            },
-            EnterLoopable {
-                repetitions_var: LangNVar,
-                ast: AstLoopable,
-                scope: Scope,
-            },
-            ExitBuild {
-                repetitions_var: LangNVar,
-                scope: Scope,
-            },
-            ExitForLoop {
-                induction_var: LangNVar,
-                end_var: LangNVar,
-                repetitions_var: LangNVar,
-                length_var: LangNVar,
-                pop_count: usize,
-                top_loop_jump_index: usize,
-                is_most_inner_loop: bool,
-                scope: Scope,
-            },
-        }
-        let mut stack = vec![Dfs::Enter {
-            ast: self,
-            scope: varm.enter_scope(),
-        }];
+        let mut stack = vec![self.dfs(varm.enter_scope())];
+
         let mut current_index_elements: Vec<ConstantExpr> = Vec::with_capacity(32);
         let mut stmts: Vec<Stmt0> = Vec::with_capacity(64);
 
@@ -231,12 +221,11 @@ impl Ast {
         }
 
         while let Some(dfs) = stack.pop() {
-            match dfs.clone() {
-                Dfs::Enter { ast, scope } => match ast {
-                    Ast::Sym(key) => {
-                        stmts.push(Stmt0::sym(key));
-                    }
-                    Ast::Copy(index) => {
+            dbg!(&dfs);
+            match dfs {
+                Dfs::Enter(enter) => match enter {
+                    EnterData::Sym(key) => stmts.push(Stmt0::sym(*key)),
+                    EnterData::Copy(CopyEnterData { index, scope }) => {
                         let mut new_elements = current_index_elements.clone();
                         add_prior_elements(
                             &index,
@@ -247,36 +236,47 @@ impl Ast {
                         );
                         stmts.push(Stmt0::copy(new_elements));
                     }
-                    Ast::Build(b) => {
+                    EnterData::Build(BuildPrologue { ast }) => {
                         let scope = varm.enter_scope();
                         let repetitions_var = varm.generate_var(&scope);
                         stmts.push(Stmt0::assign(repetitions_var.into(), Expr0::constant(0)));
-                        stack.push(Dfs::ExitBuild {
+                        stack.push(Dfs::Exit(ExitData::Build(BuildEpilogue {
                             repetitions_var,
                             scope,
-                        });
-                        stack.extend(b.into_iter().rev().map(|ast| Dfs::EnterLoopable {
-                            repetitions_var,
-                            ast,
-                            scope,
+                        })));
+                        stack.extend(ast.iter().rev().map(|ast| match ast {
+                            AstLoopable::Ast(ast) => ast.dfs(scope),
+                            AstLoopable::ForLoop {
+                                var,
+                                start,
+                                end,
+                                prior,
+                                body,
+                            } => Dfs::Enter(EnterData::ForLoop(ForLoopPrologue {
+                                repetitions_var,
+                                for_loop: ForLoop {
+                                    var,
+                                    start,
+                                    end,
+                                    prior,
+                                    body,
+                                },
+                            })),
                         }));
                     }
-                },
-                Dfs::EnterLoopable {
-                    repetitions_var,
-                    ast,
-                    scope,
-                } => match ast {
-                    AstLoopable::Ast(ast) => stack.push(Dfs::Enter { ast, scope }),
-                    AstLoopable::ForLoop {
-                        var,
-                        start,
-                        end,
-                        prior,
-                        body,
-                    } => {
+                    EnterData::ForLoop(ForLoopPrologue {
+                        repetitions_var,
+                        for_loop,
+                    }) => {
+                        let ForLoop {
+                            var,
+                            start,
+                            end,
+                            prior,
+                            body,
+                        } = for_loop;
                         let scope = varm.enter_scope();
-                        let var = varm.get_source_variable(var, &scope);
+                        let var = varm.get_source_variable(*var, &scope);
                         add_prior_elements(
                             &prior,
                             &mut current_index_elements,
@@ -286,7 +286,7 @@ impl Ast {
                         );
                         let end_var = varm.generate_var(&scope);
                         stmts.extend([
-                            Stmt0::assign(var.into(), Expr0::constant(start)),
+                            Stmt0::assign(var.into(), Expr0::constant(*start)),
                             Stmt0::assign(
                                 end_var.into(),
                                 Expr0::len(current_index_elements.clone()),
@@ -306,77 +306,91 @@ impl Ast {
                         ));
                         let top_loop_jump_index = stmts.len();
                         stmts.push(Stmt0::unconditional_jump(0)); /* TODO */
-                        let is_most_inner_loop = match body.as_ref() {
+                        let is_most_inner_loop = match body {
                             AstLoopable::Ast(_) => true,
                             AstLoopable::ForLoop { .. } => false,
                         };
-                        stack.extend([
-                            Dfs::ExitForLoop {
-                                induction_var: var,
-                                end_var,
+                        stack.push(Dfs::Exit(ExitData::ForLoop(ForLoopEpilogue {
+                            induction_var: var,
+                            end_var,
+                            repetitions_var,
+                            length_var,
+                            pop_count: prior.elements().len().checked_add(1).unwrap(),
+                            top_loop_jump_index,
+                            is_most_inner_loop,
+                            scope,
+                        })));
+                        stack.push(match body {
+                            AstLoopable::Ast(ast) => ast.dfs(scope),
+                            AstLoopable::ForLoop {
+                                var,
+                                start,
+                                end,
+                                prior,
+                                body,
+                            } => Dfs::Enter(EnterData::ForLoop(ForLoopPrologue {
                                 repetitions_var,
-                                length_var,
-                                pop_count: prior.elements().len().checked_add(1).unwrap(),
-                                top_loop_jump_index,
-                                is_most_inner_loop,
-                                scope,
-                            },
-                            Dfs::EnterLoopable {
-                                repetitions_var,
-                                ast: *body,
-                                scope,
-                            },
-                        ]);
+                                for_loop: ForLoop {
+                                    var,
+                                    start,
+                                    end,
+                                    prior,
+                                    body,
+                                },
+                            })),
+                        });
                     }
                 },
-                Dfs::ExitBuild {
-                    repetitions_var,
-                    scope,
-                } => {
-                    stmts.push(Stmt0::build(ConstantExpr::var(repetitions_var.into())));
-                    varm.exit_scope(scope);
-                }
-                Dfs::ExitForLoop {
-                    induction_var,
-                    end_var,
-                    repetitions_var,
-                    length_var,
-                    mut pop_count,
-                    top_loop_jump_index,
-                    is_most_inner_loop,
-                    scope,
-                } => {
-                    stmts.push(Stmt0::assign(
-                        induction_var.into(),
-                        Expr0::add(induction_var.into(), ConstantExpr::constant(1)),
-                    ));
-                    let bot_loop_jump_index = stmts.len();
-                    stmts.push(Stmt0::jump(
-                        top_loop_jump_index.checked_add(1).unwrap(),
-                        induction_var.into(),
-                        ConstantExpr::var(end_var.into()),
-                    ));
-                    if is_most_inner_loop {
+                Dfs::Exit(exit) => match exit {
+                    ExitData::Build(BuildEpilogue {
+                        repetitions_var,
+                        scope,
+                    }) => {
+                        stmts.push(Stmt0::build(ConstantExpr::var(repetitions_var.into())));
+                        varm.exit_scope(scope);
+                    }
+                    ExitData::ForLoop(ForLoopEpilogue {
+                        induction_var,
+                        end_var,
+                        repetitions_var,
+                        length_var,
+                        mut pop_count,
+                        top_loop_jump_index,
+                        is_most_inner_loop,
+                        scope,
+                    }) => {
                         stmts.push(Stmt0::assign(
-                            repetitions_var.into(),
-                            Expr0::add(
-                                repetitions_var.into(),
-                                ConstantExpr::var(length_var.into()),
-                            ),
+                            induction_var.into(),
+                            Expr0::add(induction_var.into(), ConstantExpr::constant(1)),
                         ));
-                    }
-                    match &mut stmts[top_loop_jump_index] {
-                        Stmt0::UnconditionalJump(label) => {
-                            label.0 = bot_loop_jump_index;
+                        let bot_loop_jump_index = stmts.len();
+                        stmts.push(Stmt0::jump(
+                            top_loop_jump_index.checked_add(1).unwrap(),
+                            induction_var.into(),
+                            ConstantExpr::var(end_var.into()),
+                        ));
+                        if is_most_inner_loop {
+                            stmts.push(Stmt0::assign(
+                                repetitions_var.into(),
+                                Expr0::add(
+                                    repetitions_var.into(),
+                                    ConstantExpr::var(length_var.into()),
+                                ),
+                            ));
                         }
-                        _ => unreachable!(),
-                    };
-                    while pop_count > 0 {
-                        current_index_elements.pop();
-                        pop_count = pop_count.checked_sub(1).unwrap();
+                        match &mut stmts[top_loop_jump_index] {
+                            Stmt0::UnconditionalJump(label) => {
+                                label.0 = bot_loop_jump_index;
+                            }
+                            _ => unreachable!(),
+                        };
+                        while pop_count > 0 {
+                            current_index_elements.pop();
+                            pop_count = pop_count.checked_sub(1).unwrap();
+                        }
+                        varm.exit_scope(scope);
                     }
-                    varm.exit_scope(scope);
-                }
+                },
             }
             // dbg!(dfs);
             // println!("{}", Ast0::new(stmts.clone()));
